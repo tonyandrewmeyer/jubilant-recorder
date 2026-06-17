@@ -1,0 +1,220 @@
+{
+  "schema_version": 1,
+  "session_id": "0193fc4e-0010-7000-8000-bbbbbbbbbbbb",
+  "recorded_at": "2026-05-30T12:00:00.000Z",
+  "juju_version": "3.6.23",
+  "jubilant_version": "1.10.0",
+  "model": "partial-deploy-model",
+  "events": [
+    {
+      "seq": 1,
+      "op": "deploy",
+      "ts": "2026-05-30T12:00:05.000Z",
+      "args": {
+        "charm": "my-charm",
+        "app": null,
+        "channel": "edge",
+        "num_units": 1,
+        "config": {},
+        "resources": {}
+      },
+      "result": {
+        "app_name": "my-charm"
+      },
+      "model_snapshot_before": {
+        "schema_version": 1,
+        "captured_at": "2026-05-30T12:00:04.900Z",
+        "apps": {},
+        "relations": []
+      },
+      "model_snapshot_after": {
+        "schema_version": 1,
+        "captured_at": "2026-05-30T12:00:08.000Z",
+        "apps": {
+          "my-charm": {
+            "units": {
+              "my-charm/0": {
+                "workload_status": "waiting",
+                "workload_message": "installing agent",
+                "agent_status": "allocating"
+              }
+            }
+          }
+        },
+        "relations": []
+      },
+      "assertions": [],
+      "gesture": null,
+      "duration_ms": 3100.0
+    },
+    {
+      "seq": 2,
+      "op": "deploy",
+      "ts": "2026-05-30T12:00:10.000Z",
+      "args": {
+        "charm": "postgresql",
+        "app": null,
+        "channel": "14/stable",
+        "num_units": 1,
+        "config": {},
+        "resources": {}
+      },
+      "result": {
+        "app_name": "postgresql"
+      },
+      "model_snapshot_before": {
+        "schema_version": 1,
+        "captured_at": "2026-05-30T12:00:09.900Z",
+        "apps": {
+          "my-charm": {
+            "units": {
+              "my-charm/0": {
+                "workload_status": "waiting",
+                "workload_message": "installing agent",
+                "agent_status": "allocating"
+              }
+            }
+          }
+        },
+        "relations": []
+      },
+      "model_snapshot_after": {
+        "schema_version": 1,
+        "captured_at": "2026-05-30T12:00:14.000Z",
+        "apps": {
+          "my-charm": {
+            "units": {
+              "my-charm/0": {
+                "workload_status": "waiting",
+                "workload_message": "waiting for database relation",
+                "agent_status": "idle"
+              }
+            }
+          },
+          "postgresql": {
+            "units": {
+              "postgresql/0": {
+                "workload_status": "active",
+                "workload_message": "",
+                "agent_status": "idle"
+              }
+            }
+          }
+        },
+        "relations": []
+      },
+      "assertions": [],
+      "gesture": null,
+      "duration_ms": 4000.0
+    },
+    {
+      "seq": 3,
+      "op": "integrate",
+      "ts": "2026-05-30T12:00:15.000Z",
+      "args": {
+        "app1_endpoint": "my-charm:db",
+        "app2_endpoint": "postgresql:database"
+      },
+      "result": {},
+      "model_snapshot_before": {
+        "schema_version": 1,
+        "captured_at": "2026-05-30T12:00:14.900Z",
+        "apps": {
+          "my-charm": {
+            "units": {
+              "my-charm/0": {
+                "workload_status": "waiting",
+                "workload_message": "waiting for database relation",
+                "agent_status": "idle"
+              }
+            }
+          },
+          "postgresql": {
+            "units": {
+              "postgresql/0": {
+                "workload_status": "active",
+                "workload_message": "",
+                "agent_status": "idle"
+              }
+            }
+          }
+        },
+        "relations": []
+      },
+      "model_snapshot_after": {
+        "schema_version": 1,
+        "captured_at": "2026-05-30T12:00:16.000Z",
+        "apps": {
+          "my-charm": {
+            "units": {
+              "my-charm/0": {
+                "workload_status": "waiting",
+                "workload_message": "waiting for database relation",
+                "agent_status": "idle"
+              }
+            }
+          },
+          "postgresql": {
+            "units": {
+              "postgresql/0": {
+                "workload_status": "active",
+                "workload_message": "",
+                "agent_status": "idle"
+              }
+            }
+          }
+        },
+        "relations": [
+          {"endpoints": ["my-charm:db", "postgresql:database"]}
+        ]
+      },
+      "assertions": [],
+      "gesture": null,
+      "duration_ms": 1000.0
+    },
+    {
+      "seq": 4,
+      "op": "wait_for_idle",
+      "ts": "2026-05-30T12:00:20.000Z",
+      "args": {
+        "apps": ["my-charm", "postgresql"],
+        "timeout": 300
+      },
+      "result": {
+        "settled_at": null,
+        "error": "timed out waiting for model:\n  my-charm/0 [waiting] waiting for database relation"
+      },
+      "model_snapshot_before": {
+        "schema_version": 1,
+        "captured_at": "2026-05-30T12:00:19.900Z",
+        "apps": {
+          "my-charm": {
+            "units": {
+              "my-charm/0": {
+                "workload_status": "waiting",
+                "workload_message": "waiting for database relation",
+                "agent_status": "idle"
+              }
+            }
+          },
+          "postgresql": {
+            "units": {
+              "postgresql/0": {
+                "workload_status": "active",
+                "workload_message": "",
+                "agent_status": "idle"
+              }
+            }
+          }
+        },
+        "relations": [
+          {"endpoints": ["my-charm:db", "postgresql:database"]}
+        ]
+      },
+      "model_snapshot_after": null,
+      "assertions": [],
+      "gesture": null,
+      "duration_ms": 300000.0
+    }
+  ]
+}

@@ -1,0 +1,244 @@
+{
+  "events": [
+    {
+      "args": {
+        "app": "ubuntu",
+        "attach_storage": null,
+        "base": "ubuntu@24.04",
+        "bind": null,
+        "channel": null,
+        "charm": "ubuntu",
+        "config": {},
+        "constraints": null,
+        "force": false,
+        "num_units": 1,
+        "overlays": [],
+        "resources": {},
+        "revision": null,
+        "storage": null,
+        "to": null,
+        "trust": false
+      },
+      "assertions": [],
+      "duration_ms": 1887.6139999999998,
+      "gesture": null,
+      "model_snapshot_after": {
+        "apps": {
+          "ubuntu": {
+            "units": {
+              "ubuntu/0": {
+                "agent_status": "allocating",
+                "workload_message": "waiting for machine",
+                "workload_status": "waiting"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-06-13T22:46:06.704Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "model_snapshot_before": {
+        "apps": {},
+        "captured_at": "2026-06-13T22:46:04.620Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "op": "deploy",
+      "result": {
+        "app_name": "ubuntu"
+      },
+      "seq": 1,
+      "ts": "2026-06-13T22:46:04.620Z"
+    },
+    {
+      "args": {
+        "apps": null,
+        "timeout": 300
+      },
+      "assertions": [],
+      "duration_ms": 89110.107,
+      "gesture": null,
+      "model_snapshot_after": {
+        "apps": {
+          "ubuntu": {
+            "units": {
+              "ubuntu/0": {
+                "agent_status": "idle",
+                "workload_message": "",
+                "workload_status": "active"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-06-13T22:47:36.512Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "model_snapshot_before": {
+        "apps": {
+          "ubuntu": {
+            "units": {
+              "ubuntu/0": {
+                "agent_status": "allocating",
+                "workload_message": "waiting for machine",
+                "workload_status": "waiting"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-06-13T22:46:06.870Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "op": "wait_for_idle",
+      "result": {
+        "settled_at": "2026-06-13T22:47:35.981Z"
+      },
+      "seq": 2,
+      "ts": "2026-06-13T22:46:06.870Z"
+    },
+    {
+      "args": {
+        "apps": [
+          "ubuntu"
+        ],
+        "timeout": null
+      },
+      "assertions": [],
+      "duration_ms": 0.0,
+      "gesture": {
+        "kind": "assert_status",
+        "label": null,
+        "params": {
+          "app": "ubuntu",
+          "status": "active",
+          "unit": "ubuntu/0"
+        }
+      },
+      "model_snapshot_after": {
+        "apps": {
+          "ubuntu": {
+            "units": {
+              "ubuntu/0": {
+                "agent_status": "idle",
+                "workload_message": "",
+                "workload_status": "active"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-06-13T22:47:36.717Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "model_snapshot_before": {
+        "apps": {
+          "ubuntu": {
+            "units": {
+              "ubuntu/0": {
+                "agent_status": "idle",
+                "workload_message": "",
+                "workload_status": "active"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-06-13T22:47:36.717Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "op": "wait_for_idle",
+      "result": {
+        "settled_at": null
+      },
+      "seq": 3,
+      "ts": "2026-06-13T22:47:36.717Z"
+    },
+    {
+      "args": {
+        "app": null,
+        "attach_storage": null,
+        "base": null,
+        "bind": null,
+        "channel": "latest/edge",
+        "charm": "totally-nonexistent-charm-zzz",
+        "config": {},
+        "constraints": null,
+        "force": false,
+        "num_units": 1,
+        "overlays": [],
+        "resources": {},
+        "revision": null,
+        "storage": null,
+        "to": null,
+        "trust": false
+      },
+      "assertions": [],
+      "duration_ms": 1373.285,
+      "gesture": null,
+      "model_snapshot_after": null,
+      "model_snapshot_before": {
+        "apps": {
+          "ubuntu": {
+            "units": {
+              "ubuntu/0": {
+                "agent_status": "idle",
+                "workload_message": "",
+                "workload_status": "active"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-06-13T22:47:36.879Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "op": "deploy",
+      "result": {
+        "app_name": "totally-nonexistent-charm-zzz",
+        "error": "Command '['juju', 'deploy', '--model', 'jtr-step3', 'totally-nonexistent-charm-zzz', '--channel', 'latest/edge']' returned non-zero exit status 1.\nStderr:\nERROR resolving error: The Charm with the given name was not found in the Store.\nERROR failed to deploy charm \"totally-nonexistent-charm-zzz\"\n"
+      },
+      "seq": 4,
+      "ts": "2026-06-13T22:47:36.879Z"
+    },
+    {
+      "args": {
+        "app1_endpoint": "ubuntu",
+        "app2_endpoint": "ubuntu"
+      },
+      "assertions": [],
+      "duration_ms": 167.684,
+      "gesture": null,
+      "model_snapshot_after": null,
+      "model_snapshot_before": {
+        "apps": {
+          "ubuntu": {
+            "units": {
+              "ubuntu/0": {
+                "agent_status": "idle",
+                "workload_message": "",
+                "workload_status": "active"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-06-13T22:47:38.485Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "op": "integrate",
+      "result": {
+        "error": "Command '['juju', 'integrate', '--model', 'jtr-step3', 'ubuntu', 'ubuntu']' returned non-zero exit status 1.\nStderr:\nERROR no relations found\n"
+      },
+      "seq": 5,
+      "ts": "2026-06-13T22:47:38.485Z"
+    }
+  ],
+  "jubilant_version": "1.10.0",
+  "juju_version": "4.0.11-genericlinux-amd64",
+  "model": "jtr-step3",
+  "recorded_at": "2026-06-13T22:47:38.653Z",
+  "schema_version": 1,
+  "session_id": "a04876cc-cb23-42c5-9f2a-6c7fdb1c7e46"
+}

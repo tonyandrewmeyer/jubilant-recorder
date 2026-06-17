@@ -1,0 +1,247 @@
+{
+  "events": [
+    {
+      "args": {
+        "app": null,
+        "channel": "edge",
+        "charm": "my-charm",
+        "config": {},
+        "num_units": 1,
+        "resources": {}
+      },
+      "assertions": [],
+      "duration_ms": 900,
+      "gesture": null,
+      "model_snapshot_after": {
+        "apps": {
+          "my-charm": {
+            "units": {
+              "my-charm/0": {
+                "agent_status": "executing",
+                "workload_message": "installing charm software",
+                "workload_status": "maintenance"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-05-30T09:00:05.800Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "model_snapshot_before": {
+        "apps": {},
+        "captured_at": "2026-05-30T09:00:04.900Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "op": "deploy",
+      "result": {
+        "app_name": "my-charm"
+      },
+      "seq": 1,
+      "ts": "2026-05-30T09:00:05.000Z"
+    },
+    {
+      "args": {
+        "apps": [
+          "my-charm"
+        ],
+        "timeout": 300
+      },
+      "assertions": [
+        {
+          "app": "my-charm",
+          "expected": "active",
+          "kind": "unit_status",
+          "source": "delta",
+          "strict": false,
+          "unit": "my-charm/0"
+        }
+      ],
+      "duration_ms": 101130,
+      "gesture": null,
+      "model_snapshot_after": {
+        "apps": {
+          "my-charm": {
+            "units": {
+              "my-charm/0": {
+                "agent_status": "idle",
+                "workload_message": "",
+                "workload_status": "active"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-05-30T09:01:47.300Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "model_snapshot_before": {
+        "apps": {
+          "my-charm": {
+            "units": {
+              "my-charm/0": {
+                "agent_status": "executing",
+                "workload_message": "installing charm software",
+                "workload_status": "maintenance"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-05-30T09:00:06.050Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "op": "wait_for_idle",
+      "result": {
+        "settled_at": "2026-05-30T09:01:47.230Z"
+      },
+      "seq": 2,
+      "ts": "2026-05-30T09:00:06.100Z"
+    },
+    {
+      "args": {
+        "action": "do-thing",
+        "params": {
+          "key": "val"
+        },
+        "unit": "my-charm/0"
+      },
+      "assertions": [
+        {
+          "action": "do-thing",
+          "expected_results": {
+            "output": "done"
+          },
+          "expected_success": true,
+          "kind": "action_result",
+          "source": "delta",
+          "strict": false,
+          "unit": "my-charm/0"
+        }
+      ],
+      "duration_ms": 3100,
+      "gesture": {
+        "kind": "assert_action_result",
+        "label": "do-thing succeeded",
+        "params": {
+          "expected_results": {
+            "output": "done"
+          },
+          "success": true
+        }
+      },
+      "model_snapshot_after": {
+        "apps": {
+          "my-charm": {
+            "units": {
+              "my-charm/0": {
+                "agent_status": "idle",
+                "workload_message": "",
+                "workload_status": "active"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-05-30T09:01:53.100Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "model_snapshot_before": {
+        "apps": {
+          "my-charm": {
+            "units": {
+              "my-charm/0": {
+                "agent_status": "idle",
+                "workload_message": "",
+                "workload_status": "active"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-05-30T09:01:49.900Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "op": "run",
+      "result": {
+        "message": null,
+        "results": {
+          "output": "done"
+        },
+        "success": true
+      },
+      "seq": 3,
+      "ts": "2026-05-30T09:01:50.000Z"
+    },
+    {
+      "args": {},
+      "assertions": [],
+      "duration_ms": 500,
+      "gesture": {
+        "kind": "checkpoint",
+        "label": "all done",
+        "params": {}
+      },
+      "model_snapshot_after": {
+        "apps": {
+          "my-charm": {
+            "units": {
+              "my-charm/0": {
+                "agent_status": "idle",
+                "workload_message": "",
+                "workload_status": "active"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-05-30T09:02:00.500Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "model_snapshot_before": {
+        "apps": {
+          "my-charm": {
+            "units": {
+              "my-charm/0": {
+                "agent_status": "idle",
+                "workload_message": "",
+                "workload_status": "active"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-05-30T09:01:59.900Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "op": "status",
+      "result": {
+        "snapshot": {
+          "apps": {
+            "my-charm": {
+              "units": {
+                "my-charm/0": {
+                  "agent_status": "idle",
+                  "workload_message": "",
+                  "workload_status": "active"
+                }
+              }
+            }
+          },
+          "captured_at": "2026-05-30T09:02:00.500Z",
+          "relations": [],
+          "schema_version": 1
+        }
+      },
+      "seq": 4,
+      "ts": "2026-05-30T09:02:00.000Z"
+    }
+  ],
+  "jubilant_version": "0.3.0",
+  "juju_version": "3.6.23",
+  "model": "test-model",
+  "recorded_at": "2026-05-30T09:05:00.000Z",
+  "schema_version": 1,
+  "session_id": "0193fc4e-9c3d-7000-8000-1a2b3c4d5e6f"
+}

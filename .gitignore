@@ -1,0 +1,9 @@
+__pycache__/
+.pytest_cache/
+.venv/
+*.egg-info/
+build/
+dist/
+
+# Output of examples/*.py recordings (committed copies live in tests/fixtures/)
+examples/*.jsonl

@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "session_id": "multiple-failures-fixture",
+  "started_at": "2026-05-30T11:00:00.000Z",
+  "stopped_at": "2026-05-30T11:05:00.000Z",
+  "events": [
+    {
+      "seq": 1,
+      "op": "deploy",
+      "ts": "2026-05-30T11:00:05.000Z",
+      "args": {
+        "charm": "good-charm",
+        "app": null,
+        "channel": "stable",
+        "num_units": 1,
+        "config": {},
+        "resources": {}
+      },
+      "result": {"app_name": "good-charm"},
+      "model_snapshot_before": {"schema_version": 1, "captured_at": "2026-05-30T11:00:04.000Z", "apps": {}},
+      "model_snapshot_after": {
+        "schema_version": 1,
+        "captured_at": "2026-05-30T11:00:06.000Z",
+        "apps": {
+          "good-charm": {
+            "units": {"good-charm/0": {"workload_status": "active", "agent_status": "idle"}}
+          }
+        }
+      },
+      "assertions": [],
+      "gesture": null
+    },
+    {
+      "seq": 2,
+      "op": "wait_for_idle",
+      "ts": "2026-05-30T11:01:00.000Z",
+      "args": {"apps": ["bad-charm"], "timeout": 120},
+      "result": {
+        "settled_at": null,
+        "error": "timed out waiting for model:\n  bad-charm/0 [error] install failed"
+      },
+      "model_snapshot_before": {"schema_version": 1, "captured_at": "2026-05-30T11:00:59.000Z", "apps": {}},
+      "model_snapshot_after": null,
+      "assertions": [],
+      "gesture": null
+    },
+    {
+      "seq": 3,
+      "op": "wait_for_idle",
+      "ts": "2026-05-30T11:02:00.000Z",
+      "args": {"apps": ["another-charm"], "timeout": 120},
+      "result": {
+        "settled_at": null,
+        "error": "timed out waiting for model:\n  another-charm/0 [error] config-changed failed"
+      },
+      "model_snapshot_before": {"schema_version": 1, "captured_at": "2026-05-30T11:01:59.000Z", "apps": {}},
+      "model_snapshot_after": null,
+      "assertions": [],
+      "gesture": null
+    }
+  ]
+}

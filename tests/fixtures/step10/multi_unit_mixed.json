@@ -1,0 +1,153 @@
+{
+  "schema_version": 1,
+  "session_id": "0193fc4e-0010-7000-8000-cccccccccccc",
+  "recorded_at": "2026-05-30T13:00:00.000Z",
+  "juju_version": "3.6.23",
+  "jubilant_version": "1.10.0",
+  "model": "multi-unit-model",
+  "events": [
+    {
+      "seq": 1,
+      "op": "deploy",
+      "ts": "2026-05-30T13:00:05.000Z",
+      "args": {
+        "charm": "my-charm",
+        "app": null,
+        "channel": "edge",
+        "num_units": 1,
+        "config": {},
+        "resources": {}
+      },
+      "result": {
+        "app_name": "my-charm"
+      },
+      "model_snapshot_before": {
+        "schema_version": 1,
+        "captured_at": "2026-05-30T13:00:04.900Z",
+        "apps": {},
+        "relations": []
+      },
+      "model_snapshot_after": {
+        "schema_version": 1,
+        "captured_at": "2026-05-30T13:00:30.000Z",
+        "apps": {
+          "my-charm": {
+            "units": {
+              "my-charm/0": {
+                "workload_status": "active",
+                "workload_message": "",
+                "agent_status": "idle"
+              }
+            }
+          }
+        },
+        "relations": []
+      },
+      "assertions": [],
+      "gesture": null,
+      "duration_ms": 25100.0
+    },
+    {
+      "seq": 2,
+      "op": "wait_for_idle",
+      "ts": "2026-05-30T13:00:35.000Z",
+      "args": {
+        "apps": ["my-charm"],
+        "timeout": 300
+      },
+      "result": {
+        "settled_at": "2026-05-30T13:00:36.000Z"
+      },
+      "model_snapshot_before": {
+        "schema_version": 1,
+        "captured_at": "2026-05-30T13:00:34.900Z",
+        "apps": {
+          "my-charm": {
+            "units": {
+              "my-charm/0": {
+                "workload_status": "active",
+                "workload_message": "",
+                "agent_status": "idle"
+              }
+            }
+          }
+        },
+        "relations": []
+      },
+      "model_snapshot_after": {
+        "schema_version": 1,
+        "captured_at": "2026-05-30T13:00:36.100Z",
+        "apps": {
+          "my-charm": {
+            "units": {
+              "my-charm/0": {
+                "workload_status": "active",
+                "workload_message": "",
+                "agent_status": "idle"
+              }
+            }
+          }
+        },
+        "relations": []
+      },
+      "assertions": [],
+      "gesture": null,
+      "duration_ms": 1100.0
+    },
+    {
+      "seq": 3,
+      "op": "scale",
+      "ts": "2026-05-30T13:01:00.000Z",
+      "args": {
+        "app": "my-charm",
+        "units": 3
+      },
+      "result": {},
+      "model_snapshot_before": {
+        "schema_version": 1,
+        "captured_at": "2026-05-30T13:00:59.900Z",
+        "apps": {
+          "my-charm": {
+            "units": {
+              "my-charm/0": {
+                "workload_status": "active",
+                "workload_message": "",
+                "agent_status": "idle"
+              }
+            }
+          }
+        },
+        "relations": []
+      },
+      "model_snapshot_after": {
+        "schema_version": 1,
+        "captured_at": "2026-05-30T13:02:30.000Z",
+        "apps": {
+          "my-charm": {
+            "units": {
+              "my-charm/0": {
+                "workload_status": "active",
+                "workload_message": "",
+                "agent_status": "idle"
+              },
+              "my-charm/1": {
+                "workload_status": "blocked",
+                "workload_message": "insufficient storage",
+                "agent_status": "idle"
+              },
+              "my-charm/2": {
+                "workload_status": "waiting",
+                "workload_message": "installing agent",
+                "agent_status": "executing"
+              }
+            }
+          }
+        },
+        "relations": []
+      },
+      "assertions": [],
+      "gesture": null,
+      "duration_ms": 90000.0
+    }
+  ]
+}
