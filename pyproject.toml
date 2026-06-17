@@ -1,0 +1,72 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jubilant-recorder"
+version = "0.1.0"
+requires-python = ">=3.11"
+description = "Record a live jubilant session and replay it as a pytest integration test."
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Canonical Ltd." }]
+keywords = ["juju", "jubilant", "testing", "pytest", "record-replay"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Testing",
+]
+dependencies = [
+    "jubilant>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+    "pyright>=1.1",
+]
+
+[project.scripts]
+jubilant-recorder = "jubilant_recorder.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/tonyandrewmeyer/jubilant-recorder"
+Issues = "https://github.com/tonyandrewmeyer/jubilant-recorder/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jubilant_recorder"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 99
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W",   # pycodestyle + pyflakes
+    "I",             # isort
+    "UP",            # pyupgrade
+    "B",             # bugbear
+    "SIM",           # simplify
+    "RUF",           # ruff-specific
+]
+ignore = [
+    "E501",          # line length handled by formatter
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B011"]
+
+[tool.pyright]
+include = ["src", "tests"]
+pythonVersion = "3.11"
+typeCheckingMode = "standard"
+reportMissingTypeStubs = false

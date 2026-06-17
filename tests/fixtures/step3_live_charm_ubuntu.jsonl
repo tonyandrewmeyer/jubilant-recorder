@@ -1,0 +1,157 @@
+{
+  "events": [
+    {
+      "args": {
+        "app": "ubuntu",
+        "channel": null,
+        "charm": "ubuntu",
+        "config": {},
+        "num_units": 1,
+        "resources": {}
+      },
+      "assertions": [],
+      "duration_ms": 2154.737,
+      "gesture": null,
+      "model_snapshot_after": {
+        "apps": {
+          "ubuntu": {
+            "units": {
+              "ubuntu/0": {
+                "agent_status": "allocating",
+                "workload_message": "waiting for machine",
+                "workload_status": "waiting"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-06-13T12:00:13.514Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "model_snapshot_before": {
+        "apps": {},
+        "captured_at": "2026-06-13T12:00:11.188Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "op": "deploy",
+      "result": {
+        "app_name": "ubuntu"
+      },
+      "seq": 1,
+      "ts": "2026-06-13T12:00:11.188Z"
+    },
+    {
+      "args": {
+        "apps": null,
+        "timeout": 900
+      },
+      "assertions": [],
+      "duration_ms": 73369.53099999999,
+      "gesture": null,
+      "model_snapshot_after": {
+        "apps": {
+          "ubuntu": {
+            "units": {
+              "ubuntu/0": {
+                "agent_status": "idle",
+                "workload_message": "",
+                "workload_status": "active"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-06-13T12:01:27.181Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "model_snapshot_before": {
+        "apps": {
+          "ubuntu": {
+            "units": {
+              "ubuntu/0": {
+                "agent_status": "allocating",
+                "workload_message": "waiting for machine",
+                "workload_status": "waiting"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-06-13T12:00:13.666Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "op": "wait_for_idle",
+      "result": {
+        "settled_at": "2026-06-13T12:01:27.036Z"
+      },
+      "seq": 2,
+      "ts": "2026-06-13T12:00:13.666Z"
+    },
+    {
+      "args": {},
+      "assertions": [],
+      "duration_ms": 156.371,
+      "gesture": null,
+      "model_snapshot_after": {
+        "apps": {
+          "ubuntu": {
+            "units": {
+              "ubuntu/0": {
+                "agent_status": "idle",
+                "workload_message": "",
+                "workload_status": "active"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-06-13T12:01:27.668Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "model_snapshot_before": {
+        "apps": {
+          "ubuntu": {
+            "units": {
+              "ubuntu/0": {
+                "agent_status": "idle",
+                "workload_message": "",
+                "workload_status": "active"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-06-13T12:01:27.357Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "op": "status",
+      "result": {
+        "snapshot": {
+          "apps": {
+            "ubuntu": {
+              "units": {
+                "ubuntu/0": {
+                  "agent_status": "idle",
+                  "workload_message": "",
+                  "workload_status": "active"
+                }
+              }
+            }
+          },
+          "captured_at": "2026-06-13T12:01:27.668Z",
+          "relations": [],
+          "schema_version": 1
+        }
+      },
+      "seq": 3,
+      "ts": "2026-06-13T12:01:27.357Z"
+    }
+  ],
+  "jubilant_version": "1.10.0",
+  "juju_version": "4.0.11-genericlinux-amd64",
+  "model": "jtr-step3",
+  "recorded_at": "2026-06-13T12:01:27.668Z",
+  "schema_version": 1,
+  "session_id": "346b7676-f516-46a1-bc06-96cb60fcece7"
+}

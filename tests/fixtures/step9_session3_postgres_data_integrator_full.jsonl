@@ -1,0 +1,1109 @@
+{
+  "events": [
+    {
+      "args": {
+        "app": null,
+        "channel": "14/stable",
+        "charm": "postgresql",
+        "config": {},
+        "num_units": 1,
+        "resources": {}
+      },
+      "assertions": [],
+      "duration_ms": 2847.429,
+      "gesture": null,
+      "model_snapshot_after": {
+        "apps": {
+          "postgresql": {
+            "units": {
+              "postgresql/0": {
+                "agent_status": "allocating",
+                "workload_message": "waiting for machine",
+                "workload_status": "waiting"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-06-13T21:56:33.708Z",
+        "relations": [
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:database-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:restart"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:upgrade"
+            ]
+          }
+        ],
+        "schema_version": 1
+      },
+      "model_snapshot_before": {
+        "apps": {},
+        "captured_at": "2026-06-13T21:56:30.679Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "op": "deploy",
+      "result": {
+        "app_name": "postgresql"
+      },
+      "seq": 1,
+      "ts": "2026-06-13T21:56:30.679Z"
+    },
+    {
+      "args": {
+        "app": null,
+        "channel": "latest/stable",
+        "charm": "data-integrator",
+        "config": {
+          "database-name": "step9_session3_db"
+        },
+        "num_units": 1,
+        "resources": {}
+      },
+      "assertions": [],
+      "duration_ms": 1533.714,
+      "gesture": null,
+      "model_snapshot_after": {
+        "apps": {
+          "data-integrator": {
+            "units": {
+              "data-integrator/0": {
+                "agent_status": "allocating",
+                "workload_message": "waiting for machine",
+                "workload_status": "waiting"
+              }
+            }
+          },
+          "postgresql": {
+            "units": {
+              "postgresql/0": {
+                "agent_status": "allocating",
+                "workload_message": "waiting for machine",
+                "workload_status": "waiting"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-06-13T21:56:35.584Z",
+        "relations": [
+          {
+            "endpoints": [
+              "data-integrator:data-integrator-peers",
+              "data-integrator:data-integrator-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:database-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:restart"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:upgrade"
+            ]
+          }
+        ],
+        "schema_version": 1
+      },
+      "model_snapshot_before": {
+        "apps": {
+          "postgresql": {
+            "units": {
+              "postgresql/0": {
+                "agent_status": "allocating",
+                "workload_message": "waiting for machine",
+                "workload_status": "waiting"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-06-13T21:56:33.859Z",
+        "relations": [
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:database-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:restart"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:upgrade"
+            ]
+          }
+        ],
+        "schema_version": 1
+      },
+      "op": "deploy",
+      "result": {
+        "app_name": "data-integrator"
+      },
+      "seq": 2,
+      "ts": "2026-06-13T21:56:33.859Z"
+    },
+    {
+      "args": {
+        "app1_endpoint": "postgresql",
+        "app2_endpoint": "data-integrator"
+      },
+      "assertions": [],
+      "duration_ms": 198.886,
+      "gesture": null,
+      "model_snapshot_after": {
+        "apps": {
+          "data-integrator": {
+            "units": {
+              "data-integrator/0": {
+                "agent_status": "allocating",
+                "workload_message": "waiting for machine",
+                "workload_status": "waiting"
+              }
+            }
+          },
+          "postgresql": {
+            "units": {
+              "postgresql/0": {
+                "agent_status": "allocating",
+                "workload_message": "waiting for machine",
+                "workload_status": "waiting"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-06-13T21:56:36.112Z",
+        "relations": [
+          {
+            "endpoints": [
+              "data-integrator:data-integrator-peers",
+              "data-integrator:data-integrator-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "data-integrator:postgresql",
+              "postgresql:database"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:database-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:restart"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:upgrade"
+            ]
+          }
+        ],
+        "schema_version": 1
+      },
+      "model_snapshot_before": {
+        "apps": {
+          "data-integrator": {
+            "units": {
+              "data-integrator/0": {
+                "agent_status": "allocating",
+                "workload_message": "waiting for machine",
+                "workload_status": "waiting"
+              }
+            }
+          },
+          "postgresql": {
+            "units": {
+              "postgresql/0": {
+                "agent_status": "allocating",
+                "workload_message": "waiting for machine",
+                "workload_status": "waiting"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-06-13T21:56:35.745Z",
+        "relations": [
+          {
+            "endpoints": [
+              "data-integrator:data-integrator-peers",
+              "data-integrator:data-integrator-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:database-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:restart"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:upgrade"
+            ]
+          }
+        ],
+        "schema_version": 1
+      },
+      "op": "integrate",
+      "result": {},
+      "seq": 3,
+      "ts": "2026-06-13T21:56:35.745Z"
+    },
+    {
+      "args": {
+        "apps": null,
+        "timeout": 1800
+      },
+      "assertions": [],
+      "duration_ms": 271255.01900000003,
+      "gesture": null,
+      "model_snapshot_after": {
+        "apps": {
+          "data-integrator": {
+            "units": {
+              "data-integrator/0": {
+                "agent_status": "idle",
+                "workload_message": "",
+                "workload_status": "active"
+              }
+            }
+          },
+          "postgresql": {
+            "units": {
+              "postgresql/0": {
+                "agent_status": "idle",
+                "workload_message": "Primary",
+                "workload_status": "active"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-06-13T22:01:11.158Z",
+        "relations": [
+          {
+            "endpoints": [
+              "data-integrator:data-integrator-peers",
+              "data-integrator:data-integrator-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "data-integrator:postgresql",
+              "postgresql:database"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:database-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:restart"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:upgrade"
+            ]
+          }
+        ],
+        "schema_version": 1
+      },
+      "model_snapshot_before": {
+        "apps": {
+          "data-integrator": {
+            "units": {
+              "data-integrator/0": {
+                "agent_status": "allocating",
+                "workload_message": "waiting for machine",
+                "workload_status": "waiting"
+              }
+            }
+          },
+          "postgresql": {
+            "units": {
+              "postgresql/0": {
+                "agent_status": "allocating",
+                "workload_message": "waiting for machine",
+                "workload_status": "waiting"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-06-13T21:56:36.303Z",
+        "relations": [
+          {
+            "endpoints": [
+              "data-integrator:data-integrator-peers",
+              "data-integrator:data-integrator-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "data-integrator:postgresql",
+              "postgresql:database"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:database-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:restart"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:upgrade"
+            ]
+          }
+        ],
+        "schema_version": 1
+      },
+      "op": "wait_for_idle",
+      "result": {
+        "settled_at": "2026-06-13T22:01:07.558Z"
+      },
+      "seq": 4,
+      "ts": "2026-06-13T21:56:36.303Z"
+    },
+    {
+      "args": {
+        "app": "data-integrator",
+        "values": {
+          "extra-user-roles": "SELECT"
+        }
+      },
+      "assertions": [],
+      "duration_ms": 3511.4320000000002,
+      "gesture": null,
+      "model_snapshot_after": {
+        "apps": {
+          "data-integrator": {
+            "units": {
+              "data-integrator/0": {
+                "agent_status": "idle",
+                "workload_message": "",
+                "workload_status": "active"
+              }
+            }
+          },
+          "postgresql": {
+            "units": {
+              "postgresql/0": {
+                "agent_status": "idle",
+                "workload_message": "Primary",
+                "workload_status": "active"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-06-13T22:01:21.318Z",
+        "relations": [
+          {
+            "endpoints": [
+              "data-integrator:data-integrator-peers",
+              "data-integrator:data-integrator-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "data-integrator:postgresql",
+              "postgresql:database"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:database-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:restart"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:upgrade"
+            ]
+          }
+        ],
+        "schema_version": 1
+      },
+      "model_snapshot_before": {
+        "apps": {
+          "data-integrator": {
+            "units": {
+              "data-integrator/0": {
+                "agent_status": "idle",
+                "workload_message": "",
+                "workload_status": "active"
+              }
+            }
+          },
+          "postgresql": {
+            "units": {
+              "postgresql/0": {
+                "agent_status": "idle",
+                "workload_message": "Primary",
+                "workload_status": "active"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-06-13T22:01:14.279Z",
+        "relations": [
+          {
+            "endpoints": [
+              "data-integrator:data-integrator-peers",
+              "data-integrator:data-integrator-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "data-integrator:postgresql",
+              "postgresql:database"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:database-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:restart"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:upgrade"
+            ]
+          }
+        ],
+        "schema_version": 1
+      },
+      "op": "config",
+      "result": {},
+      "seq": 5,
+      "ts": "2026-06-13T22:01:14.279Z"
+    },
+    {
+      "args": {
+        "apps": null,
+        "timeout": 600
+      },
+      "assertions": [],
+      "duration_ms": 12561.043,
+      "gesture": null,
+      "model_snapshot_after": {
+        "apps": {
+          "data-integrator": {
+            "units": {
+              "data-integrator/0": {
+                "agent_status": "idle",
+                "workload_message": "",
+                "workload_status": "active"
+              }
+            }
+          },
+          "postgresql": {
+            "units": {
+              "postgresql/0": {
+                "agent_status": "idle",
+                "workload_message": "Primary",
+                "workload_status": "active"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-06-13T22:01:39.866Z",
+        "relations": [
+          {
+            "endpoints": [
+              "data-integrator:data-integrator-peers",
+              "data-integrator:data-integrator-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "data-integrator:postgresql",
+              "postgresql:database"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:database-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:restart"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:upgrade"
+            ]
+          }
+        ],
+        "schema_version": 1
+      },
+      "model_snapshot_before": {
+        "apps": {
+          "data-integrator": {
+            "units": {
+              "data-integrator/0": {
+                "agent_status": "idle",
+                "workload_message": "",
+                "workload_status": "active"
+              }
+            }
+          },
+          "postgresql": {
+            "units": {
+              "postgresql/0": {
+                "agent_status": "idle",
+                "workload_message": "Primary",
+                "workload_status": "active"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-06-13T22:01:24.063Z",
+        "relations": [
+          {
+            "endpoints": [
+              "data-integrator:data-integrator-peers",
+              "data-integrator:data-integrator-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "data-integrator:postgresql",
+              "postgresql:database"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:database-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:restart"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:upgrade"
+            ]
+          }
+        ],
+        "schema_version": 1
+      },
+      "op": "wait_for_idle",
+      "result": {
+        "settled_at": "2026-06-13T22:01:36.624Z"
+      },
+      "seq": 6,
+      "ts": "2026-06-13T22:01:24.063Z"
+    },
+    {
+      "args": {
+        "action": "get-credentials",
+        "params": {},
+        "unit": "data-integrator/0"
+      },
+      "assertions": [],
+      "duration_ms": 4232.911999999999,
+      "gesture": null,
+      "model_snapshot_after": {
+        "apps": {
+          "data-integrator": {
+            "units": {
+              "data-integrator/0": {
+                "agent_status": "idle",
+                "workload_message": "",
+                "workload_status": "active"
+              }
+            }
+          },
+          "postgresql": {
+            "units": {
+              "postgresql/0": {
+                "agent_status": "idle",
+                "workload_message": "Primary",
+                "workload_status": "active"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-06-13T22:01:50.961Z",
+        "relations": [
+          {
+            "endpoints": [
+              "data-integrator:data-integrator-peers",
+              "data-integrator:data-integrator-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "data-integrator:postgresql",
+              "postgresql:database"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:database-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:restart"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:upgrade"
+            ]
+          }
+        ],
+        "schema_version": 1
+      },
+      "model_snapshot_before": {
+        "apps": {
+          "data-integrator": {
+            "units": {
+              "data-integrator/0": {
+                "agent_status": "idle",
+                "workload_message": "",
+                "workload_status": "active"
+              }
+            }
+          },
+          "postgresql": {
+            "units": {
+              "postgresql/0": {
+                "agent_status": "idle",
+                "workload_message": "Primary",
+                "workload_status": "active"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-06-13T22:01:42.399Z",
+        "relations": [
+          {
+            "endpoints": [
+              "data-integrator:data-integrator-peers",
+              "data-integrator:data-integrator-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "data-integrator:postgresql",
+              "postgresql:database"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:database-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:restart"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:upgrade"
+            ]
+          }
+        ],
+        "schema_version": 1
+      },
+      "op": "run",
+      "result": {
+        "message": null,
+        "results": {
+          "ok": "True",
+          "postgresql": {
+            "data": "{\"database\": \"step9_session3_db\", \"external-node-connectivity\": \"true\", \"provided-secrets\": \"[\\\"mtls-cert\\\"]\", \"requested-secrets\": \"[\\\"username\\\", \\\"password\\\", \\\"tls\\\", \\\"tls-ca\\\", \\\"uris\\\", \\\"read-only-uris\\\", \\\"entity-name\\\", \\\"entity-password\\\"]\"}",
+            "database": "step9_session3_db",
+            "endpoints": "10.5.87.251:5432",
+            "password": "***REMOVED***",
+            "read-only-endpoints": "10.5.87.251:5432",
+            "read-only-uris": "postgresql://relation-4:***REMOVED***@10.5.87.251:5432/step9_session3_db",
+            "tls": "False",
+            "tls-ca": "",
+            "uris": "postgresql://relation-4:***REMOVED***@10.5.87.251:5432/step9_session3_db",
+            "username": "relation-4",
+            "version": "14.22"
+          }
+        },
+        "success": true
+      },
+      "seq": 7,
+      "ts": "2026-06-13T22:01:42.399Z"
+    },
+    {
+      "args": {
+        "apps": [
+          "postgresql"
+        ],
+        "timeout": null
+      },
+      "assertions": [],
+      "duration_ms": 0.0,
+      "gesture": {
+        "kind": "assert_status",
+        "label": null,
+        "params": {
+          "app": "postgresql",
+          "status": "active",
+          "unit": "postgresql/0"
+        }
+      },
+      "model_snapshot_after": {
+        "apps": {
+          "data-integrator": {
+            "units": {
+              "data-integrator/0": {
+                "agent_status": "idle",
+                "workload_message": "",
+                "workload_status": "active"
+              }
+            }
+          },
+          "postgresql": {
+            "units": {
+              "postgresql/0": {
+                "agent_status": "idle",
+                "workload_message": "Primary",
+                "workload_status": "active"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-06-13T22:01:54.444Z",
+        "relations": [
+          {
+            "endpoints": [
+              "data-integrator:data-integrator-peers",
+              "data-integrator:data-integrator-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "data-integrator:postgresql",
+              "postgresql:database"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:database-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:restart"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:upgrade"
+            ]
+          }
+        ],
+        "schema_version": 1
+      },
+      "model_snapshot_before": {
+        "apps": {
+          "data-integrator": {
+            "units": {
+              "data-integrator/0": {
+                "agent_status": "idle",
+                "workload_message": "",
+                "workload_status": "active"
+              }
+            }
+          },
+          "postgresql": {
+            "units": {
+              "postgresql/0": {
+                "agent_status": "idle",
+                "workload_message": "Primary",
+                "workload_status": "active"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-06-13T22:01:54.444Z",
+        "relations": [
+          {
+            "endpoints": [
+              "data-integrator:data-integrator-peers",
+              "data-integrator:data-integrator-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "data-integrator:postgresql",
+              "postgresql:database"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:database-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:restart"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:upgrade"
+            ]
+          }
+        ],
+        "schema_version": 1
+      },
+      "op": "wait_for_idle",
+      "result": {
+        "settled_at": null
+      },
+      "seq": 8,
+      "ts": "2026-06-13T22:01:54.444Z"
+    },
+    {
+      "args": {
+        "apps": [
+          "data-integrator"
+        ],
+        "timeout": null
+      },
+      "assertions": [],
+      "duration_ms": 0.0,
+      "gesture": {
+        "kind": "assert_status",
+        "label": null,
+        "params": {
+          "app": "data-integrator",
+          "status": "active",
+          "unit": "data-integrator/0"
+        }
+      },
+      "model_snapshot_after": {
+        "apps": {
+          "data-integrator": {
+            "units": {
+              "data-integrator/0": {
+                "agent_status": "idle",
+                "workload_message": "",
+                "workload_status": "active"
+              }
+            }
+          },
+          "postgresql": {
+            "units": {
+              "postgresql/0": {
+                "agent_status": "idle",
+                "workload_message": "Primary",
+                "workload_status": "active"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-06-13T22:01:54.810Z",
+        "relations": [
+          {
+            "endpoints": [
+              "data-integrator:data-integrator-peers",
+              "data-integrator:data-integrator-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "data-integrator:postgresql",
+              "postgresql:database"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:database-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:restart"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:upgrade"
+            ]
+          }
+        ],
+        "schema_version": 1
+      },
+      "model_snapshot_before": {
+        "apps": {
+          "data-integrator": {
+            "units": {
+              "data-integrator/0": {
+                "agent_status": "idle",
+                "workload_message": "",
+                "workload_status": "active"
+              }
+            }
+          },
+          "postgresql": {
+            "units": {
+              "postgresql/0": {
+                "agent_status": "idle",
+                "workload_message": "Primary",
+                "workload_status": "active"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-06-13T22:01:54.810Z",
+        "relations": [
+          {
+            "endpoints": [
+              "data-integrator:data-integrator-peers",
+              "data-integrator:data-integrator-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "data-integrator:postgresql",
+              "postgresql:database"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:database-peers"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:restart"
+            ]
+          },
+          {
+            "endpoints": [
+              "postgresql:database-peers",
+              "postgresql:upgrade"
+            ]
+          }
+        ],
+        "schema_version": 1
+      },
+      "op": "wait_for_idle",
+      "result": {
+        "settled_at": null
+      },
+      "seq": 9,
+      "ts": "2026-06-13T22:01:54.810Z"
+    },
+    {
+      "args": {},
+      "assertions": [],
+      "duration_ms": 0.0,
+      "gesture": null,
+      "model_snapshot_after": null,
+      "model_snapshot_before": null,
+      "op": "session.error",
+      "result": {
+        "error": "assert_action_result() got an unexpected keyword argument 'unit'"
+      },
+      "seq": 10,
+      "ts": "2026-06-13T22:01:54.812Z"
+    }
+  ],
+  "jubilant_version": "1.10.0",
+  "juju_version": "4.0.11-genericlinux-amd64",
+  "model": "jtr-step3",
+  "recorded_at": "2026-06-13T22:01:54.815Z",
+  "schema_version": 1,
+  "session_id": "af4e55d5-c760-45a2-a559-e0bf8d969f4d"
+}

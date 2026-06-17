@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "session_id": "0193fc4e-0010-7000-8000-aaaaaaaaaaaa",
+  "recorded_at": "2026-05-30T11:00:00.000Z",
+  "juju_version": "3.6.23",
+  "jubilant_version": "1.10.0",
+  "model": "failed-deploy-model",
+  "events": [
+    {
+      "seq": 1,
+      "op": "deploy",
+      "ts": "2026-05-30T11:00:05.000Z",
+      "args": {
+        "charm": "my-charm",
+        "app": null,
+        "channel": "edge",
+        "num_units": 1,
+        "config": {"log-level": "not-a-level"},
+        "resources": {}
+      },
+      "result": {
+        "app_name": "my-charm"
+      },
+      "model_snapshot_before": {
+        "schema_version": 1,
+        "captured_at": "2026-05-30T11:00:04.900Z",
+        "apps": {},
+        "relations": []
+      },
+      "model_snapshot_after": {
+        "schema_version": 1,
+        "captured_at": "2026-05-30T11:00:30.000Z",
+        "apps": {
+          "my-charm": {
+            "units": {
+              "my-charm/0": {
+                "workload_status": "error",
+                "workload_message": "hook failed: config-changed (invalid log-level)",
+                "agent_status": "error"
+              }
+            }
+          }
+        },
+        "relations": []
+      },
+      "assertions": [],
+      "gesture": null,
+      "duration_ms": 25100.0
+    },
+    {
+      "seq": 2,
+      "op": "wait_for_idle",
+      "ts": "2026-05-30T11:00:35.000Z",
+      "args": {
+        "apps": ["my-charm"],
+        "timeout": 120
+      },
+      "result": {
+        "settled_at": null,
+        "error": "timed out waiting for model:\n  my-charm/0 [error] config-changed failed"
+      },
+      "model_snapshot_before": {
+        "schema_version": 1,
+        "captured_at": "2026-05-30T11:00:34.900Z",
+        "apps": {
+          "my-charm": {
+            "units": {
+              "my-charm/0": {
+                "workload_status": "error",
+                "workload_message": "hook failed: config-changed (invalid log-level)",
+                "agent_status": "error"
+              }
+            }
+          }
+        },
+        "relations": []
+      },
+      "model_snapshot_after": null,
+      "assertions": [],
+      "gesture": null,
+      "duration_ms": 120000.0
+    }
+  ]
+}
