@@ -12,12 +12,15 @@ import json
 import os
 import subprocess
 import sys
+import warnings
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from jubilant_recorder import codegen, tagger
+from jubilant_recorder.codegen.ai_polish import AnthropicPolisher, Polisher, StubPolisher
 from jubilant_recorder.session_log import SessionLog
+from jubilant_recorder.tagger.llm import AnthropicProposer, AssertionProposer, StubProposer
 
 
 def _state_dir() -> Path:
@@ -52,6 +55,31 @@ def _delete_state() -> None:
 
 def _default_session_log() -> Path:
     return Path.cwd() / "session.json"
+
+
+def _make_ai_components(use_ai: bool) -> tuple[AssertionProposer, Polisher]:
+    """Return (proposer, polisher) for the current run.
+
+    When --ai is not set, both are stubs (no LLM calls, deterministic output).
+    When --ai is set, tries to build a shared anthropic.Anthropic() client from
+    ANTHROPIC_API_KEY; falls back to stubs with a warning if the key is absent.
+    """
+    if not use_ai:
+        return StubProposer(), StubPolisher()
+
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        warnings.warn(
+            "ANTHROPIC_API_KEY is not set — --ai flag has no effect; "
+            "using offline stubs. Set ANTHROPIC_API_KEY to enable LLM features.",
+            stacklevel=3,
+        )
+        return StubProposer(), StubPolisher()
+
+    import anthropic
+
+    client = anthropic.Anthropic(api_key=api_key)
+    return AnthropicProposer(client), AnthropicPolisher(client)
 
 
 def _now_iso() -> str:
@@ -98,13 +126,15 @@ def cmd_stop(_args: argparse.Namespace) -> int:
 
 
 def cmd_generate(args: argparse.Namespace) -> int:
+    use_ai = getattr(args, "ai", False)
+    proposer, polisher = _make_ai_components(use_ai)
     session_log_path = Path(args.session_log)
     log = json.loads(session_log_path.read_text())
-    annotated = tagger.tag(log)
+    annotated = tagger.tag(log, proposer=proposer if use_ai else None)
     test_name = args.name or "test_recorded_session"
     source = codegen.generate(annotated, test_name=test_name)
-    if getattr(args, "ai", False):
-        source = codegen.ai_polish.polish(source, annotated)
+    if use_ai:
+        source = codegen.ai_polish.polish(source, annotated, polisher=polisher)
     if args.out:
         Path(args.out).write_text(source)
         print(str(Path(args.out).absolute()))
@@ -114,6 +144,8 @@ def cmd_generate(args: argparse.Namespace) -> int:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
+    use_ai = getattr(args, "ai", False)
+    proposer, polisher = _make_ai_components(use_ai)
     session_log = Path(args.session_log).absolute() if args.session_log else _default_session_log()
     log = SessionLog(session_log)
     log.close()
@@ -134,10 +166,10 @@ def cmd_run(args: argparse.Namespace) -> int:
         _delete_state()
     out_path = Path(args.out).absolute() if args.out else session_log.with_suffix(".py")
     log_doc = json.loads(session_log.read_text())
-    annotated = tagger.tag(log_doc)
+    annotated = tagger.tag(log_doc, proposer=proposer if use_ai else None)
     source = codegen.generate(annotated, test_name=args.name or "test_recorded_session")
-    if getattr(args, "ai", False):
-        source = codegen.ai_polish.polish(source, annotated)
+    if use_ai:
+        source = codegen.ai_polish.polish(source, annotated, polisher=polisher)
     out_path.write_text(source)
     print(str(out_path))
     return rc

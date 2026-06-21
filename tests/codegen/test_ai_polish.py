@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import ast
 import json
+import warnings
 from pathlib import Path
 from typing import Any
+from unittest.mock import MagicMock
 
 from jubilant_recorder import codegen, tagger
 from jubilant_recorder.codegen import ai_polish
-from jubilant_recorder.codegen.ai_polish import Polisher, StubPolisher, polish
+from jubilant_recorder.codegen.ai_polish import AnthropicPolisher, Polisher, StubPolisher, polish
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "minimal_session.json"
 
@@ -113,3 +115,68 @@ def test_behaviour_preserved_rejects_dropped_deploy() -> None:
         "import jubilant\n\n\ndef t():\n    with jubilant.temp_model() as juju:\n        pass\n"
     )
     assert not ai_polish.behaviour_preserved(original, without)
+
+
+# ── AnthropicPolisher ─────────────────────────────────────────────────────────
+
+
+def _make_mock_client(response_text: str) -> Any:
+    message = MagicMock()
+    message.content = [MagicMock(text=response_text)]
+    client = MagicMock()
+    client.messages.create.return_value = message
+    return client
+
+
+def test_anthropic_polisher_satisfies_protocol() -> None:
+    assert isinstance(AnthropicPolisher(MagicMock()), Polisher)
+
+
+def test_anthropic_polisher_returns_improved_code_when_valid() -> None:
+    log = _annotated()
+    deterministic = codegen.generate(log)
+    # The "polished" version renames the test function but keeps all juju calls.
+    improved = deterministic.replace("def test_recorded_session(", "def test_deploy_my_charm(")
+    polisher = AnthropicPolisher(_make_mock_client(improved))
+    result = polish(deterministic, log, polisher=polisher)
+    # behaviour_preserved passes → polished version is used
+    assert "test_deploy_my_charm" in result
+    ast.parse(result)
+
+
+def test_anthropic_polisher_falls_back_on_behaviour_violation() -> None:
+    log = _annotated()
+    deterministic = codegen.generate(log)
+    # Mock returns code that drops juju.deploy — behaviour_preserved will reject it
+    bad_code = "\n".join(line for line in deterministic.splitlines() if "juju.deploy(" not in line)
+    polisher = AnthropicPolisher(_make_mock_client(bad_code))
+    result = polish(deterministic, log, polisher=polisher)
+    assert result == deterministic
+
+
+def test_anthropic_polisher_api_error_warns_and_returns_original() -> None:
+    log = _annotated()
+    deterministic = codegen.generate(log)
+    client = MagicMock()
+    client.messages.create.side_effect = RuntimeError("connection refused")
+    polisher = AnthropicPolisher(client)
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        result = polisher.polish(deterministic, log)
+
+    assert result == deterministic
+    assert any("API call failed" in str(warning.message) for warning in w)
+
+
+def test_anthropic_polisher_empty_response_returns_original() -> None:
+    log = _annotated()
+    deterministic = codegen.generate(log)
+    message = MagicMock()
+    message.content = []
+    client = MagicMock()
+    client.messages.create.return_value = message
+    polisher = AnthropicPolisher(client)
+    result = polisher.polish(deterministic, log)
+    # empty content → returns the original code unchanged (polish() will keep it)
+    assert result == deterministic
