@@ -7,28 +7,25 @@ PLAN.md §3 (assertion inference) and the work breakdown both stress that
 this layer is "optional but low-risk: it only affects readability, not
 correctness", and must be gated behind `--ai`, never on by default.
 
-This module provides the seam, not a real LLM client:
+This module provides:
 
 * `Polisher` — a one-method Protocol (`polish(code, session_log) -> str`).
-  A production implementation would call an LLM here. The recorder never
-  ships one that makes network calls; the seam exists so one can be
-  injected.
 * `StubPolisher` — a deterministic, network-free implementation used by
-  the tests and as the default for `--ai`. It performs a single observable
-  transformation: it adds a module docstring recording the event count.
-* `polish()` — the orchestrator. It runs a polisher and then *verifies*
-  the result before returning it: the polished code must still parse, and
-  the sequence of behaviour-bearing jubilant calls must be unchanged. If a
-  polisher violates either guarantee (e.g. drops a `deploy`, or proposes a
-  collapse that changes observable behaviour), `polish()` discards the
-  polished version and returns the deterministic code untouched. This is
-  the enforcement of PLAN.md's "AST unchanged in observable behaviour"
-  rule — a misbehaving polisher can never corrupt the generated test.
+  tests. Adds a module docstring with the event count.
+* `AnthropicPolisher` — real LLM polisher using claude-sonnet-4-6. Requires
+  an anthropic.Anthropic() client injected at construction time (shared with
+  the tagger's AnthropicProposer — one client per run).
+* `polish()` — the orchestrator. Runs the polisher then *verifies* the
+  result: the polished code must still parse, and the sequence of
+  behaviour-bearing jubilant calls must be unchanged. Falls back to the
+  deterministic output on any violation.
 """
 
 from __future__ import annotations
 
 import ast
+import json
+import warnings
 from typing import Any, Protocol, TypeAlias, runtime_checkable
 
 SessionLog: TypeAlias = dict[str, Any]
@@ -66,6 +63,64 @@ class StubPolisher:
         event_count = len(session_log.get("events") or [])
         docstring = f'"""<recorded session: {event_count} events>"""'
         return _with_module_docstring(code, docstring)
+
+
+_POLISH_PROMPT = """\
+You are a Python test code refactoring assistant. Improve the readability of \
+the jubilant integration test below.
+
+You MAY:
+- Rename the test function to be more descriptive (snake_case, starts with test_)
+- Add a one-line docstring inside the test function explaining what it validates
+- Remove consecutive duplicate juju.status() or juju.wait(...) calls
+
+You MUST NOT:
+- Add, remove, or reorder juju operation calls \
+(deploy, integrate, config, scale, run, add_unit, remove_unit)
+- Change any assert statements
+- Add new imports
+- Wrap code in markdown fences
+
+Return ONLY the modified Python code with no additional commentary.
+
+Session log (for naming context):
+{session_log_json}
+
+Test to improve:
+{code}
+"""
+
+
+class AnthropicPolisher:
+    """LLM polisher using the Anthropic API (claude-sonnet-4-6).
+
+    Requires an anthropic.Anthropic() client injected at construction.
+    The same client instance should be shared with AnthropicProposer in the
+    tagger so only one anthropic.Anthropic() is created per run.
+    """
+
+    def __init__(self, client: Any) -> None:
+        self._client = client
+
+    def polish(self, code: str, session_log: SessionLog) -> str:
+        log_json = json.dumps(session_log, indent=2, sort_keys=True)
+        prompt = _POLISH_PROMPT.format(session_log_json=log_json, code=code)
+        try:
+            message = self._client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=4096,
+                messages=[{"role": "user", "content": prompt}],
+            )
+        except Exception as exc:
+            warnings.warn(
+                f"LLM polish API call failed: {exc} — using deterministic output",
+                stacklevel=2,
+            )
+            return code
+
+        if not message.content:
+            return code
+        return message.content[0].text.strip()
 
 
 def polish(code: str, session_log: SessionLog, *, polisher: Polisher | None = None) -> str:

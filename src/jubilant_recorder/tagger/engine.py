@@ -11,10 +11,13 @@ prefers to stay silent rather than guess.
 from __future__ import annotations
 
 import copy
-from typing import Any, TypeAlias
+from typing import TYPE_CHECKING, Any, TypeAlias
 
 from jubilant_recorder.tagger.rules import action, config, relation, scale, status
 from jubilant_recorder.tagger.types import AssertionTag
+
+if TYPE_CHECKING:
+    from jubilant_recorder.tagger.llm import AssertionProposer
 
 SessionLog: TypeAlias = dict[str, Any]
 
@@ -37,7 +40,7 @@ def _identity(tag_dict: dict[str, Any]) -> tuple[Any, ...]:
     return (kind, *(tag_dict.get(f) for f in fields))
 
 
-def tag(log: SessionLog) -> SessionLog:
+def tag(log: SessionLog, *, proposer: AssertionProposer | None = None) -> SessionLog:
     out = copy.deepcopy(log)
     events: list[dict[str, Any]] = out.get("events", [])
     for index in range(len(events)):
@@ -55,4 +58,9 @@ def tag(log: SessionLog) -> SessionLog:
                     continue
                 event["assertions"].append(tag_dict)
                 existing.add(ident)
+
+    if proposer is not None:
+        from jubilant_recorder.tagger.llm import llm_augment
+        out = llm_augment(out, proposer)
+
     return out

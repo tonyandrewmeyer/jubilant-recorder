@@ -21,6 +21,7 @@ classifiers = [
     "Topic :: Software Development :: Testing",
 ]
 dependencies = [
+    "anthropic>=0.111.0",
     "jubilant>=1.0",
 ]
 
