@@ -1,0 +1,450 @@
+"""
+RPC → delta-burst association and SCHEMA.md event emission.
+
+``correlate()`` takes the two streams captured by ``LibjujuTap`` — a list of
+RPC records and a list of AllWatcher delta records — and produces a list of
+``EventEnvelope``-shaped dicts in the jubilant-recorder SCHEMA.md format.
+
+Correlation strategy
+--------------------
+AllWatcher delta bursts are pushed by the controller in response to state
+changes.  Each AllWatcher.Next response carries a batch of deltas but carries
+no reference to the request-id of the RPC that triggered the change.
+
+The tap records the *end timestamp* of each user-facing RPC (when the
+controller replied "ok") and the *arrival timestamp* of each delta burst (when
+the AllWatcher.Next response was received by the client).  Deltas that arrive
+within ``window_seconds`` *after* an RPC's end timestamp are attributed to that
+RPC.
+
+If a delta arrives before the RPC ends (controller pushed it proactively, or
+clock skew), the delta is attributed to the chronologically closest RPC within
+the window.  If no RPC is within range, the delta is recorded as an orphan on
+the synthetic ``_libjuju_orphan`` event at the end.
+
+Facade → op taxonomy (SCHEMA.md §"Op taxonomy")
+------------------------------------------------
+Three buckets:
+
+Bucket 1 — clean mapping (records a fully-typed SCHEMA event):
+    Application.Deploy        → deploy
+    Application.AddRelation   → integrate
+    Application.DestroyRelation → remove_integration
+    Application.SetConfigs    → config
+    Application.Get           → config_get
+    Application.GetConfig     → config_get
+    Application.AddUnits      → scale
+    Application.ScaleApplications → scale
+    Application.DestroyApplication → remove_application
+    Action.Enqueue            → run
+    Action.EnqueueOperation   → run
+    Client.Status             → status
+
+Bucket 2 — lossy / decomposable (records event with ``note`` field):
+    Application.SetCharm      → note: "libjuju Application.SetCharm"
+    Application.Expose        → note: "libjuju Application.Expose"
+    Application.Unexpose      → note: "libjuju Application.Unexpose"
+    Application.SetConstraints → note: "libjuju Application.SetConstraints"
+    Application.SetRelationsSuspended → note: ...
+    Application.UnsetApplicationsConfig → note: ...
+
+Bucket 3 — no mapping (records a ``# TODO: manual step`` shape):
+    Everything else (raw facade calls with no CLI equivalent).
+
+Internal RPCs (skipped, never emit events):
+    AllWatcher.Next, AllWatcher.Stop, Client.WatchAll, Pinger.Ping,
+    and any facade whose name starts with "AllWatcher".
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from typing import Any
+
+# ---------------------------------------------------------------------------
+# Facade → op mapping tables
+# ---------------------------------------------------------------------------
+
+_INTERNAL_FACADE_METHODS: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("AllWatcher", "Next"),
+        ("AllWatcher", "Stop"),
+        ("Client", "WatchAll"),
+        ("Pinger", "Ping"),
+        ("Controller", "WatchAllModels"),
+        ("ModelManager", "WatchModelSummaries"),
+    }
+)
+
+_BUCKET1_MAP: dict[tuple[str, str], str] = {
+    ("Application", "Deploy"): "deploy",
+    ("Application", "AddRelation"): "integrate",
+    ("Application", "DestroyRelation"): "remove_integration",
+    ("Application", "SetConfigs"): "config",
+    ("Application", "Get"): "config_get",
+    ("Application", "GetConfig"): "config_get",
+    ("Application", "AddUnits"): "scale",
+    ("Application", "ScaleApplications"): "scale",
+    ("Application", "DestroyApplication"): "remove_application",
+    ("Action", "Enqueue"): "run",
+    ("Action", "EnqueueOperation"): "run",
+    ("Client", "Status"): "status",
+}
+
+_BUCKET2_FACADES: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("Application", "SetCharm"),
+        ("Application", "Expose"),
+        ("Application", "Unexpose"),
+        ("Application", "SetConstraints"),
+        ("Application", "MergeBindings"),
+        ("Application", "SetRelationsSuspended"),
+        ("Application", "UnsetApplicationsConfig"),
+        ("Application", "UpdateApplicationBase"),
+    }
+)
+
+
+def _is_internal(facade: str, method: str) -> bool:
+    if (facade, method) in _INTERNAL_FACADE_METHODS:
+        return True
+    if facade == "AllWatcher":
+        return True
+    return False
+
+
+def _classify(facade: str, method: str) -> tuple[str, str | None]:
+    """Return ``(bucket, op)`` where bucket is "1", "2", or "3"."""
+    key = (facade, method)
+    if key in _BUCKET1_MAP:
+        return "1", _BUCKET1_MAP[key]
+    if key in _BUCKET2_FACADES:
+        return "2", None
+    return "3", None
+
+
+# ---------------------------------------------------------------------------
+# Model state derived from AllWatcher deltas
+# ---------------------------------------------------------------------------
+
+
+class _ModelState:
+    """Lightweight model state built incrementally from AllWatcher deltas."""
+
+    def __init__(self) -> None:
+        # unit_name → {workload_status, workload_message, agent_status, app}
+        self._units: dict[str, dict[str, str]] = {}
+        # set of frozenset({endpoint_a, endpoint_b})
+        self._relations: list[frozenset[str]] = []
+
+    def apply_delta(self, delta: dict[str, Any]) -> None:
+        entity_kind = delta.get("entity_kind", "")
+        change_kind = delta.get("change_kind", "")
+        payload = delta.get("payload") or {}
+
+        if entity_kind == "unit":
+            unit_name: str = payload.get("name", "")
+            if not unit_name:
+                return
+            if change_kind == "remove":
+                self._units.pop(unit_name, None)
+            else:
+                ws = payload.get("workload-status") or {}
+                as_ = payload.get("agent-status") or {}
+                app = payload.get("application", unit_name.split("/")[0])
+                self._units[unit_name] = {
+                    "workload_status": ws.get("current", "unknown"),
+                    "workload_message": ws.get("message", ""),
+                    "agent_status": as_.get("current", "unknown"),
+                    "app": app,
+                }
+
+        elif entity_kind == "relation":
+            endpoints_data = payload.get("endpoints") or []
+            ep_strs: list[str] = []
+            for ep in endpoints_data:
+                app_name = ep.get("application-name", "")
+                ep_name = ep.get("name", "")
+                if app_name and ep_name:
+                    ep_strs.append(f"{app_name}:{ep_name}")
+            if len(ep_strs) >= 2:
+                pair = frozenset(ep_strs[:2])
+                if change_kind == "remove":
+                    self._relations = [r for r in self._relations if r != pair]
+                elif pair not in self._relations:
+                    self._relations.append(pair)
+
+    def snapshot(self, captured_at: str) -> dict[str, Any]:
+        """Build a SCHEMA.md-shaped model snapshot from current state."""
+        apps: dict[str, Any] = {}
+        for unit_name, info in self._units.items():
+            app = info["app"]
+            apps.setdefault(app, {"units": {}})
+            apps[app]["units"][unit_name] = {
+                "workload_status": info["workload_status"],
+                "workload_message": info["workload_message"],
+                "agent_status": info["agent_status"],
+            }
+
+        relations: list[dict[str, Any]] = []
+        for pair in self._relations:
+            endpoints = sorted(pair)
+            relations.append({"endpoints": endpoints})
+
+        return {
+            "schema_version": 1,
+            "captured_at": captured_at,
+            "apps": apps,
+            "relations": relations,
+        }
+
+
+# ---------------------------------------------------------------------------
+# Args extraction helpers
+# ---------------------------------------------------------------------------
+
+
+def _extract_args(facade: str, method: str, params: dict[str, Any]) -> dict[str, Any]:
+    """Map libjuju RPC params to the SCHEMA.md args dict for a bucket-1 op."""
+    key = (facade, method)
+
+    if key == ("Application", "Deploy"):
+        app_params = (params.get("applications") or [{}])[0]
+        return {
+            "charm": app_params.get("charm-url", ""),
+            "app": app_params.get("application-name") or None,
+            "channel": app_params.get("charm-origin", {}).get("track") or None,
+            "num_units": app_params.get("num-units", 1),
+            "config": app_params.get("config") or {},
+            "resources": app_params.get("resource-file-params") or {},
+        }
+
+    if key == ("Application", "AddRelation"):
+        endpoints = params.get("endpoints") or []
+        ep1 = endpoints[0] if len(endpoints) > 0 else ""
+        ep2 = endpoints[1] if len(endpoints) > 1 else ""
+        return {"app1_endpoint": ep1, "app2_endpoint": ep2}
+
+    if key == ("Application", "DestroyRelation"):
+        endpoints = params.get("endpoints") or []
+        ep1 = endpoints[0] if len(endpoints) > 0 else ""
+        ep2 = endpoints[1] if len(endpoints) > 1 else ""
+        return {"app1_endpoint": ep1, "app2_endpoint": ep2}
+
+    if key == ("Application", "SetConfigs"):
+        app_configs = params.get("application-configs") or [{}]
+        ac = app_configs[0] if app_configs else {}
+        return {"app": ac.get("application", ""), "values": ac.get("config") or {}}
+
+    if key in (("Application", "Get"), ("Application", "GetConfig")):
+        app = params.get("application", params.get("entities", [{}])[0].get("tag", "").replace("application-", ""))
+        return {"app": app, "keys": None}
+
+    if key == ("Application", "AddUnits"):
+        return {"app": params.get("application", ""), "units": params.get("num-units", 1)}
+
+    if key == ("Application", "ScaleApplications"):
+        scale_params = (params.get("applications") or [{}])[0]
+        return {
+            "app": scale_params.get("application-tag", "").replace("application-", ""),
+            "units": scale_params.get("scale", 1),
+        }
+
+    if key == ("Application", "DestroyApplication"):
+        entities = params.get("applications") or [{}]
+        app_tag = entities[0].get("application-tag", "").replace("application-", "")
+        return {"app": app_tag}
+
+    if key in (("Action", "Enqueue"), ("Action", "EnqueueOperation")):
+        actions = params.get("actions") or [{}]
+        a = actions[0] if actions else {}
+        return {
+            "unit": a.get("receiver", "").replace("unit-", "").replace("-", "/", 1),
+            "action": a.get("name", ""),
+            "params": a.get("parameters") or {},
+        }
+
+    if key == ("Client", "Status"):
+        return {}
+
+    return {}
+
+
+def _format_ts(dt: datetime) -> str:
+    return f"{dt:%Y-%m-%dT%H:%M:%S}.{dt.microsecond // 1000:03d}Z"
+
+
+def _parse_iso(ts: str) -> float:
+    """Parse ISO-8601 UTC timestamp to a Unix timestamp float."""
+    # e.g. "2026-06-22T01:02:03.456Z"
+    try:
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        return dt.timestamp()
+    except ValueError:
+        return 0.0
+
+
+# ---------------------------------------------------------------------------
+# Main correlator
+# ---------------------------------------------------------------------------
+
+
+def correlate(
+    rpcs: list[dict[str, Any]],
+    deltas: list[dict[str, Any]],
+    *,
+    window_seconds: float = 2.0,
+) -> list[dict[str, Any]]:
+    """Pair RPCs with their delta bursts; emit SCHEMA.md-shaped events.
+
+    Parameters
+    ----------
+    rpcs:
+        List of RPC records from ``LibjujuTap.rpcs``.
+    deltas:
+        List of delta records from ``LibjujuTap.deltas``.
+    window_seconds:
+        Deltas arriving within this many seconds after an RPC's end timestamp
+        are attributed to that RPC.  Default 2 s.
+
+    Returns
+    -------
+    list of event dicts in SCHEMA.md EventEnvelope shape, with ``seq``
+    starting at 1.
+    """
+    # Filter to user-facing RPCs only
+    user_rpcs = [
+        r for r in rpcs if not _is_internal(r.get("facade", ""), r.get("method", ""))
+    ]
+
+    # Attach deltas to their nearest preceding RPC within window_seconds.
+    rpc_deltas: dict[int, list[dict[str, Any]]] = {i: [] for i in range(len(user_rpcs))}
+    orphan_deltas: list[dict[str, Any]] = []
+
+    for delta in deltas:
+        delta_ts = _parse_iso(delta.get("ts_iso", ""))
+        best_idx: int | None = None
+        best_dist = float("inf")
+
+        for i, rpc in enumerate(user_rpcs):
+            rpc_end_ts = _parse_iso(rpc.get("ts_end_iso", ""))
+            dist = delta_ts - rpc_end_ts  # positive = delta after RPC
+            # Accept if delta arrives within window_seconds after (or just slightly before) RPC end.
+            if -0.5 <= dist <= window_seconds and dist < best_dist:
+                best_dist = dist
+                best_idx = i
+
+        if best_idx is not None:
+            rpc_deltas[best_idx].append(delta)
+        else:
+            orphan_deltas.append(delta)
+
+    # Build events by replaying model state and emitting one event per RPC.
+    state = _ModelState()
+    events: list[dict[str, Any]] = []
+    seq = 0
+
+    # Pre-apply all deltas that arrive before the first user RPC (initial sync burst).
+    first_rpc_ts = _parse_iso(user_rpcs[0]["ts_end_iso"]) if user_rpcs else float("inf")
+    pre_deltas = [
+        d for d in deltas if _parse_iso(d.get("ts_iso", "")) < first_rpc_ts - window_seconds
+    ]
+    for d in pre_deltas:
+        state.apply_delta(d)
+
+    for i, rpc in enumerate(user_rpcs):
+        facade = rpc.get("facade", "")
+        method = rpc.get("method", "")
+        params = rpc.get("params") or {}
+        ts = rpc.get("ts_start_iso", rpc.get("ts_end_iso", ""))
+
+        bucket, op = _classify(facade, method)
+
+        snap_before = state.snapshot(rpc.get("ts_start_iso", ts))
+
+        # Apply the deltas attributed to this RPC.
+        attributed = rpc_deltas.get(i, [])
+        for d in attributed:
+            state.apply_delta(d)
+
+        snap_after = state.snapshot(rpc.get("ts_end_iso", ts))
+
+        seq += 1
+        rpc_label = f"libjuju {facade}.{method}"
+
+        if bucket == "1" and op is not None:
+            args = _extract_args(facade, method, params)
+            result: dict[str, Any] = {}
+            if op == "deploy":
+                result = {"app_name": args.get("app") or args.get("charm", "").split("/")[-1]}
+            elif op == "config_get":
+                result = {"values": {}}
+            elif op == "run":
+                result = {"success": True, "results": {}, "message": None}
+
+            event: dict[str, Any] = {
+                "seq": seq,
+                "op": op,
+                "ts": ts,
+                "args": args,
+                "result": result,
+                "model_snapshot_before": snap_before,
+                "model_snapshot_after": snap_after,
+                "assertions": [],
+                "gesture": None,
+                "_libjuju_source": rpc_label,
+            }
+
+        elif bucket == "2":
+            event = {
+                "seq": seq,
+                "op": "shell",
+                "ts": ts,
+                "args": {"command": [f"# libjuju {facade}.{method}"], "cwd": None},
+                "result": {"captured": False, "returncode": None, "stdout": None, "stderr": None},
+                "model_snapshot_before": snap_before,
+                "model_snapshot_after": snap_after,
+                "assertions": [],
+                "gesture": None,
+                "note": rpc_label,
+                "_libjuju_source": rpc_label,
+            }
+
+        else:  # bucket 3
+            event = {
+                "seq": seq,
+                "op": "_todo",
+                "ts": ts,
+                "args": {"_raw_facade": facade, "_raw_method": method, "_raw_params": params},
+                "result": {},
+                "model_snapshot_before": snap_before,
+                "model_snapshot_after": snap_after,
+                "assertions": [],
+                "gesture": None,
+                "note": f"# TODO: manual step — {rpc_label}",
+                "_libjuju_source": rpc_label,
+            }
+
+        events.append(event)
+
+    # Emit orphan event if there were unattributed deltas.
+    if orphan_deltas:
+        for d in orphan_deltas:
+            state.apply_delta(d)
+        seq += 1
+        events.append(
+            {
+                "seq": seq,
+                "op": "_libjuju_orphan_deltas",
+                "ts": _format_ts(datetime.now(UTC)),
+                "args": {},
+                "result": {"orphan_delta_count": len(orphan_deltas)},
+                "model_snapshot_before": None,
+                "model_snapshot_after": state.snapshot(_format_ts(datetime.now(UTC))),
+                "assertions": [],
+                "gesture": None,
+                "note": f"# {len(orphan_deltas)} delta(s) not attributable to any RPC",
+            }
+        )
+
+    return events
