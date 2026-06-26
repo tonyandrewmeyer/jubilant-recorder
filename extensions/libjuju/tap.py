@@ -118,7 +118,7 @@ class LibjujuTap:
 
         return Connection
 
-    def __enter__(self) -> "LibjujuTap":
+    def __enter__(self) -> LibjujuTap:
         Connection = self._get_connection_class()
 
         tap = self

@@ -14,12 +14,12 @@ heavy optional dependencies (websockets, macaroonbakery) not available in
 the CI/test sandbox.  The ``_connection_class`` parameter on ``LibjujuTap``
 exists precisely for this pattern.
 """
+
 from __future__ import annotations
 
 import asyncio
 
 from extensions.libjuju.tap import LibjujuTap
-
 
 # ---------------------------------------------------------------------------
 # Fake Connection class + helper factories
@@ -72,14 +72,20 @@ def _run_rpc(msg: dict) -> dict:
 
 class TestTapCapturesRPCs:
     def test_deploy_rpc_is_captured(self):
-        stub = _make_stub([{"request-id": 1, "response": {"results": [{"tag": "application-my-charm"}]}}])
+        stub = _make_stub(
+            [{"request-id": 1, "response": {"results": [{"tag": "application-my-charm"}]}}]
+        )
         with _make_tap(stub) as tap:
             _run_rpc(
                 {
                     "type": "Application",
                     "request": "Deploy",
                     "version": 20,
-                    "params": {"applications": [{"charm-url": "ch:my-charm", "application-name": "my-charm"}]},
+                    "params": {
+                        "applications": [
+                            {"charm-url": "ch:my-charm", "application-name": "my-charm"}
+                        ]
+                    },
                 }
             )
 
@@ -119,7 +125,9 @@ class TestTapCapturesRPCs:
         )
         with _make_tap(stub) as tap:
             _run_rpc({"type": "Application", "request": "Deploy", "version": 20, "params": {}})
-            _run_rpc({"type": "Application", "request": "AddRelation", "version": 20, "params": {}})
+            _run_rpc(
+                {"type": "Application", "request": "AddRelation", "version": 20, "params": {}}
+            )
             _run_rpc({"type": "Client", "request": "Status", "version": 6, "params": {}})
 
         assert len(tap.rpcs) == 3
@@ -170,7 +178,11 @@ class TestTapFiltersInternalRPCs:
             "request-id": 1,
             "response": {
                 "deltas": [
-                    ["application", "change", {"name": "my-charm", "status": {"current": "waiting"}}],
+                    [
+                        "application",
+                        "change",
+                        {"name": "my-charm", "status": {"current": "waiting"}},
+                    ],
                     [
                         "unit",
                         "change",
@@ -210,9 +222,20 @@ class TestTapFiltersInternalRPCs:
                 {"request-id": 1, "response": {}},  # Application.Deploy
                 {
                     "request-id": 2,
-                    "response": {"deltas": [["unit", "change", {"name": "x/0", "application": "x",
-                                                                  "workload-status": {"current": "maintenance", "message": ""},
-                                                                  "agent-status": {"current": "executing", "message": ""}}]]},
+                    "response": {
+                        "deltas": [
+                            [
+                                "unit",
+                                "change",
+                                {
+                                    "name": "x/0",
+                                    "application": "x",
+                                    "workload-status": {"current": "maintenance", "message": ""},
+                                    "agent-status": {"current": "executing", "message": ""},
+                                },
+                            ]
+                        ]
+                    },
                 },  # AllWatcher.Next
                 {"request-id": 3, "response": {}},  # Client.Status
             ]
@@ -238,7 +261,7 @@ class TestTapContextManager:
         stub = _make_stub([{"request-id": 1, "response": {}}])
         FakeConnection.rpc = stub
 
-        with LibjujuTap(_connection_class=FakeConnection) as tap:
+        with LibjujuTap(_connection_class=FakeConnection):
             assert FakeConnection.rpc is not stub  # tap replaced it
 
         assert FakeConnection.rpc is stub  # restored after context exit
@@ -322,8 +345,14 @@ class TestDeltaTimestamps:
         """Delta timestamps reflect when the AllWatcher.Next response arrived."""
         stub = _make_stub(
             [
-                {"request-id": 1, "response": {"deltas": [["application", "change", {"name": "x"}]]}},
-                {"request-id": 2, "response": {"deltas": [["application", "change", {"name": "y"}]]}},
+                {
+                    "request-id": 1,
+                    "response": {"deltas": [["application", "change", {"name": "x"}]]},
+                },
+                {
+                    "request-id": 2,
+                    "response": {"deltas": [["application", "change", {"name": "y"}]]},
+                },
             ]
         )
         with _make_tap(stub) as tap:

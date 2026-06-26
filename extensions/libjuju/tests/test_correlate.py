@@ -9,9 +9,10 @@ Timestamp convention used in these tests:
   RPC starts at T+0.000, ends at T+0.100.
   Delta bursts arrive at T+0.200 (within the default 2 s window).
 """
+
 from __future__ import annotations
 
-from extensions.libjuju.correlate import _ModelState, correlate
+from extensions.libjuju.correlate import _ModelState, _unit_tag_to_name, correlate
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -92,7 +93,11 @@ class TestDeployCorrelation:
                 {
                     "name": "my-charm/0",
                     "application": "my-charm",
-                    "workload-status": {"current": "maintenance", "message": "installing", "since": ""},
+                    "workload-status": {
+                        "current": "maintenance",
+                        "message": "installing",
+                        "since": "",
+                    },
                     "agent-status": {"current": "executing", "message": "", "since": ""},
                 },
             ),
@@ -112,7 +117,11 @@ class TestDeployCorrelation:
             _rpc(
                 "Application",
                 "Deploy",
-                {"applications": [{"charm-url": "ch:postgres", "application-name": "pg", "num-units": 1}]},
+                {
+                    "applications": [
+                        {"charm-url": "ch:postgres", "application-name": "pg", "num-units": 1}
+                    ]
+                },
             )
         ]
         deltas = [
@@ -122,7 +131,11 @@ class TestDeployCorrelation:
                 {
                     "name": "pg/0",
                     "application": "pg",
-                    "workload-status": {"current": "maintenance", "message": "installing", "since": ""},
+                    "workload-status": {
+                        "current": "maintenance",
+                        "message": "installing",
+                        "since": "",
+                    },
                     "agent-status": {"current": "executing", "message": "", "since": ""},
                 },
             ),
@@ -137,7 +150,13 @@ class TestDeployCorrelation:
         assert unit["agent_status"] == "executing"
 
     def test_snap_before_is_empty_when_no_prior_state(self):
-        rpcs = [_rpc("Application", "Deploy", {"applications": [{"charm-url": "ch:x", "application-name": "x"}]})]
+        rpcs = [
+            _rpc(
+                "Application",
+                "Deploy",
+                {"applications": [{"charm-url": "ch:x", "application-name": "x"}]},
+            )
+        ]
         events = correlate(rpcs, [])
 
         snap_before = events[0]["model_snapshot_before"]
@@ -187,7 +206,13 @@ class TestIntegrateCorrelation:
 
     def test_integrate_model_snapshot_after_shows_relation(self):
         rpcs = [
-            _rpc("Application", "AddRelation", {"endpoints": ["app1:ep", "app2:ep2"]}, start=1.0, end=1.1)
+            _rpc(
+                "Application",
+                "AddRelation",
+                {"endpoints": ["app1:ep", "app2:ep2"]},
+                start=1.0,
+                end=1.1,
+            )
         ]
         deltas = [
             _delta(
@@ -252,9 +277,22 @@ class TestBucketThreeCorrelation:
 
     def test_libjuju_source_field_present_on_all_events(self):
         rpcs = [
-            _rpc("Application", "Deploy", {"applications": [{"charm-url": "ch:x", "application-name": "x"}]}),
-            _rpc("Application", "SetCharm", {"application": "x"}, start=1.0, end=1.1, request_id=2),
-            _rpc("Application", "CharmRelations", {"application": "x"}, start=2.0, end=2.1, request_id=3),
+            _rpc(
+                "Application",
+                "Deploy",
+                {"applications": [{"charm-url": "ch:x", "application-name": "x"}]},
+            ),
+            _rpc(
+                "Application", "SetCharm", {"application": "x"}, start=1.0, end=1.1, request_id=2
+            ),
+            _rpc(
+                "Application",
+                "CharmRelations",
+                {"application": "x"},
+                start=2.0,
+                end=2.1,
+                request_id=3,
+            ),
         ]
         events = correlate(rpcs, [])
 
@@ -270,15 +308,25 @@ class TestBucketThreeCorrelation:
 class TestOutOfOrderDeltas:
     def test_delta_before_rpc_end_is_still_attributed(self):
         """A delta that arrives slightly before the RPC's ts_end should still be attributed."""
-        rpcs = [_rpc("Application", "Deploy", {"applications": [{"charm-url": "ch:x", "application-name": "x"}]}, end=0.5)]
+        rpcs = [
+            _rpc(
+                "Application",
+                "Deploy",
+                {"applications": [{"charm-url": "ch:x", "application-name": "x"}]},
+                end=0.5,
+            )
+        ]
         # Delta at 0.4 — before ts_end (0.5) but within the 0.5 s pre-window
         deltas = [
             _delta(
                 "unit",
                 "change",
-                {"name": "x/0", "application": "x",
-                 "workload-status": {"current": "active", "message": "", "since": ""},
-                 "agent-status": {"current": "idle", "message": "", "since": ""}},
+                {
+                    "name": "x/0",
+                    "application": "x",
+                    "workload-status": {"current": "active", "message": "", "since": ""},
+                    "agent-status": {"current": "idle", "message": "", "since": ""},
+                },
                 ts_offset=0.4,
             )
         ]
@@ -289,14 +337,24 @@ class TestOutOfOrderDeltas:
 
     def test_orphan_deltas_not_attributed_to_any_rpc(self):
         """Deltas that arrive more than window_seconds after the last RPC become orphans."""
-        rpcs = [_rpc("Application", "Deploy", {"applications": [{"charm-url": "ch:x", "application-name": "x"}]}, end=0.1)]
+        rpcs = [
+            _rpc(
+                "Application",
+                "Deploy",
+                {"applications": [{"charm-url": "ch:x", "application-name": "x"}]},
+                end=0.1,
+            )
+        ]
         deltas = [
             _delta(
                 "unit",
                 "change",
-                {"name": "x/0", "application": "x",
-                 "workload-status": {"current": "active", "message": "", "since": ""},
-                 "agent-status": {"current": "idle", "message": "", "since": ""}},
+                {
+                    "name": "x/0",
+                    "application": "x",
+                    "workload-status": {"current": "active", "message": "", "since": ""},
+                    "agent-status": {"current": "idle", "message": "", "since": ""},
+                },
                 ts_offset=99.0,  # way after the window
             )
         ]
@@ -340,11 +398,16 @@ class TestModelState:
     def test_unit_remove(self):
         state = _ModelState()
         state.apply_delta(
-            _delta("unit", "change", {
-                "name": "x/0", "application": "x",
-                "workload-status": {"current": "active", "message": "", "since": ""},
-                "agent-status": {"current": "idle", "message": "", "since": ""},
-            })
+            _delta(
+                "unit",
+                "change",
+                {
+                    "name": "x/0",
+                    "application": "x",
+                    "workload-status": {"current": "active", "message": "", "since": ""},
+                    "agent-status": {"current": "idle", "message": "", "since": ""},
+                },
+            )
         )
         state.apply_delta(_delta("unit", "remove", {"name": "x/0"}))
 
@@ -419,7 +482,14 @@ class TestInternalRPCFiltering:
     def test_allwatcher_next_skipped(self):
         rpcs = [
             _rpc("AllWatcher", "Next", {}, request_id=1),
-            _rpc("Application", "Deploy", {"applications": [{"charm-url": "ch:x", "application-name": "x"}]}, start=1.0, end=1.1, request_id=2),
+            _rpc(
+                "Application",
+                "Deploy",
+                {"applications": [{"charm-url": "ch:x", "application-name": "x"}]},
+                start=1.0,
+                end=1.1,
+                request_id=2,
+            ),
         ]
         events = correlate(rpcs, [])
 
@@ -437,7 +507,14 @@ class TestInternalRPCFiltering:
     def test_client_watchall_skipped(self):
         rpcs = [
             _rpc("Client", "WatchAll", {}, request_id=1),
-            _rpc("Application", "AddRelation", {"endpoints": ["a:ep", "b:ep2"]}, start=1.0, end=1.1, request_id=2),
+            _rpc(
+                "Application",
+                "AddRelation",
+                {"endpoints": ["a:ep", "b:ep2"]},
+                start=1.0,
+                end=1.1,
+                request_id=2,
+            ),
         ]
         events = correlate(rpcs, [])
 
@@ -450,17 +527,78 @@ class TestInternalRPCFiltering:
 # ---------------------------------------------------------------------------
 
 
+class TestUnitTagConversion:
+    """``unit-my-charm-0`` ↔ ``my-charm/0`` — the unit number is the trailing
+    ``-N`` segment, not the first one. Step 3 regression: Action.Enqueue
+    args used to split on the FIRST hyphen and mangled multi-word app names."""
+
+    def test_single_word_app(self):
+        assert _unit_tag_to_name("unit-foo-0") == "foo/0"
+
+    def test_multi_word_app_preserves_hyphens(self):
+        assert _unit_tag_to_name("unit-my-charm-0") == "my-charm/0"
+
+    def test_three_word_app(self):
+        assert _unit_tag_to_name("unit-my-fancy-charm-12") == "my-fancy-charm/12"
+
+    def test_no_prefix(self):
+        assert _unit_tag_to_name("my-charm-0") == "my-charm/0"
+
+    def test_empty(self):
+        assert _unit_tag_to_name("") == ""
+
+    def test_action_enqueue_emits_correct_unit_in_run_args(self):
+        rpcs = [
+            _rpc(
+                "Action",
+                "EnqueueOperation",
+                {
+                    "actions": [
+                        {
+                            "receiver": "unit-postgresql-k8s-2",
+                            "name": "create-backup",
+                            "parameters": {"prefix": "nightly"},
+                        }
+                    ]
+                },
+            )
+        ]
+        events = correlate(rpcs, [])
+        assert events[0]["op"] == "run"
+        assert events[0]["args"]["unit"] == "postgresql-k8s/2"
+        assert events[0]["args"]["action"] == "create-backup"
+        assert events[0]["args"]["params"] == {"prefix": "nightly"}
+
+
 class TestSeqNumbering:
     def test_seq_starts_at_one(self):
-        rpcs = [_rpc("Application", "Deploy", {"applications": [{"charm-url": "ch:x", "application-name": "x"}]})]
+        rpcs = [
+            _rpc(
+                "Application",
+                "Deploy",
+                {"applications": [{"charm-url": "ch:x", "application-name": "x"}]},
+            )
+        ]
         events = correlate(rpcs, [])
 
         assert events[0]["seq"] == 1
 
     def test_seq_is_monotonically_increasing(self):
         rpcs = [
-            _rpc("Application", "Deploy", {"applications": [{"charm-url": "ch:x", "application-name": "x"}]}, request_id=1),
-            _rpc("Application", "AddRelation", {"endpoints": ["x:ep", "y:ep"]}, start=1.0, end=1.1, request_id=2),
+            _rpc(
+                "Application",
+                "Deploy",
+                {"applications": [{"charm-url": "ch:x", "application-name": "x"}]},
+                request_id=1,
+            ),
+            _rpc(
+                "Application",
+                "AddRelation",
+                {"endpoints": ["x:ep", "y:ep"]},
+                start=1.0,
+                end=1.1,
+                request_id=2,
+            ),
             _rpc("Client", "Status", {}, start=2.0, end=2.1, request_id=3),
         ]
         events = correlate(rpcs, [])

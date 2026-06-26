@@ -108,9 +108,7 @@ _BUCKET2_FACADES: frozenset[tuple[str, str]] = frozenset(
 def _is_internal(facade: str, method: str) -> bool:
     if (facade, method) in _INTERNAL_FACADE_METHODS:
         return True
-    if facade == "AllWatcher":
-        return True
-    return False
+    return facade == "AllWatcher"
 
 
 def _classify(facade: str, method: str) -> tuple[str, str | None]:
@@ -204,6 +202,23 @@ class _ModelState:
 # ---------------------------------------------------------------------------
 
 
+def _unit_tag_to_name(receiver: str) -> str:
+    """Convert a Juju unit tag (``unit-my-charm-0``) back to ``my-charm/0``.
+
+    The Juju tag convention is ``unit-<unit name with "/" → "-">``, so the
+    unit number is always the trailing ``-N`` segment. Splitting on the
+    LAST hyphen is the correct inverse, not the first — applications often
+    contain hyphens themselves (``my-charm``, ``postgresql-k8s``).
+    """
+    if not receiver:
+        return ""
+    bare = receiver.removeprefix("unit-")
+    app, _, num = bare.rpartition("-")
+    if not app:
+        return bare
+    return f"{app}/{num}"
+
+
 def _extract_args(facade: str, method: str, params: dict[str, Any]) -> dict[str, Any]:
     """Map libjuju RPC params to the SCHEMA.md args dict for a bucket-1 op."""
     key = (facade, method)
@@ -237,7 +252,10 @@ def _extract_args(facade: str, method: str, params: dict[str, Any]) -> dict[str,
         return {"app": ac.get("application", ""), "values": ac.get("config") or {}}
 
     if key in (("Application", "Get"), ("Application", "GetConfig")):
-        app = params.get("application", params.get("entities", [{}])[0].get("tag", "").replace("application-", ""))
+        app = params.get(
+            "application",
+            params.get("entities", [{}])[0].get("tag", "").replace("application-", ""),
+        )
         return {"app": app, "keys": None}
 
     if key == ("Application", "AddUnits"):
@@ -259,7 +277,7 @@ def _extract_args(facade: str, method: str, params: dict[str, Any]) -> dict[str,
         actions = params.get("actions") or [{}]
         a = actions[0] if actions else {}
         return {
-            "unit": a.get("receiver", "").replace("unit-", "").replace("-", "/", 1),
+            "unit": _unit_tag_to_name(a.get("receiver", "")),
             "action": a.get("name", ""),
             "params": a.get("parameters") or {},
         }
@@ -313,9 +331,7 @@ def correlate(
     starting at 1.
     """
     # Filter to user-facing RPCs only
-    user_rpcs = [
-        r for r in rpcs if not _is_internal(r.get("facade", ""), r.get("method", ""))
-    ]
+    user_rpcs = [r for r in rpcs if not _is_internal(r.get("facade", ""), r.get("method", ""))]
 
     # Attach deltas to their nearest preceding RPC within window_seconds.
     rpc_deltas: dict[int, list[dict[str, Any]]] = {i: [] for i in range(len(user_rpcs))}
