@@ -1,0 +1,488 @@
+"""
+``RecordingLibjuju`` driver tests — fixture-driven, no live Juju controller.
+
+The strategy mirrors ``test_tap.py``: build a ``FakeConnection`` with a
+scripted async ``rpc`` method, hand it to a ``LibjujuTap``, fire the
+synthetic RPCs from inside the recorder's context, and assert the
+on-disk session log is SCHEMA-compliant and renderable by the canonical
+codegen.
+
+Where the test drives correlation directly (rather than through the
+tap), it injects a stub ``correlator`` callable so the test can be
+explicit about which events the log must contain.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+from pathlib import Path
+from typing import Any
+
+import pytest
+from extensions.libjuju.recording import RecordingLibjuju
+from extensions.libjuju.tap import LibjujuTap
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+class FakeConnection:
+    """Minimal stand-in for ``juju.client.connection.Connection``."""
+
+    rpc = None  # replaced per-test
+
+
+def _make_stub(responses: list[dict[str, Any]]):
+    counter = [0]
+
+    async def _stub(conn_self: FakeConnection, msg: dict, encoder: object = None) -> dict:
+        counter[0] += 1
+        msg["request-id"] = counter[0]
+        if not responses:
+            return {"request-id": counter[0], "response": {}}
+        idx = min(counter[0] - 1, len(responses) - 1)
+        return responses[idx]
+
+    return _stub
+
+
+def _run_rpc(msg: dict[str, Any]) -> dict[str, Any]:
+    conn = FakeConnection()
+    return asyncio.run(FakeConnection.rpc(conn, msg))
+
+
+def _read_log(path: Path) -> dict[str, Any]:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+# ---------------------------------------------------------------------------
+# Test: end-to-end through the real correlator
+# ---------------------------------------------------------------------------
+
+
+class TestRecordingEndToEnd:
+    def test_deploy_session_writes_schema_compliant_log(self, tmp_path: Path):
+        FakeConnection.rpc = _make_stub(
+            [
+                {"request-id": 1, "response": {"results": [{"tag": "application-my-charm"}]}},
+                {
+                    "request-id": 2,
+                    "response": {
+                        "deltas": [
+                            [
+                                "unit",
+                                "change",
+                                {
+                                    "name": "my-charm/0",
+                                    "application": "my-charm",
+                                    "workload-status": {
+                                        "current": "active",
+                                        "message": "",
+                                        "since": "",
+                                    },
+                                    "agent-status": {
+                                        "current": "idle",
+                                        "message": "",
+                                        "since": "",
+                                    },
+                                },
+                            ]
+                        ]
+                    },
+                },
+            ]
+        )
+        log_path = tmp_path / "session.json"
+        tap = LibjujuTap(_connection_class=FakeConnection)
+        with RecordingLibjuju.start(
+            log_path=log_path,
+            model="test-model",
+            tap=tap,
+        ):
+            _run_rpc(
+                {
+                    "type": "Application",
+                    "request": "Deploy",
+                    "version": 20,
+                    "params": {
+                        "applications": [
+                            {
+                                "charm-url": "ch:my-charm",
+                                "application-name": "my-charm",
+                                "num-units": 1,
+                            }
+                        ]
+                    },
+                }
+            )
+            _run_rpc({"type": "AllWatcher", "request": "Next", "version": 3, "params": {}})
+
+        doc = _read_log(log_path)
+        # SCHEMA-level top-level fields are present.
+        assert doc["schema_version"] == 1
+        assert doc["model"] == "test-model"
+        assert doc["session_id"]
+        assert doc["recorded_at"]
+        assert isinstance(doc["events"], list)
+        assert len(doc["events"]) == 1
+        ev = doc["events"][0]
+        assert ev["op"] == "deploy"
+        assert ev["seq"] == 1  # SessionLog seq, not correlate seq
+        assert ev["args"]["charm"] == "ch:my-charm"
+        assert ev["args"]["app"] == "my-charm"
+        # EventEnvelope keys are the only top-level keys per event.
+        assert set(ev.keys()) == {
+            "assertions",
+            "args",
+            "duration_ms",
+            "gesture",
+            "model_snapshot_after",
+            "model_snapshot_before",
+            "op",
+            "result",
+            "seq",
+            "ts",
+        }
+
+    def test_seq_is_assigned_by_session_log_not_correlator(self, tmp_path: Path):
+        """``correlate()`` assigns its own seq counter; the recorder must
+        ignore that and use the SessionLog's seq so the on-disk log meets
+        the canonical "no gaps" guarantee."""
+        log_path = tmp_path / "session.json"
+
+        def fake_correlator(rpcs, deltas):
+            # correlate-shaped events but with deliberately wrong seq values.
+            return [
+                {
+                    "seq": 99,
+                    "op": "integrate",
+                    "ts": "2026-06-25T00:00:00.000Z",
+                    "args": {"app1_endpoint": "a:db", "app2_endpoint": "b:database"},
+                    "result": {},
+                    "model_snapshot_before": None,
+                    "model_snapshot_after": None,
+                    "assertions": [],
+                    "gesture": None,
+                },
+                {
+                    "seq": 99,
+                    "op": "integrate",
+                    "ts": "2026-06-25T00:00:01.000Z",
+                    "args": {"app1_endpoint": "c:db", "app2_endpoint": "d:database"},
+                    "result": {},
+                    "model_snapshot_before": None,
+                    "model_snapshot_after": None,
+                    "assertions": [],
+                    "gesture": None,
+                },
+            ]
+
+        with RecordingLibjuju.start(
+            log_path=log_path,
+            model="m",
+            tap=LibjujuTap(_connection_class=FakeConnection),
+            correlator=fake_correlator,
+        ):
+            pass
+
+        doc = _read_log(log_path)
+        assert [e["seq"] for e in doc["events"]] == [1, 2]
+
+    def test_provenance_fields_are_stripped(self, tmp_path: Path):
+        """``correlate`` may attach ``_libjuju_source`` / ``note`` keys for
+        debugging; the on-disk log must contain only canonical EventEnvelope
+        keys so the tagger and codegen never trip over unexpected fields."""
+        log_path = tmp_path / "session.json"
+
+        def fake_correlator(rpcs, deltas):
+            return [
+                {
+                    "seq": 1,
+                    "op": "_todo",
+                    "ts": "2026-06-25T00:00:00.000Z",
+                    "args": {
+                        "_raw_facade": "Foo",
+                        "_raw_method": "Bar",
+                        "_raw_params": {},
+                        "_libjuju_source": "libjuju Foo.Bar",
+                    },
+                    "result": {},
+                    "model_snapshot_before": None,
+                    "model_snapshot_after": None,
+                    "assertions": [],
+                    "gesture": None,
+                    "_libjuju_source": "libjuju Foo.Bar",
+                    "note": "# TODO: manual step — libjuju Foo.Bar",
+                }
+            ]
+
+        with RecordingLibjuju.start(
+            log_path=log_path,
+            model="m",
+            tap=LibjujuTap(_connection_class=FakeConnection),
+            correlator=fake_correlator,
+        ):
+            pass
+
+        ev = _read_log(log_path)["events"][0]
+        assert "_libjuju_source" not in ev
+        assert "note" not in ev
+        assert "_libjuju_source" not in ev["args"]
+        # _raw_* fields ARE part of the bucket-3 args contract — keep them.
+        assert ev["args"]["_raw_facade"] == "Foo"
+
+
+# ---------------------------------------------------------------------------
+# Test: model_snapshot_before/after propagate through to the log
+# ---------------------------------------------------------------------------
+
+
+class TestSnapshotsPropagate:
+    def test_snapshot_before_and_after_present_for_bucket1(self, tmp_path: Path):
+        FakeConnection.rpc = _make_stub(
+            [
+                {"request-id": 1, "response": {"results": [{"tag": "application-x"}]}},
+                {
+                    "request-id": 2,
+                    "response": {
+                        "deltas": [
+                            [
+                                "unit",
+                                "change",
+                                {
+                                    "name": "x/0",
+                                    "application": "x",
+                                    "workload-status": {
+                                        "current": "maintenance",
+                                        "message": "installing",
+                                        "since": "",
+                                    },
+                                    "agent-status": {
+                                        "current": "executing",
+                                        "message": "",
+                                        "since": "",
+                                    },
+                                },
+                            ]
+                        ]
+                    },
+                },
+            ]
+        )
+        log_path = tmp_path / "session.json"
+        with RecordingLibjuju.start(
+            log_path=log_path,
+            model="m",
+            tap=LibjujuTap(_connection_class=FakeConnection),
+        ):
+            _run_rpc(
+                {
+                    "type": "Application",
+                    "request": "Deploy",
+                    "version": 20,
+                    "params": {
+                        "applications": [
+                            {"charm-url": "ch:x", "application-name": "x", "num-units": 1}
+                        ]
+                    },
+                }
+            )
+            _run_rpc({"type": "AllWatcher", "request": "Next", "version": 3, "params": {}})
+
+        ev = _read_log(log_path)["events"][0]
+        # before-snapshot exists, is well-formed, and shows no apps yet.
+        assert ev["model_snapshot_before"]["schema_version"] == 1
+        assert ev["model_snapshot_before"]["apps"] == {}
+        # after-snapshot exists and shows the new unit.
+        after = ev["model_snapshot_after"]
+        assert after["schema_version"] == 1
+        assert "x" in after["apps"]
+        assert "x/0" in after["apps"]["x"]["units"]
+        assert after["apps"]["x"]["units"]["x/0"]["workload_status"] == "maintenance"
+
+
+# ---------------------------------------------------------------------------
+# Test: bucket-2 / bucket-3 surface in the log without breaking it
+# ---------------------------------------------------------------------------
+
+
+class TestBucketTwoAndThree:
+    def test_bucket2_emits_shell_op(self, tmp_path: Path):
+        FakeConnection.rpc = _make_stub([{"request-id": 1, "response": {}}])
+        log_path = tmp_path / "session.json"
+        with RecordingLibjuju.start(
+            log_path=log_path,
+            model="m",
+            tap=LibjujuTap(_connection_class=FakeConnection),
+        ):
+            _run_rpc(
+                {
+                    "type": "Application",
+                    "request": "SetCharm",
+                    "version": 20,
+                    "params": {"application": "my-charm", "charm-url": "ch:my-charm-2"},
+                }
+            )
+
+        ev = _read_log(log_path)["events"][0]
+        assert ev["op"] == "shell"
+        # bucket-2 args.command has the original facade/method captured for the human.
+        assert "SetCharm" in ev["args"]["command"][0]
+
+    def test_bucket3_emits_todo_op(self, tmp_path: Path):
+        FakeConnection.rpc = _make_stub([{"request-id": 1, "response": {}}])
+        log_path = tmp_path / "session.json"
+        with RecordingLibjuju.start(
+            log_path=log_path,
+            model="m",
+            tap=LibjujuTap(_connection_class=FakeConnection),
+        ):
+            _run_rpc(
+                {
+                    "type": "Application",
+                    "request": "CharmRelations",
+                    "version": 20,
+                    "params": {"application": "my-charm"},
+                }
+            )
+
+        ev = _read_log(log_path)["events"][0]
+        assert ev["op"] == "_todo"
+        assert ev["args"]["_raw_facade"] == "Application"
+        assert ev["args"]["_raw_method"] == "CharmRelations"
+
+
+# ---------------------------------------------------------------------------
+# Test: error handling and tap restoration
+# ---------------------------------------------------------------------------
+
+
+class TestContextManagerSafety:
+    def test_session_error_recorded_when_body_raises(self, tmp_path: Path):
+        FakeConnection.rpc = _make_stub([{"request-id": 1, "response": {}}])
+        log_path = tmp_path / "session.json"
+        with (
+            pytest.raises(RuntimeError, match="boom"),
+            RecordingLibjuju.start(
+                log_path=log_path,
+                model="m",
+                tap=LibjujuTap(_connection_class=FakeConnection),
+            ),
+        ):
+            _run_rpc(
+                {
+                    "type": "Application",
+                    "request": "Deploy",
+                    "version": 20,
+                    "params": {"applications": [{"charm-url": "ch:x", "application-name": "x"}]},
+                }
+            )
+            raise RuntimeError("boom")
+
+        doc = _read_log(log_path)
+        ops = [e["op"] for e in doc["events"]]
+        # The deploy was captured before the failure; the error is recorded after.
+        assert ops[-1] == "session.error"
+        assert "boom" in doc["events"][-1]["result"]["error"]
+        assert "deploy" in ops
+
+    def test_tap_is_unpatched_after_exit(self, tmp_path: Path):
+        original_rpc = _make_stub([])
+        FakeConnection.rpc = original_rpc
+        log_path = tmp_path / "session.json"
+        with RecordingLibjuju.start(
+            log_path=log_path,
+            model="m",
+            tap=LibjujuTap(_connection_class=FakeConnection),
+        ):
+            pass
+        assert FakeConnection.rpc is original_rpc
+
+    def test_tap_is_unpatched_even_when_body_raises(self, tmp_path: Path):
+        original_rpc = _make_stub([])
+        FakeConnection.rpc = original_rpc
+        log_path = tmp_path / "session.json"
+        with (
+            pytest.raises(ValueError),
+            RecordingLibjuju.start(
+                log_path=log_path,
+                model="m",
+                tap=LibjujuTap(_connection_class=FakeConnection),
+            ),
+        ):
+            raise ValueError("kaboom")
+        assert FakeConnection.rpc is original_rpc
+
+    def test_empty_session_writes_empty_events_list(self, tmp_path: Path):
+        FakeConnection.rpc = _make_stub([])
+        log_path = tmp_path / "session.json"
+        with RecordingLibjuju.start(
+            log_path=log_path,
+            model="m",
+            tap=LibjujuTap(_connection_class=FakeConnection),
+        ):
+            pass
+        doc = _read_log(log_path)
+        assert doc["events"] == []
+
+    def test_session_log_accessor_outside_context_raises(self, tmp_path: Path):
+        rec = RecordingLibjuju(
+            output_log_path=tmp_path / "session.json",
+            model="m",
+            tap=LibjujuTap(_connection_class=FakeConnection),
+        )
+        with pytest.raises(RuntimeError, match="session_log only available"):
+            _ = rec.session_log
+
+
+# ---------------------------------------------------------------------------
+# Test: multi-RPC ordering and seq monotonicity
+# ---------------------------------------------------------------------------
+
+
+class TestSequenceOrdering:
+    def test_three_rpcs_produce_three_events_with_monotonic_seq(self, tmp_path: Path):
+        FakeConnection.rpc = _make_stub(
+            [
+                {"request-id": 1, "response": {}},
+                {"request-id": 2, "response": {}},
+                {"request-id": 3, "response": {}},
+            ]
+        )
+        log_path = tmp_path / "session.json"
+        with RecordingLibjuju.start(
+            log_path=log_path,
+            model="m",
+            tap=LibjujuTap(_connection_class=FakeConnection),
+        ):
+            _run_rpc(
+                {
+                    "type": "Application",
+                    "request": "Deploy",
+                    "version": 20,
+                    "params": {"applications": [{"charm-url": "ch:a", "application-name": "a"}]},
+                }
+            )
+            _run_rpc(
+                {
+                    "type": "Application",
+                    "request": "AddRelation",
+                    "version": 20,
+                    "params": {"endpoints": ["a:ep", "b:ep"]},
+                }
+            )
+            _run_rpc(
+                {
+                    "type": "Client",
+                    "request": "Status",
+                    "version": 6,
+                    "params": {},
+                }
+            )
+
+        ops = [e["op"] for e in _read_log(log_path)["events"]]
+        seqs = [e["seq"] for e in _read_log(log_path)["events"]]
+        assert ops == ["deploy", "integrate", "status"]
+        assert seqs == [1, 2, 3]
