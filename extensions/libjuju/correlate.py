@@ -58,6 +58,7 @@ Internal RPCs (skipped, never emit events):
 
 from __future__ import annotations
 
+import os
 from datetime import UTC, datetime
 from typing import Any
 
@@ -302,6 +303,21 @@ def _parse_iso(ts: str) -> float:
         return 0.0
 
 
+def _find_last_delta_ts(
+    deltas: list[dict[str, Any]],
+    window_start: float,
+    window_end: float,
+) -> float | None:
+    """Return the latest delta timestamp in (window_start, window_end], or None."""
+    latest: float | None = None
+    for d in deltas:
+        ts = _parse_iso(d.get("ts_iso", ""))
+        if window_start < ts <= window_end:
+            if latest is None or ts > latest:
+                latest = ts
+    return latest
+
+
 # ---------------------------------------------------------------------------
 # Main correlator
 # ---------------------------------------------------------------------------
@@ -312,6 +328,7 @@ def correlate(
     deltas: list[dict[str, Any]],
     *,
     window_seconds: float = 2.0,
+    idle_threshold_seconds: float | None = None,
 ) -> list[dict[str, Any]]:
     """Pair RPCs with their delta bursts; emit SCHEMA.md-shaped events.
 
@@ -324,12 +341,24 @@ def correlate(
     window_seconds:
         Deltas arriving within this many seconds after an RPC's end timestamp
         are attributed to that RPC.  Default 2 s.
+    idle_threshold_seconds:
+        Minimum quiet-window duration (seconds) between two consecutive
+        user-facing RPCs that triggers synthesis of a ``wait_for_idle`` event.
+        A "quiet window" is the period from the last AllWatcher delta arrival
+        in the inter-RPC gap to the start of the next user RPC.  If ``None``
+        (the default), the value is read from the ``LIBJUJU_IDLE_THRESHOLD_S``
+        environment variable, falling back to 5.0 s.
 
     Returns
     -------
     list of event dicts in SCHEMA.md EventEnvelope shape, with ``seq``
     starting at 1.
     """
+    if idle_threshold_seconds is None:
+        try:
+            idle_threshold_seconds = float(os.environ.get("LIBJUJU_IDLE_THRESHOLD_S", "5.0"))
+        except ValueError:
+            idle_threshold_seconds = 5.0
     # Filter to user-facing RPCs only
     user_rpcs = [r for r in rpcs if not _is_internal(r.get("facade", ""), r.get("method", ""))]
 
@@ -376,6 +405,10 @@ def correlate(
 
         bucket, op = _classify(facade, method)
 
+        rpc_start_ts_float = _parse_iso(rpc.get("ts_start_iso", ts))
+        rpc_end_ts_float = _parse_iso(rpc.get("ts_end_iso", ts))
+        duration_ms = max(0.0, (rpc_end_ts_float - rpc_start_ts_float) * 1000)
+
         snap_before = state.snapshot(rpc.get("ts_start_iso", ts))
 
         # Apply the deltas attributed to this RPC.
@@ -408,6 +441,7 @@ def correlate(
                 "model_snapshot_after": snap_after,
                 "assertions": [],
                 "gesture": None,
+                "duration_ms": duration_ms,
                 "_libjuju_source": rpc_label,
             }
 
@@ -422,6 +456,7 @@ def correlate(
                 "model_snapshot_after": snap_after,
                 "assertions": [],
                 "gesture": None,
+                "duration_ms": duration_ms,
                 "note": rpc_label,
                 "_libjuju_source": rpc_label,
             }
@@ -437,28 +472,60 @@ def correlate(
                 "model_snapshot_after": snap_after,
                 "assertions": [],
                 "gesture": None,
+                "duration_ms": duration_ms,
                 "note": f"# TODO: manual step — {rpc_label}",
                 "_libjuju_source": rpc_label,
             }
 
         events.append(event)
 
+        # Synthesise a wait_for_idle event when the inter-RPC quiet window exceeds the threshold.
+        # A "quiet window" starts at the last delta arrival in the gap and ends when the next RPC starts.
+        if i + 1 < len(user_rpcs):
+            next_rpc = user_rpcs[i + 1]
+            next_rpc_start_ts = _parse_iso(
+                next_rpc.get("ts_start_iso", next_rpc.get("ts_end_iso", ""))
+            )
+            last_delta_ts = _find_last_delta_ts(deltas, rpc_end_ts_float, next_rpc_start_ts)
+            window_start = last_delta_ts if last_delta_ts is not None else rpc_end_ts_float
+            quiet_duration = next_rpc_start_ts - window_start
+            if quiet_duration >= idle_threshold_seconds:
+                quiet_start_iso = _format_ts(datetime.fromtimestamp(window_start, tz=UTC))
+                settled_at_iso = _format_ts(datetime.fromtimestamp(next_rpc_start_ts, tz=UTC))
+                idle_snap = state.snapshot(quiet_start_iso)
+                seq += 1
+                events.append({
+                    "seq": seq,
+                    "op": "wait_for_idle",
+                    "ts": quiet_start_iso,
+                    "args": {"apps": None, "timeout": None},
+                    "result": {"settled_at": settled_at_iso},
+                    "model_snapshot_before": idle_snap,
+                    "model_snapshot_after": idle_snap,
+                    "assertions": [],
+                    "gesture": None,
+                    "duration_ms": quiet_duration * 1000,
+                    "_libjuju_source": "synthesised from AllWatcher cadence",
+                })
+
     # Emit orphan event if there were unattributed deltas.
     if orphan_deltas:
         for d in orphan_deltas:
             state.apply_delta(d)
         seq += 1
+        now_iso = _format_ts(datetime.now(UTC))
         events.append(
             {
                 "seq": seq,
                 "op": "_libjuju_orphan_deltas",
-                "ts": _format_ts(datetime.now(UTC)),
+                "ts": now_iso,
                 "args": {},
                 "result": {"orphan_delta_count": len(orphan_deltas)},
                 "model_snapshot_before": None,
-                "model_snapshot_after": state.snapshot(_format_ts(datetime.now(UTC))),
+                "model_snapshot_after": state.snapshot(now_iso),
                 "assertions": [],
                 "gesture": None,
+                "duration_ms": 0.0,
                 "note": f"# {len(orphan_deltas)} delta(s) not attributable to any RPC",
             }
         )

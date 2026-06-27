@@ -59,6 +59,7 @@ cannot replay automatically.
 from __future__ import annotations
 
 import contextlib
+import functools
 import types
 from collections.abc import Callable, Generator
 from pathlib import Path
@@ -108,11 +109,19 @@ class RecordingLibjuju:
         model: str = "",
         tap: LibjujuTap | None = None,
         correlator: Correlator | None = None,
+        idle_threshold_seconds: float | None = None,
     ) -> None:
         self._output_log_path = output_log_path
         self._model = model
         self._tap: LibjujuTap = tap if tap is not None else LibjujuTap()
-        self._correlator: Correlator = correlator if correlator is not None else _default_correlate
+        if correlator is not None:
+            self._correlator: Correlator = correlator
+        elif idle_threshold_seconds is not None:
+            self._correlator = functools.partial(
+                _default_correlate, idle_threshold_seconds=idle_threshold_seconds
+            )
+        else:
+            self._correlator = _default_correlate
         self._session_log: SessionLog | None = None
 
     # ------------------------------------------------------------------
@@ -186,12 +195,14 @@ class RecordingLibjuju:
         model: str = "",
         tap: LibjujuTap | None = None,
         correlator: Correlator | None = None,
+        idle_threshold_seconds: float | None = None,
     ) -> Generator[RecordingLibjuju, None, None]:
         recorder = cls(
             output_log_path=log_path,
             model=model,
             tap=tap,
             correlator=correlator,
+            idle_threshold_seconds=idle_threshold_seconds,
         )
         with recorder as ctx:
             yield ctx
@@ -207,9 +218,9 @@ def _event_to_envelope(raw_event: dict[str, Any], seq: int) -> EventEnvelope:
     Provenance-only keys (for example ``_libjuju_source``, ``note``) are
     not part of the EventEnvelope and are dropped here.
 
-    ``duration_ms`` is set to 0.0: ``correlate()`` does not currently
-    surface per-RPC duration, and no downstream consumer (tagger,
-    codegen) reads the field — it is producer-only metadata.
+    ``duration_ms`` is read directly from the event dict.  ``correlate()``
+    computes it from ``ts_start_iso``/``ts_end_iso`` on each RPC and from
+    the quiet-window span for synthesised ``wait_for_idle`` events.
     """
     args = dict(raw_event.get("args") or {})
     for k in list(args):
@@ -225,5 +236,5 @@ def _event_to_envelope(raw_event: dict[str, Any], seq: int) -> EventEnvelope:
         model_snapshot_after=raw_event.get("model_snapshot_after"),
         assertions=list(raw_event.get("assertions") or []),
         gesture=raw_event.get("gesture"),
-        duration_ms=0.0,
+        duration_ms=float(raw_event.get("duration_ms") or 0.0),
     )

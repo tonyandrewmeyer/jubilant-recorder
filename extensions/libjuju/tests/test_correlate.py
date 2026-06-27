@@ -604,3 +604,330 @@ class TestSeqNumbering:
         events = correlate(rpcs, [])
 
         assert [e["seq"] for e in events] == [1, 2, 3]
+
+
+# ---------------------------------------------------------------------------
+# Test: duration_ms — carry (a) from step-3
+# ---------------------------------------------------------------------------
+
+
+class TestDurationMs:
+    def test_duration_ms_present_on_bucket1_events(self):
+        rpcs = [
+            _rpc(
+                "Application",
+                "Deploy",
+                {"applications": [{"charm-url": "ch:x", "application-name": "x"}]},
+                start=0.0,
+                end=0.1,
+            )
+        ]
+        events = correlate(rpcs, [])
+
+        assert "duration_ms" in events[0]
+        assert isinstance(events[0]["duration_ms"], float)
+
+    def test_duration_ms_reflects_rpc_wall_clock(self):
+        """RPC from t=0.0 to t=1.0 → duration_ms ≈ 1000."""
+        rpcs = [
+            _rpc(
+                "Application",
+                "Deploy",
+                {"applications": [{"charm-url": "ch:x", "application-name": "x"}]},
+                start=0.0,
+                end=1.0,
+            )
+        ]
+        events = correlate(rpcs, [])
+
+        # 1-second RPC → 1000 ms (allow 1 ms rounding from the ms-precision timestamps).
+        assert abs(events[0]["duration_ms"] - 1000.0) <= 1.0
+
+    def test_duration_ms_present_on_bucket2_shell_events(self):
+        rpcs = [_rpc("Application", "SetCharm", {"application": "x"}, start=0.0, end=0.5)]
+        events = correlate(rpcs, [])
+
+        assert events[0]["op"] == "shell"
+        assert "duration_ms" in events[0]
+        assert isinstance(events[0]["duration_ms"], float)
+
+    def test_duration_ms_present_on_bucket3_todo_events(self):
+        rpcs = [_rpc("Application", "CharmRelations", {"application": "x"}, start=0.0, end=0.3)]
+        events = correlate(rpcs, [])
+
+        assert events[0]["op"] == "_todo"
+        assert "duration_ms" in events[0]
+
+    def test_duration_ms_zero_on_orphan_event(self):
+        """Orphan events are synthetic — duration_ms is 0."""
+        rpcs = [
+            _rpc(
+                "Application",
+                "Deploy",
+                {"applications": [{"charm-url": "ch:x", "application-name": "x"}]},
+                end=0.1,
+            )
+        ]
+        deltas = [
+            _delta(
+                "unit",
+                "change",
+                {
+                    "name": "x/0",
+                    "application": "x",
+                    "workload-status": {"current": "active", "message": "", "since": ""},
+                    "agent-status": {"current": "idle", "message": "", "since": ""},
+                },
+                ts_offset=99.0,
+            )
+        ]
+        events = correlate(rpcs, deltas, window_seconds=2.0)
+
+        orphan = events[-1]
+        assert orphan["op"] == "_libjuju_orphan_deltas"
+        assert orphan["duration_ms"] == 0.0
+
+    def test_duration_ms_non_negative(self):
+        """duration_ms is always >= 0 regardless of timestamp ordering."""
+        rpcs = [
+            _rpc(
+                "Application",
+                "Deploy",
+                {"applications": [{"charm-url": "ch:x", "application-name": "x"}]},
+                start=5.0,
+                end=5.0,  # same start and end → 0 ms
+            )
+        ]
+        events = correlate(rpcs, [])
+
+        assert events[0]["duration_ms"] >= 0.0
+
+
+# ---------------------------------------------------------------------------
+# Test: wait_for_idle synthesis — carry (b) from step-3
+# ---------------------------------------------------------------------------
+
+# Timestamps for synthesis tests — keep seconds < 60 so the _ts helper stays valid.
+# Scenario: RPC[0] ends at t=1, last delta at t=3, RPC[1] starts at t=10.
+# Quiet window: t=3 → t=10 (7 s > 5 s threshold) → synthesis expected.
+_DEPLOY_RPC_START = 0.0
+_DEPLOY_RPC_END = 1.0
+_UNIT_DELTA_TS = 3.0
+_RELATE_RPC_START = 10.0
+_RELATE_RPC_END = 10.1
+
+
+def _synthesis_rpcs() -> list[dict]:
+    return [
+        _rpc(
+            "Application",
+            "Deploy",
+            {"applications": [{"charm-url": "ch:x", "application-name": "x"}]},
+            start=_DEPLOY_RPC_START,
+            end=_DEPLOY_RPC_END,
+            request_id=1,
+        ),
+        _rpc(
+            "Application",
+            "AddRelation",
+            {"endpoints": ["x:db", "y:database"]},
+            start=_RELATE_RPC_START,
+            end=_RELATE_RPC_END,
+            request_id=2,
+        ),
+    ]
+
+
+def _active_unit_delta(ts_offset: float) -> dict:
+    return _delta(
+        "unit",
+        "change",
+        {
+            "name": "x/0",
+            "application": "x",
+            "workload-status": {"current": "active", "message": "", "since": ""},
+            "agent-status": {"current": "idle", "message": "", "since": ""},
+        },
+        ts_offset=ts_offset,
+    )
+
+
+class TestWaitForIdleSynthesis:
+    def test_quiet_window_synthesises_wait_for_idle(self):
+        """Gap of 7 s with threshold=5 s → one synthesised wait_for_idle."""
+        events = correlate(
+            _synthesis_rpcs(),
+            [_active_unit_delta(_UNIT_DELTA_TS)],
+            idle_threshold_seconds=5.0,
+        )
+
+        ops = [e["op"] for e in events]
+        assert "wait_for_idle" in ops
+
+    def test_synthesised_event_inserted_between_rpcs(self):
+        """wait_for_idle appears between deploy and integrate, not before/after."""
+        events = correlate(
+            _synthesis_rpcs(),
+            [_active_unit_delta(_UNIT_DELTA_TS)],
+            idle_threshold_seconds=5.0,
+        )
+
+        ops = [e["op"] for e in events]
+        assert ops == ["deploy", "wait_for_idle", "integrate"]
+
+    def test_seq_is_monotonically_increasing_with_synthesised_event(self):
+        events = correlate(
+            _synthesis_rpcs(),
+            [_active_unit_delta(_UNIT_DELTA_TS)],
+            idle_threshold_seconds=5.0,
+        )
+
+        seqs = [e["seq"] for e in events]
+        assert seqs == list(range(1, len(events) + 1))
+
+    def test_wait_for_idle_args_shape(self):
+        """synthesised wait_for_idle has apps=null, timeout=null per SCHEMA.md."""
+        events = correlate(
+            _synthesis_rpcs(),
+            [_active_unit_delta(_UNIT_DELTA_TS)],
+            idle_threshold_seconds=5.0,
+        )
+
+        wfi = next(e for e in events if e["op"] == "wait_for_idle")
+        assert wfi["args"] == {"apps": None, "timeout": None}
+
+    def test_wait_for_idle_result_has_settled_at(self):
+        """settled_at in the result is the start of the next user RPC."""
+        events = correlate(
+            _synthesis_rpcs(),
+            [_active_unit_delta(_UNIT_DELTA_TS)],
+            idle_threshold_seconds=5.0,
+        )
+
+        wfi = next(e for e in events if e["op"] == "wait_for_idle")
+        assert "settled_at" in wfi["result"]
+        assert wfi["result"]["settled_at"] is not None
+
+    def test_wait_for_idle_duration_ms_equals_quiet_window(self):
+        """duration_ms = (next_rpc_start - last_delta_ts) * 1000."""
+        events = correlate(
+            _synthesis_rpcs(),
+            [_active_unit_delta(_UNIT_DELTA_TS)],
+            idle_threshold_seconds=5.0,
+        )
+
+        wfi = next(e for e in events if e["op"] == "wait_for_idle")
+        # quiet window: _RELATE_RPC_START - _UNIT_DELTA_TS = 7.0 s → 7000 ms (±1 ms rounding)
+        expected_ms = (_RELATE_RPC_START - _UNIT_DELTA_TS) * 1000
+        assert abs(wfi["duration_ms"] - expected_ms) <= 1.0
+
+    def test_quiet_window_below_threshold_not_synthesised(self):
+        """Gap of 2 s with threshold=5 s → no synthesis."""
+        rpcs = [
+            _rpc(
+                "Application",
+                "Deploy",
+                {"applications": [{"charm-url": "ch:x", "application-name": "x"}]},
+                start=0.0,
+                end=1.0,
+                request_id=1,
+            ),
+            _rpc(
+                "Application",
+                "AddRelation",
+                {"endpoints": ["x:db", "y:database"]},
+                start=3.0,  # 2 s gap from last delta at t=1.0
+                end=3.1,
+                request_id=2,
+            ),
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+
+        ops = [e["op"] for e in events]
+        assert "wait_for_idle" not in ops
+
+    def test_stream_never_quiesces_no_synthesis(self):
+        """Delta keeps arriving right up to the next RPC → no quiet window."""
+        rpcs = [
+            _rpc(
+                "Application",
+                "Deploy",
+                {"applications": [{"charm-url": "ch:x", "application-name": "x"}]},
+                start=0.0,
+                end=1.0,
+                request_id=1,
+            ),
+            _rpc(
+                "Application",
+                "AddRelation",
+                {"endpoints": ["x:db", "y:database"]},
+                start=10.0,
+                end=10.1,
+                request_id=2,
+            ),
+        ]
+        # Delta arrives just before the next RPC → quiet window = 10.0 - 9.9 = 0.1 s < 5 s
+        deltas = [_active_unit_delta(ts_offset=9.9)]
+        events = correlate(rpcs, deltas, idle_threshold_seconds=5.0)
+
+        ops = [e["op"] for e in events]
+        assert "wait_for_idle" not in ops
+
+    def test_multiple_quiet_windows_produce_multiple_wait_for_idle(self):
+        """Three RPCs with two long gaps → two synthesised wait_for_idles."""
+        rpcs = [
+            _rpc(
+                "Application",
+                "Deploy",
+                {"applications": [{"charm-url": "ch:x", "application-name": "x"}]},
+                start=0.0,
+                end=1.0,
+                request_id=1,
+            ),
+            _rpc(
+                "Application",
+                "AddRelation",
+                {"endpoints": ["x:db", "y:database"]},
+                start=10.0,
+                end=10.1,
+                request_id=2,
+            ),
+            _rpc(
+                "Client",
+                "Status",
+                {},
+                start=20.0,
+                end=20.1,
+                request_id=3,
+            ),
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+
+        ops = [e["op"] for e in events]
+        assert ops == ["deploy", "wait_for_idle", "integrate", "wait_for_idle", "status"]
+
+    def test_custom_threshold_via_kwarg(self):
+        """idle_threshold_seconds=15 suppresses synthesis for a 7-second gap."""
+        events = correlate(
+            _synthesis_rpcs(),
+            [_active_unit_delta(_UNIT_DELTA_TS)],
+            idle_threshold_seconds=15.0,
+        )
+
+        ops = [e["op"] for e in events]
+        assert "wait_for_idle" not in ops
+
+    def test_wait_for_idle_model_snapshot_reflects_settled_state(self):
+        """Snapshot for synthesised wait_for_idle shows the unit as active."""
+        events = correlate(
+            _synthesis_rpcs(),
+            [_active_unit_delta(_UNIT_DELTA_TS)],
+            idle_threshold_seconds=5.0,
+        )
+
+        wfi = next(e for e in events if e["op"] == "wait_for_idle")
+        snap = wfi["model_snapshot_before"]
+        assert "x" in snap["apps"]
+        assert snap["apps"]["x"]["units"]["x/0"]["workload_status"] == "active"
+        # before and after snapshots are the same (nothing changed during quiet window)
+        assert wfi["model_snapshot_before"] == wfi["model_snapshot_after"]

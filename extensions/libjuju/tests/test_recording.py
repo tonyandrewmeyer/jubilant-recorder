@@ -486,3 +486,205 @@ class TestSequenceOrdering:
         seqs = [e["seq"] for e in _read_log(log_path)["events"]]
         assert ops == ["deploy", "integrate", "status"]
         assert seqs == [1, 2, 3]
+
+
+# ---------------------------------------------------------------------------
+# Test: duration_ms in the written log — carry (a) from step-3
+# ---------------------------------------------------------------------------
+
+
+class TestDurationMsInLog:
+    def test_duration_ms_present_on_every_event_in_log(self, tmp_path: Path):
+        """Every emitted event must carry a numeric duration_ms field."""
+        FakeConnection.rpc = _make_stub(
+            [
+                {"request-id": 1, "response": {"results": [{"tag": "application-my-charm"}]}},
+                {"request-id": 2, "response": {}},
+            ]
+        )
+        log_path = tmp_path / "session.json"
+        with RecordingLibjuju.start(
+            log_path=log_path,
+            model="m",
+            tap=LibjujuTap(_connection_class=FakeConnection),
+        ):
+            _run_rpc(
+                {
+                    "type": "Application",
+                    "request": "Deploy",
+                    "version": 20,
+                    "params": {
+                        "applications": [
+                            {"charm-url": "ch:my-charm", "application-name": "my-charm"}
+                        ]
+                    },
+                }
+            )
+            _run_rpc(
+                {
+                    "type": "Application",
+                    "request": "AddRelation",
+                    "version": 20,
+                    "params": {"endpoints": ["my-charm:db", "pg:database"]},
+                }
+            )
+
+        doc = _read_log(log_path)
+        for ev in doc["events"]:
+            assert "duration_ms" in ev, f"missing duration_ms on op={ev['op']}"
+            assert isinstance(ev["duration_ms"], (int, float))
+            assert ev["duration_ms"] >= 0
+
+    def test_duration_ms_round_trips_through_json(self, tmp_path: Path):
+        """Parsing the log back produces a float duration_ms, not a string."""
+        FakeConnection.rpc = _make_stub([{"request-id": 1, "response": {}}])
+        log_path = tmp_path / "session.json"
+        with RecordingLibjuju.start(
+            log_path=log_path,
+            model="m",
+            tap=LibjujuTap(_connection_class=FakeConnection),
+        ):
+            _run_rpc(
+                {
+                    "type": "Application",
+                    "request": "SetCharm",
+                    "version": 20,
+                    "params": {"application": "x"},
+                }
+            )
+
+        doc = _read_log(log_path)
+        assert len(doc["events"]) == 1
+        raw_duration = doc["events"][0]["duration_ms"]
+        assert isinstance(raw_duration, (int, float)), f"expected float, got {type(raw_duration)}"
+
+
+# ---------------------------------------------------------------------------
+# Test: wait_for_idle synthesis plumbed through RecordingLibjuju — carry (b)
+# ---------------------------------------------------------------------------
+
+
+class TestWaitForIdleSynthesisInRecording:
+    def test_idle_threshold_seconds_kwarg_triggers_synthesis(self, tmp_path: Path):
+        """idle_threshold_seconds=0 forces synthesis between every pair of RPCs."""
+        FakeConnection.rpc = _make_stub(
+            [
+                {"request-id": 1, "response": {"results": [{"tag": "application-x"}]}},
+                {"request-id": 2, "response": {}},
+            ]
+        )
+        log_path = tmp_path / "session.json"
+        with RecordingLibjuju.start(
+            log_path=log_path,
+            model="m",
+            tap=LibjujuTap(_connection_class=FakeConnection),
+            idle_threshold_seconds=0.0,
+        ):
+            _run_rpc(
+                {
+                    "type": "Application",
+                    "request": "Deploy",
+                    "version": 20,
+                    "params": {
+                        "applications": [
+                            {"charm-url": "ch:x", "application-name": "x", "num-units": 1}
+                        ]
+                    },
+                }
+            )
+            _run_rpc(
+                {
+                    "type": "Application",
+                    "request": "AddRelation",
+                    "version": 20,
+                    "params": {"endpoints": ["x:db", "y:database"]},
+                }
+            )
+
+        doc = _read_log(log_path)
+        ops = [e["op"] for e in doc["events"]]
+        assert "wait_for_idle" in ops
+        # wait_for_idle appears between deploy and integrate
+        wfi_idx = ops.index("wait_for_idle")
+        assert ops[wfi_idx - 1] == "deploy"
+        assert ops[wfi_idx + 1] == "integrate"
+
+    def test_synthesised_wait_for_idle_has_duration_ms(self, tmp_path: Path):
+        """The synthesised wait_for_idle event carries a non-negative duration_ms."""
+        FakeConnection.rpc = _make_stub(
+            [
+                {"request-id": 1, "response": {}},
+                {"request-id": 2, "response": {}},
+            ]
+        )
+        log_path = tmp_path / "session.json"
+        with RecordingLibjuju.start(
+            log_path=log_path,
+            model="m",
+            tap=LibjujuTap(_connection_class=FakeConnection),
+            idle_threshold_seconds=0.0,
+        ):
+            _run_rpc(
+                {
+                    "type": "Application",
+                    "request": "Deploy",
+                    "version": 20,
+                    "params": {
+                        "applications": [
+                            {"charm-url": "ch:x", "application-name": "x"}
+                        ]
+                    },
+                }
+            )
+            _run_rpc(
+                {
+                    "type": "Application",
+                    "request": "AddRelation",
+                    "version": 20,
+                    "params": {"endpoints": ["x:db", "y:database"]},
+                }
+            )
+
+        doc = _read_log(log_path)
+        wfi = next(e for e in doc["events"] if e["op"] == "wait_for_idle")
+        assert isinstance(wfi["duration_ms"], (int, float))
+        assert wfi["duration_ms"] >= 0
+
+    def test_default_threshold_suppresses_synthesis_for_fast_rpcs(self, tmp_path: Path):
+        """Default 5-second threshold should not synthesise for instantaneous fake RPCs."""
+        FakeConnection.rpc = _make_stub(
+            [
+                {"request-id": 1, "response": {}},
+                {"request-id": 2, "response": {}},
+            ]
+        )
+        log_path = tmp_path / "session.json"
+        with RecordingLibjuju.start(
+            log_path=log_path,
+            model="m",
+            tap=LibjujuTap(_connection_class=FakeConnection),
+        ):
+            _run_rpc(
+                {
+                    "type": "Application",
+                    "request": "Deploy",
+                    "version": 20,
+                    "params": {
+                        "applications": [
+                            {"charm-url": "ch:x", "application-name": "x"}
+                        ]
+                    },
+                }
+            )
+            _run_rpc(
+                {
+                    "type": "Application",
+                    "request": "AddRelation",
+                    "version": 20,
+                    "params": {"endpoints": ["x:db", "y:database"]},
+                }
+            )
+
+        doc = _read_log(log_path)
+        ops = [e["op"] for e in doc["events"]]
+        assert "wait_for_idle" not in ops

@@ -231,3 +231,70 @@ def test_codegen_handles_bucket2_libjuju_log(tmp_path: Path) -> None:
     # does not crash on unknown ops.
     assert "# TODO: manual step" in src, src
     assert '"op": "shell"' in src, src
+
+
+def test_codegen_renders_synthesised_wait_for_idle(tmp_path: Path) -> None:
+    """Synthesised wait_for_idle events must render as ``juju.wait(jubilant.all_active)``.
+
+    This verifies that carry (b) produces codegen-compatible events: the
+    synthesised ``wait_for_idle`` op round-trips through the existing
+    ``codegen.generate`` pipeline without modification and emits the same
+    jubilant call that the canonical CLI-path recorder produces.
+    """
+    FakeConnection.rpc = _make_stub(
+        [
+            # Application.Deploy
+            {"request-id": 1, "response": {"results": [{"tag": "application-my-charm"}]}},
+            # Application.AddRelation (comes after a long wait)
+            {"request-id": 2, "response": {}},
+        ]
+    )
+
+    log_path = tmp_path / "session.json"
+    # idle_threshold_seconds=0 forces synthesis for any inter-RPC gap,
+    # even instantaneous ones in unit tests.
+    with RecordingLibjuju.start(
+        log_path=log_path,
+        model="smoke-model",
+        tap=LibjujuTap(_connection_class=FakeConnection),
+        idle_threshold_seconds=0.0,
+    ):
+        _run_rpc(
+            {
+                "type": "Application",
+                "request": "Deploy",
+                "version": 20,
+                "params": {
+                    "applications": [
+                        {
+                            "charm-url": "ch:my-charm",
+                            "application-name": "my-charm",
+                            "num-units": 1,
+                        }
+                    ]
+                },
+            }
+        )
+        _run_rpc(
+            {
+                "type": "Application",
+                "request": "AddRelation",
+                "version": 20,
+                "params": {"endpoints": ["my-charm:db", "postgresql:database"]},
+            }
+        )
+
+    log = json.loads(log_path.read_text(encoding="utf-8"))
+    ops = [e["op"] for e in log["events"]]
+    # wait_for_idle must have been synthesised between the two user ops.
+    assert ops == ["deploy", "wait_for_idle", "integrate"], ops
+
+    src = generate(log)
+    # Generated Python must be syntactically valid.
+    ast.parse(src)
+
+    # The canonical wait call must appear in the output.
+    assert "juju.wait(jubilant.all_active)" in src, src
+    # The surrounding ops must also render — synthesis must not break them.
+    assert "juju.deploy('ch:my-charm', app='my-charm')" in src, src
+    assert "juju.integrate('my-charm:db', 'postgresql:database')" in src, src
