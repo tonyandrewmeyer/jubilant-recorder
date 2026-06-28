@@ -1,3 +1,11 @@
+"""jtr PATH shim for juju.
+
+Intercepts juju invocations when a jtr shell-hook session is active.
+When $JTR_SESSION is unset the shim is a zero-overhead pass-through.
+
+REAL_JUJU is hardcoded at shim install time by `jtr shell-init`.
+For testing, set _JTR_REAL_JUJU env var to override.
+"""
 from __future__ import annotations
 
 import fcntl
@@ -6,6 +14,8 @@ import os
 import sys
 from datetime import UTC, datetime
 
+# Replaced with the absolute path to the real juju binary at install time.
+# Override with _JTR_REAL_JUJU env var for testing.
 REAL_JUJU = "__REAL_JUJU__"
 
 
@@ -34,7 +44,7 @@ def main() -> None:
 
         ts = _now_ts()
         argv = sys.argv[1:]
-        basename = os.path.basename(sys.argv[0])
+        basename = "juju"  # this shim is always installed as the juju intercept
 
         if op == "shell":
             event = {
