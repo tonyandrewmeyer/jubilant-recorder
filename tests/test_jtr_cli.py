@@ -1,0 +1,173 @@
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+from jubilant_recorder.jtr_cli import _hook_event_impl, _state_file, _cache_dir
+
+
+def _run_jtr(*args: str, env: dict | None = None, **kwargs) -> subprocess.CompletedProcess:
+    base_env = {k: v for k, v in os.environ.items()}
+    if env:
+        base_env.update(env)
+    return subprocess.run(
+        [sys.executable, "-m", "jubilant_recorder.jtr_cli", *args],
+        env=base_env,
+        capture_output=True,
+        text=True,
+        **kwargs,
+    )
+
+
+def test_hook_event_happy_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    log_file = tmp_path / "test.jsonl"
+    log_file.touch()
+    session_id = "test-session"
+    # Write a minimal state file
+    state_dir = tmp_path / "cache" / "jtr"
+    state_dir.mkdir(parents=True)
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+    state = {
+        "session_id": session_id,
+        "session_name": "test",
+        "log_path": str(log_file),
+        "started_at": "2026-06-28T10:00:00.000Z",
+        "shared": False,
+        "overrides": {"include": [], "exclude": [], "redact": []},
+    }
+    (state_dir / f"{session_id}.json").write_text(json.dumps(state))
+    _hook_event_impl(session_id, "kubectl get pods", 0, 0, str(log_file))
+    lines = [line for line in log_file.read_text().splitlines() if line.strip()]
+    assert len(lines) == 1
+    event = json.loads(lines[0])
+    assert event["op"] == "shell_context"
+    assert event["args"]["basename"] == "kubectl"
+    assert event["args"]["source"] == "hook"
+
+
+def test_hook_event_paused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    log_file = tmp_path / "test.jsonl"
+    log_file.touch()
+    monkeypatch.setenv("JTR_PAUSED", "1")
+    _hook_event_impl("test-session", "kubectl get pods", 0, 0, str(log_file))
+    lines = [line for line in log_file.read_text().splitlines() if line.strip()]
+    assert len(lines) == 0
+
+
+def test_hook_event_denied(tmp_path: Path) -> None:
+    log_file = tmp_path / "test.jsonl"
+    log_file.touch()
+    _hook_event_impl("test-session", "ls -la", 0, 0, str(log_file))
+    lines = [line for line in log_file.read_text().splitlines() if line.strip()]
+    assert len(lines) == 0
+
+
+def test_hook_event_not_allowlisted(tmp_path: Path) -> None:
+    log_file = tmp_path / "test.jsonl"
+    log_file.touch()
+    _hook_event_impl("test-session", "git status", 0, 0, str(log_file))
+    lines = [line for line in log_file.read_text().splitlines() if line.strip()]
+    assert len(lines) == 0
+
+
+def test_include_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    log_file = tmp_path / "test.jsonl"
+    log_file.touch()
+    session_id = "test-session-inc"
+    state_dir = tmp_path / "cache" / "jtr"
+    state_dir.mkdir(parents=True)
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+    state = {
+        "session_id": session_id,
+        "session_name": "test",
+        "log_path": str(log_file),
+        "started_at": "2026-06-28T10:00:00.000Z",
+        "shared": False,
+        "overrides": {"include": ["git"], "exclude": [], "redact": []},
+    }
+    (state_dir / f"{session_id}.json").write_text(json.dumps(state))
+    _hook_event_impl(session_id, "git status", 0, 0, str(log_file))
+    lines = [line for line in log_file.read_text().splitlines() if line.strip()]
+    assert len(lines) == 1
+    event = json.loads(lines[0])
+    assert event["op"] == "shell_context"
+    assert event["args"]["basename"] == "git"
+
+
+def test_note_event_shape(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    log_file = tmp_path / "test.jsonl"
+    log_file.touch()
+    monkeypatch.setenv("JTR_SESSION", "test-session")
+    monkeypatch.setenv("JTR_LOG", str(log_file))
+    result = _run_jtr("note", "some important note", env={
+        "JTR_SESSION": "test-session",
+        "JTR_LOG": str(log_file),
+    })
+    assert result.returncode == 0
+    lines = [line for line in log_file.read_text().splitlines() if line.strip()]
+    assert len(lines) == 1
+    event = json.loads(lines[0])
+    assert event["op"] == "note"
+    assert event["args"]["text"] == "some important note"
+    assert event["seq"] == 1
+
+
+def test_tag_event_shape(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    log_file = tmp_path / "test.jsonl"
+    log_file.touch()
+    result = _run_jtr("tag", "scale up", env={
+        "JTR_SESSION": "test-session",
+        "JTR_LOG": str(log_file),
+    })
+    assert result.returncode == 0
+    lines = [line for line in log_file.read_text().splitlines() if line.strip()]
+    assert len(lines) == 1
+    event = json.loads(lines[0])
+    assert event["op"] == "tag"
+    assert event["args"]["label"] == "scale up"
+    assert event["seq"] == 1
+
+
+def test_session_lifecycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+    # Remove JTR_SESSION from env so start doesn't fail
+    env_no_session = {k: v for k, v in os.environ.items() if k != "JTR_SESSION"}
+    env_no_session["XDG_CACHE_HOME"] = str(tmp_path / "cache")
+    result = subprocess.run(
+        [sys.executable, "-m", "jubilant_recorder.jtr_cli", "start", "mytest"],
+        env=env_no_session,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    stdout = result.stdout
+    # Parse exports
+    exports = {}
+    for line in stdout.splitlines():
+        if line.startswith("export "):
+            rest = line[len("export "):]
+            if "=" in rest:
+                k, v = rest.split("=", 1)
+                exports[k] = v
+    assert "JTR_SESSION" in exports
+    assert "JTR_LOG" in exports
+    session_id = exports["JTR_SESSION"]
+    log_path = exports["JTR_LOG"]
+    # Now stop
+    env_with_session = dict(env_no_session)
+    env_with_session["JTR_SESSION"] = session_id
+    env_with_session["JTR_LOG"] = log_path
+    result2 = subprocess.run(
+        [sys.executable, "-m", "jubilant_recorder.jtr_cli", "stop"],
+        env=env_with_session,
+        capture_output=True,
+        text=True,
+    )
+    assert result2.returncode == 0
+    assert "unset JTR_SESSION" in result2.stdout
+    assert "unset JTR_LOG" in result2.stdout
