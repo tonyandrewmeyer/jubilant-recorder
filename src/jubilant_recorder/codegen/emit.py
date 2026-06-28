@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, TypeAlias
 
-from jubilant_recorder.codegen import assertions, fallback, preamble, unrepresentable
+from jubilant_recorder.codegen import assertions, context as ctx, fallback, preamble, unrepresentable
 from jubilant_recorder.codegen.operations import EMITTERS
 
 SessionLog: TypeAlias = dict[str, Any]
@@ -13,11 +13,33 @@ _SKIP_OPS = frozenset({"checkpoint"})
 
 def generate(log: SessionLog, *, test_name: str | None = None) -> str:
     indent = preamble.BODY_INDENT
+    pad = " " * indent
 
     body_lines: list[str] = []
     needs_pytest = False
     already_skipped = False
+    pending_tag: str | None = None
     for event in log.get("events", []) or []:
+        op = event.get("op", "")
+
+        # New shell-hook ops: render as comments, never as jubilant calls.
+        if op == "shell_context":
+            body_lines.append(ctx.render_shell_context(event, indent))
+            continue
+        if op == "note":
+            body_lines.append(ctx.render_note(event, indent))
+            continue
+        if op == "tag":
+            # Tag labels are buffered and emitted as "# step:" before the
+            # next non-skipped jubilant op.
+            pending_tag = event.get("args", {}).get("label")
+            continue
+
+        # Flush any pending tag before the next real (non-skip) op.
+        if pending_tag is not None and op not in _SKIP_OPS:
+            body_lines.append(f"{pad}# step: {pending_tag}")
+            pending_tag = None
+
         # Step 10: operations codegen can't honestly represent (failed ops,
         # error-state models, mixed multi-unit statuses) get a skip/TODO
         # marker instead of an assertion — and never crash codegen.
@@ -32,7 +54,13 @@ def generate(log: SessionLog, *, test_name: str | None = None) -> str:
                 already_skipped = True
             continue
 
-        op = event.get("op", "")
+        # Status with no assertions and no gesture: render as a comment.
+        if op == "status" and not event.get("assertions") and not event.get("gesture"):
+            comment = ctx.render_status_comment(event, indent)
+            if comment is not None:
+                body_lines.append(comment)
+            continue
+
         run_var: str | None = None
         if op in _SKIP_OPS:
             pass
@@ -41,6 +69,10 @@ def generate(log: SessionLog, *, test_name: str | None = None) -> str:
             body_lines.append(EMITTERS["run"](event, indent, var_name=run_var))
         elif op in EMITTERS:
             body_lines.append(EMITTERS[op](event, indent))
+            if op == "config":
+                comment = ctx.render_config_result(event, indent)
+                if comment is not None:
+                    body_lines.append(comment)
         else:
             body_lines.append(fallback.emit(event, indent))
 

@@ -1003,3 +1003,130 @@ checkpoint.
    session log's schema version but does not address the snapshot sub-object
    version. Keeping them independent (as formalised here) means snapshot format
    evolution does not force a session-level version bump.
+
+---
+
+## Schema addendum — shell-hook ops (extension Step 1–4)
+
+*Added 2026-06-28. Additive change; session `schema_version` stays at `1`.*
+
+Three new op kinds are produced by the `jtr` shell-hook layer and consumed by
+codegen layer (C). They never appear in session logs produced by the Python
+`RecordingJuju` wrapper — they are shell-side annotations only.
+
+### New ops summary
+
+| Op | Source | Args (non-null keys) | Result (non-null keys) | Codegen output |
+|---|---|---|---|---|
+| `shell_context` | `jtr` hook or PATH shim | `argv`, `basename`, `source`, `session_id` | `exit_code`, `stdout`, `stderr`, `stdout_truncated` | `# context: <cmd>` comment |
+| `note` | `jtr note <text>` | `text` | — | `# note: <text>` comment |
+| `tag` | `jtr tag <label>` | `label` | — | `# step: <label>` comment before next jubilant op |
+
+### `shell_context`
+
+Records a shell command that ran during the session. Produced by:
+
+- The PATH shim (`juju_shim.py` installed as `~/.local/share/jtr/shims/juju`)
+  when `JTR_PYTHON_ACTIVE` is set.
+- The `_hook_event` internal command, invoked from the `precmd` shell hook,
+  for commands in `_CONTEXT_ALLOWLIST` (kubectl, helm, curl, charmcraft, …).
+
+```json
+{
+  "args": {
+    "argv": ["kubectl", "get", "pods"],
+    "basename": "kubectl",
+    "source": "hook",
+    "session_id": "abc123"
+  },
+  "result": {
+    "exit_code": 0,
+    "stdout": null,
+    "stderr": null,
+    "stdout_truncated": false
+  }
+}
+```
+
+`source` is `"shim"` for PATH-shim events, `"hook"` for precmd-hook events.
+
+`model_snapshot_before` and `model_snapshot_after` are always `null` for
+`shell_context` events (no jubilant call was made).
+
+Codegen renders `shell_context` as a comment: `# context: <argv joined>`.
+If `result.exit_code` is non-zero and non-null, an extra `# exit <N>` line
+follows. If `result.stdout` is non-null, up to 5 lines are shown as
+`# | <line>` comments.
+
+### `note`
+
+Free-text annotation injected by the user running `jtr note <text>`. Useful
+for marking what a block of shell activity was for.
+
+```json
+{
+  "args": {
+    "text": "deployed the charm manually to check upgrade path"
+  },
+  "result": {}
+}
+```
+
+`text` is truncated to 500 characters (Unicode-aware; truncation sentinel is `…`).
+
+Codegen renders as: `# note: <text>`
+
+### `tag`
+
+Step-boundary label injected by `jtr tag <label>`. Codegen inserts
+`# step: <label>` immediately before the next non-skipped jubilant op.
+If no jubilant op follows, the tag is silently dropped.
+
+```json
+{
+  "args": {
+    "label": "scale up"
+  },
+  "result": {}
+}
+```
+
+`label` must match `^[a-zA-Z0-9 ]+$` and be 1–80 characters.
+
+Codegen renders as: `# step: <label>` (inserted before the next jubilant call).
+
+### Codegen integration (`interleave_context`)
+
+Layer (C) codegen calls `interleave_context(events, indent)` from
+`jubilant_recorder.codegen.context` instead of the original flat loop when
+the log contains any `shell_context`, `note`, or `tag` events. The function:
+
+1. Emits `shell_context` events as `# context:` comment blocks (never as
+   jubilant calls).
+2. Emits `note` events as `# note:` comments inline.
+3. Buffers `tag` events and flushes the label as `# step:` before the next
+   non-skipped jubilant op.
+4. For `status` events with no assertions and no gesture, renders a
+   `# juju status:` summary comment instead of a jubilant call.
+5. For `config` (set) events, appends a `# result:` comment showing
+   workload-status deltas from before/after snapshots.
+6. All other events go through the existing emitter table unchanged.
+
+### Filtering and privacy
+
+The `_hook_event` path applies a two-layer filter before writing a
+`shell_context` event:
+
+1. **Denylist** (`_BASENAME_DENYLIST`): `juju`, common navigation commands,
+   editors, credential tools. Matched by `os.path.basename(argv[0])`.
+2. **Allowlist** (`_CONTEXT_ALLOWLIST`): `kubectl`, `helm`, `curl`,
+   `charmcraft`, `rockcraft`, `snapcraft`, `lxc`, `lxd`, `microk8s`,
+   `terraform`, `jq`, `yq`, `wget`, `http`, `k8s`. A command must be in
+   this set (or in a per-session `include` override) to be recorded.
+3. **Redact patterns** (per-session, via `jtr redact <regex>`): applied to
+   the full command string before writing.
+
+The `_ARGV_DENYPATS` list blocks secret-bearing invocations even if the
+basename would otherwise pass (e.g. `kubectl create secret`, `gh auth`).
+
+The 1 000-event cap (`cap_reached` sentinel op) prevents unbounded log growth.
