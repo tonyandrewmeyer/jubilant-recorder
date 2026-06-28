@@ -1,0 +1,613 @@
+from __future__ import annotations
+
+import argparse
+import fcntl
+import json
+import os
+import re
+import shlex
+import sys
+import time
+import uuid
+from datetime import UTC, datetime
+from pathlib import Path
+
+
+def _now_ts() -> str:
+    dt = datetime.now(UTC)
+    return f"{dt:%Y-%m-%dT%H:%M:%S}.{dt.microsecond // 1000:03d}Z"
+
+
+def _cache_dir() -> Path:
+    return Path(os.environ.get("XDG_CACHE_HOME", str(Path.home() / ".cache"))) / "jtr"
+
+
+def _state_file(session_id: str) -> Path:
+    return _cache_dir() / f"{session_id}.json"
+
+
+def _append_jsonl_event(path: Path | str, event_data: dict) -> None:
+    with open(path, "a+") as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        try:
+            f.seek(0)
+            content = f.read()
+            count = sum(1 for line in content.splitlines() if line.strip())
+            event_data["seq"] = count + 1
+            f.seek(0, 2)
+            f.write(json.dumps(event_data) + "\n")
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
+
+
+_BASENAME_DENYLIST = frozenset({
+    "juju",
+    "ls", "cd", "pwd", "cat", "less", "more", "bat",
+    "vim", "nvim", "nano", "emacs", "code",
+    "clear", "reset", "history", "jtr",
+    "sudo", "pass", "vault", "gpg", "ssh-keygen",
+})
+_ARGV_DENYPATS = [
+    re.compile(r"^kubectl\s+(create|get|describe)\s+secret\b"),
+    re.compile(r"^juju\s+(add|update|remove|show|grant|revoke)-secret\b"),
+    re.compile(r"^openssl\s+(genrsa|passwd|pkcs8)\b"),
+    re.compile(r"^gh\s+auth\b"),
+]
+_CONTEXT_ALLOWLIST = frozenset({
+    "kubectl", "k8s", "microk8s", "lxc", "lxd",
+    "charmcraft", "rockcraft", "snapcraft",
+    "curl", "http", "wget", "jq", "yq", "helm", "terraform",
+})
+
+
+def cmd_shell_init(args: argparse.Namespace) -> int:
+    shell = getattr(args, "shell", None)
+    if not shell:
+        shell_env = os.environ.get("SHELL", "")
+        shell = os.path.basename(shell_env) if shell_env else ""
+    if shell == "fish":
+        print("jtr: fish not yet supported", file=sys.stderr)
+        return 1
+    if not shell or shell not in ("bash", "zsh"):
+        print(f"jtr: cannot detect shell or unsupported shell: {shell!r}", file=sys.stderr)
+        return 1
+
+    snippet = """# jtr shell-init output
+# bash-preexec must be sourced BEFORE this block
+preexec() {
+    [[ -z "${JTR_SESSION:-}" ]] && return
+    [[ "${JTR_PAUSED:-}" == "1" ]] && return
+    _JTR_PREEXEC_CMD="$1"
+    _JTR_PREEXEC_TS="$(date -u +%s%3N)"
+}
+
+precmd() {
+    local _exit=$?
+    [[ -z "${JTR_SESSION:-}" ]] && return
+    [[ -z "${_JTR_PREEXEC_CMD:-}" ]] && return
+    command jtr _hook_event \\
+        --session "$JTR_SESSION" \\
+        --cmd "$_JTR_PREEXEC_CMD" \\
+        --exit "$_exit" \\
+        --start-ms "$_JTR_PREEXEC_TS" \\
+        --log "$JTR_LOG"
+    _JTR_PREEXEC_CMD=""
+    _JTR_PREEXEC_TS=""
+}
+
+# shell function to eval env-var changes
+jtr() {
+    case "$1" in
+        start|stop|pause|resume|attach)
+            eval "$(command jtr "$@")" ;;
+        *)
+            command jtr "$@" ;;
+    esac
+}"""
+    print(snippet)
+    no_path_shim = getattr(args, "no_path_shim", False)
+    if not no_path_shim:
+        print('\n# Add jtr shim directory to PATH\nexport PATH="$HOME/.local/share/jtr/shims:$PATH"')
+    return 0
+
+
+def cmd_start(args: argparse.Namespace) -> int:
+    if os.environ.get("JTR_SESSION"):
+        print("jtr: session already active.", file=sys.stderr)
+        return 1
+    session_id = str(uuid.uuid4())
+    name = getattr(args, "name", None)
+    if not name:
+        name = f"jtr-{datetime.now(UTC).strftime('%Y%m%dT%H%M%S')}"
+    output = getattr(args, "output", None)
+    if output:
+        log_path = Path(output)
+    else:
+        log_path = _cache_dir() / "sessions" / f"{name}-{session_id[:8]}.jsonl"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_path.touch()
+    shared = getattr(args, "shared", False)
+    state = {
+        "session_id": session_id,
+        "session_name": name,
+        "log_path": str(log_path),
+        "started_at": _now_ts(),
+        "shared": shared,
+        "overrides": {"include": [], "exclude": [], "redact": []},
+    }
+    state_file = _state_file(session_id)
+    state_file.parent.mkdir(parents=True, exist_ok=True)
+    state_file.write_text(json.dumps(state))
+    if shared:
+        (_cache_dir() / "current").write_text(session_id)
+    print(f"export JTR_SESSION={session_id}\nexport JTR_LOG={log_path}\nexport JTR_PAUSED=")
+    print(f"jtr: session '{name}' started. Log: {log_path}", file=sys.stderr)
+    return 0
+
+
+def cmd_stop(args: argparse.Namespace) -> int:
+    session_id = os.environ.get("JTR_SESSION")
+    if not session_id:
+        print("jtr: no active session.", file=sys.stderr)
+        print("", end="")  # no stdout output
+        return 0
+    state: dict | None = None
+    state_file = _state_file(session_id)
+    if state_file.exists():
+        try:
+            state = json.loads(state_file.read_text())
+        except Exception:
+            state = None
+    if state:
+        log_path = state.get("log_path")
+        if log_path:
+            try:
+                event = {
+                    "seq": None,
+                    "op": "session_end",
+                    "ts": _now_ts(),
+                    "args": {},
+                    "result": {},
+                    "model_snapshot_before": None,
+                    "model_snapshot_after": None,
+                    "assertions": [],
+                    "gesture": None,
+                }
+                _append_jsonl_event(log_path, event)
+            except Exception:
+                pass
+        try:
+            state_file.unlink()
+        except Exception:
+            pass
+        if state.get("shared"):
+            try:
+                (_cache_dir() / "current").unlink(missing_ok=True)
+            except Exception:
+                pass
+    print("unset JTR_SESSION\nunset JTR_LOG\nunset JTR_PAUSED")
+    auto = getattr(args, "auto", False)
+    if not auto and state:
+        name = state.get("session_name", session_id)
+        print(f"jtr: session '{name}' stopped.", file=sys.stderr)
+    return 0
+
+
+def cmd_pause(args: argparse.Namespace) -> int:
+    if not os.environ.get("JTR_SESSION"):
+        return 0
+    print("export JTR_PAUSED=1")
+    return 0
+
+
+def cmd_resume(args: argparse.Namespace) -> int:
+    if not os.environ.get("JTR_SESSION"):
+        return 0
+    print("export JTR_PAUSED=")
+    return 0
+
+
+def cmd_status(args: argparse.Namespace) -> int:
+    as_json = getattr(args, "json", False)
+    session_id = os.environ.get("JTR_SESSION")
+    log_path = os.environ.get("JTR_LOG")
+    paused = os.environ.get("JTR_PAUSED") == "1"
+    if not session_id:
+        if as_json:
+            print(json.dumps({"active": False}))
+        else:
+            print("jtr: no active session.")
+        return 0
+    state: dict | None = None
+    state_file = _state_file(session_id)
+    if state_file.exists():
+        try:
+            state = json.loads(state_file.read_text())
+        except Exception:
+            pass
+    event_count = 0
+    if log_path and Path(log_path).exists():
+        try:
+            lines = Path(log_path).read_text().splitlines()
+            event_count = sum(1 for line in lines if line.strip())
+        except Exception:
+            pass
+    name = (state or {}).get("session_name", session_id)
+    if as_json:
+        print(json.dumps({
+            "active": True,
+            "session_id": session_id,
+            "session_name": name,
+            "log_path": log_path,
+            "paused": paused,
+            "event_count": event_count,
+        }))
+    else:
+        print(f"jtr: session '{name}' active. Log: {log_path}. Events: {event_count}.")
+    return 0
+
+
+def cmd_tail(args: argparse.Namespace) -> int:
+    session_id = os.environ.get("JTR_SESSION")
+    log_path = os.environ.get("JTR_LOG")
+    if not session_id or not log_path:
+        print("jtr: no active session.")
+        return 1
+    as_json = getattr(args, "json", False)
+    seen = 0
+    try:
+        while True:
+            try:
+                lines = Path(log_path).read_text().splitlines()
+            except Exception:
+                time.sleep(0.1)
+                continue
+            non_empty = [line for line in lines if line.strip()]
+            for line in non_empty[seen:]:
+                try:
+                    event = json.loads(line)
+                except Exception:
+                    continue
+                if as_json:
+                    print(json.dumps(event))
+                else:
+                    op = event.get("op", "?")
+                    seq = event.get("seq", "?")
+                    args_str = str(event.get("args", {}))[:60]
+                    print(f"[{seq}] {op}: {args_str}")
+                if event.get("op") == "session_end":
+                    return 0
+            seen = len(non_empty)
+            time.sleep(0.1)
+    except KeyboardInterrupt:
+        return 0
+
+
+def cmd_note(args: argparse.Namespace) -> int:
+    session_id = os.environ.get("JTR_SESSION")
+    log_path = os.environ.get("JTR_LOG")
+    if not session_id or not log_path:
+        print("jtr: no active session.", file=sys.stderr)
+        return 1
+    text = args.text
+    if len(text) > 500:
+        text = text[:499] + "…"
+    event = {
+        "seq": None,
+        "op": "note",
+        "ts": _now_ts(),
+        "args": {"text": text},
+        "result": {},
+        "model_snapshot_before": None,
+        "model_snapshot_after": None,
+        "assertions": [],
+        "gesture": None,
+    }
+    _append_jsonl_event(log_path, event)
+    return 0
+
+
+def cmd_tag(args: argparse.Namespace) -> int:
+    session_id = os.environ.get("JTR_SESSION")
+    log_path = os.environ.get("JTR_LOG")
+    if not session_id or not log_path:
+        print("jtr: no active session.", file=sys.stderr)
+        return 1
+    label = args.label
+    if not re.match(r"^[a-zA-Z0-9 ]+$", label) or not (1 <= len(label) <= 80):
+        print(f"jtr: invalid tag label: {label!r}", file=sys.stderr)
+        return 1
+    event = {
+        "seq": None,
+        "op": "tag",
+        "ts": _now_ts(),
+        "args": {"label": label},
+        "result": {},
+        "model_snapshot_before": None,
+        "model_snapshot_after": None,
+        "assertions": [],
+        "gesture": None,
+    }
+    _append_jsonl_event(log_path, event)
+    return 0
+
+
+def cmd_attach(args: argparse.Namespace) -> int:
+    session_id = getattr(args, "session_id", None)
+    if not session_id:
+        current_file = _cache_dir() / "current"
+        if not current_file.exists():
+            print("jtr: no shared session found.", file=sys.stderr)
+            return 1
+        session_id = current_file.read_text().strip()
+    state_file = _state_file(session_id)
+    if not state_file.exists():
+        print(f"jtr: no state file for session {session_id}", file=sys.stderr)
+        return 1
+    state = json.loads(state_file.read_text())
+    log_path = state.get("log_path", "")
+    print(f"export JTR_SESSION={session_id}\nexport JTR_LOG={log_path}")
+    return 0
+
+
+def cmd_include(args: argparse.Namespace) -> int:
+    return _cmd_override(args, "include")
+
+
+def cmd_exclude(args: argparse.Namespace) -> int:
+    return _cmd_override(args, "exclude")
+
+
+def cmd_redact(args: argparse.Namespace) -> int:
+    return _cmd_override(args, "redact")
+
+
+def _cmd_override(args: argparse.Namespace, kind: str) -> int:
+    session_id = os.environ.get("JTR_SESSION")
+    log_path = os.environ.get("JTR_LOG")
+    if not session_id:
+        print("jtr: no active session.", file=sys.stderr)
+        return 1
+    pattern = args.pattern
+    state_file = _state_file(session_id)
+    if state_file.exists():
+        try:
+            state = json.loads(state_file.read_text())
+            state.setdefault("overrides", {"include": [], "exclude": [], "redact": []})
+            state["overrides"].setdefault(kind, [])
+            state["overrides"][kind].append(pattern)
+            state_file.write_text(json.dumps(state))
+        except Exception:
+            pass
+    if log_path:
+        event = {
+            "seq": None,
+            "op": "config_override",
+            "ts": _now_ts(),
+            "args": {"kind": kind, "pattern": pattern},
+            "result": {},
+            "model_snapshot_before": None,
+            "model_snapshot_after": None,
+            "assertions": [],
+            "gesture": None,
+        }
+        _append_jsonl_event(log_path, event)
+    return 0
+
+
+def _hook_event_impl(
+    session_id: str,
+    cmd: str,
+    exit_code: int,
+    start_ms: int,
+    log_path: str,
+) -> None:
+    """Core logic for _hook_event; always exits 0, never raises."""
+    try:
+        if os.environ.get("JTR_PAUSED") == "1":
+            return
+
+        # Extract basename from cmd
+        # Split on shell operators to get first command
+        first_token = re.split(r"\s*(?:\|{1,2}|&&)\s*", cmd)[0].strip()
+        try:
+            argv0 = shlex.split(first_token)[0] if first_token else cmd
+        except ValueError:
+            argv0 = first_token.split()[0] if first_token else cmd
+        basename = os.path.basename(argv0)
+
+        # Apply denylist
+        if basename in _BASENAME_DENYLIST:
+            return
+        for pat in _ARGV_DENYPATS:
+            if pat.search(cmd):
+                return
+
+        # Read per-session overrides
+        include_list: list[str] = []
+        exclude_list: list[str] = []
+        redact_list: list[str] = []
+        state_file = _state_file(session_id)
+        if state_file.exists():
+            try:
+                state = json.loads(state_file.read_text())
+                overrides = state.get("overrides") or {}
+                include_list = overrides.get("include") or []
+                exclude_list = overrides.get("exclude") or []
+                redact_list = overrides.get("redact") or []
+            except Exception:
+                pass
+
+        # Apply include/exclude overrides
+        if basename in include_list:
+            pass  # explicitly allowed
+        elif basename in exclude_list:
+            return
+        elif basename not in _CONTEXT_ALLOWLIST:
+            return
+
+        # Apply redaction
+        redacted_cmd = cmd
+        for pat_str in redact_list:
+            try:
+                redacted_cmd = re.sub(pat_str, "<redacted>", redacted_cmd)
+            except Exception:
+                pass
+
+        if not Path(log_path).exists():
+            return
+
+        # Check cap
+        try:
+            line_count = sum(
+                1 for line in Path(log_path).read_text().splitlines() if line.strip()
+            )
+            if line_count > 1000:
+                cap_event = {
+                    "seq": None,
+                    "op": "cap_reached",
+                    "ts": _now_ts(),
+                    "args": {},
+                    "result": {},
+                    "model_snapshot_before": None,
+                    "model_snapshot_after": None,
+                    "assertions": [],
+                    "gesture": None,
+                }
+                _append_jsonl_event(log_path, cap_event)
+                return
+        except Exception:
+            pass
+
+        event = {
+            "seq": None,
+            "op": "shell_context",
+            "ts": _now_ts(),
+            "args": {
+                "argv": [redacted_cmd],
+                "basename": basename,
+                "source": "hook",
+                "session_id": session_id,
+            },
+            "result": {
+                "exit_code": exit_code,
+                "stdout": None,
+                "stderr": None,
+                "stdout_truncated": False,
+            },
+            "model_snapshot_before": None,
+            "model_snapshot_after": None,
+            "assertions": [],
+            "gesture": None,
+        }
+        _append_jsonl_event(log_path, event)
+    except Exception:
+        pass
+
+
+def cmd_hook_event(args: argparse.Namespace) -> int:
+    """Always exits 0."""
+    try:
+        _hook_event_impl(
+            session_id=args.session,
+            cmd=args.cmd,
+            exit_code=int(args.exit),
+            start_ms=int(args.start_ms),
+            log_path=args.log,
+        )
+    except Exception:
+        pass
+    return 0
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(prog="jtr")
+    sub = parser.add_subparsers(dest="command")
+
+    # shell-init
+    p_shell_init = sub.add_parser("shell-init")
+    p_shell_init.add_argument("--shell", choices=["bash", "zsh", "fish"])
+    p_shell_init.add_argument("--no-path-shim", action="store_true", dest="no_path_shim")
+
+    # start
+    p_start = sub.add_parser("start")
+    p_start.add_argument("name", nargs="?")
+    p_start.add_argument("--output")
+    p_start.add_argument("--shared", action="store_true")
+
+    # stop
+    p_stop = sub.add_parser("stop")
+    p_stop.add_argument("--auto", action="store_true")
+
+    # pause
+    sub.add_parser("pause")
+
+    # resume
+    sub.add_parser("resume")
+
+    # status
+    p_status = sub.add_parser("status")
+    p_status.add_argument("--json", action="store_true")
+
+    # tail
+    p_tail = sub.add_parser("tail")
+    p_tail.add_argument("--json", action="store_true")
+    p_tail.add_argument("--jubilant-only", action="store_true")
+    p_tail.add_argument("--context-only", action="store_true")
+
+    # note
+    p_note = sub.add_parser("note")
+    p_note.add_argument("text")
+
+    # tag
+    p_tag = sub.add_parser("tag")
+    p_tag.add_argument("label")
+
+    # attach
+    p_attach = sub.add_parser("attach")
+    p_attach.add_argument("session_id", nargs="?")
+
+    # include / exclude / redact
+    p_include = sub.add_parser("include")
+    p_include.add_argument("pattern")
+    p_exclude = sub.add_parser("exclude")
+    p_exclude.add_argument("pattern")
+    p_redact = sub.add_parser("redact")
+    p_redact.add_argument("pattern")
+
+    # _hook_event (internal)
+    p_hook = sub.add_parser("_hook_event")
+    p_hook.add_argument("--session", required=True)
+    p_hook.add_argument("--cmd", required=True)
+    p_hook.add_argument("--exit", required=True, dest="exit")
+    p_hook.add_argument("--start-ms", required=True, dest="start_ms")
+    p_hook.add_argument("--log", required=True)
+
+    args = parser.parse_args()
+
+    handlers = {
+        "shell-init": cmd_shell_init,
+        "start": cmd_start,
+        "stop": cmd_stop,
+        "pause": cmd_pause,
+        "resume": cmd_resume,
+        "status": cmd_status,
+        "tail": cmd_tail,
+        "note": cmd_note,
+        "tag": cmd_tag,
+        "attach": cmd_attach,
+        "include": cmd_include,
+        "exclude": cmd_exclude,
+        "redact": cmd_redact,
+        "_hook_event": cmd_hook_event,
+    }
+
+    if args.command not in handlers:
+        parser.print_help()
+        sys.exit(1)
+
+    sys.exit(handlers[args.command](args))
+
+
+if __name__ == "__main__":
+    main()

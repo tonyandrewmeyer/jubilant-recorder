@@ -34,6 +34,7 @@ dev = [
 
 [project.scripts]
 jubilant-recorder = "jubilant_recorder.cli:main"
+jtr = "jubilant_recorder.jtr_cli:main"
 
 [project.urls]
 Homepage = "https://github.com/tonyandrewmeyer/jubilant-recorder"
