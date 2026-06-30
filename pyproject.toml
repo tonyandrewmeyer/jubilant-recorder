@@ -44,7 +44,8 @@ Issues = "https://github.com/tonyandrewmeyer/jubilant-recorder/issues"
 packages = ["src/jubilant_recorder"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "extensions/libjuju/tests"]
+pythonpath = ["."]
 
 [tool.ruff]
 line-length = 99
