@@ -931,3 +931,241 @@ class TestWaitForIdleSynthesis:
         assert snap["apps"]["x"]["units"]["x/0"]["workload_status"] == "active"
         # before and after snapshots are the same (nothing changed during quiet window)
         assert wfi["model_snapshot_before"] == wfi["model_snapshot_after"]
+
+
+# ---------------------------------------------------------------------------
+# Test: Secrets.* bucket-1 promotions (carry c)
+# ---------------------------------------------------------------------------
+
+
+class TestSecretsCorrelation:
+    """Secrets.* facade methods promoted to bucket-1 in carry (c)."""
+
+    def test_create_secrets_emits_secret_add(self):
+        rpcs = [
+            _rpc(
+                "Secrets",
+                "CreateSecrets",
+                {
+                    "secrets": [
+                        {
+                            "owner-tag": "application-myapp",
+                            "label": "my-db-password",
+                            "content": {"data": {"password": "hunter2", "username": "admin"}},
+                            "description": "database credentials",
+                        }
+                    ]
+                },
+            )
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        assert len(events) == 1
+        ev = events[0]
+        assert ev["op"] == "secret_add"
+        assert ev["args"]["name"] == "my-db-password"
+        assert ev["args"]["info"] == "database credentials"
+        # Content values must be redacted; keys are preserved as a structure hint.
+        assert ev["args"]["content"] == {"password": "<REDACTED>", "username": "<REDACTED>"}
+
+    def test_create_secrets_redacts_all_content_values(self):
+        """Every value in content.data is replaced with the REDACTED sentinel."""
+        rpcs = [
+            _rpc(
+                "Secrets",
+                "CreateSecrets",
+                {
+                    "secrets": [
+                        {
+                            "label": "s",
+                            "content": {"data": {"k1": "v1", "k2": "v2", "k3": "v3"}},
+                        }
+                    ]
+                },
+            )
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        content = events[0]["args"]["content"]
+        assert set(content.keys()) == {"k1", "k2", "k3"}
+        assert all(v == "<REDACTED>" for v in content.values())
+
+    def test_create_secrets_no_description(self):
+        rpcs = [
+            _rpc(
+                "Secrets",
+                "CreateSecrets",
+                {"secrets": [{"label": "x", "content": {"data": {"key": "val"}}}]},
+            )
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        assert events[0]["args"]["info"] is None
+
+    def test_create_secrets_result_has_uri_field(self):
+        """secret_add result carries a uri field (empty: tap does not capture responses)."""
+        rpcs = [
+            _rpc(
+                "Secrets",
+                "CreateSecrets",
+                {"secrets": [{"label": "x", "content": {"data": {"k": "v"}}}]},
+            )
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        assert "uri" in events[0]["result"]
+
+    def test_update_secrets_emits_secret_update(self):
+        rpcs = [
+            _rpc(
+                "Secrets",
+                "UpdateSecrets",
+                {
+                    "secrets": [
+                        {
+                            "existing-id": "secret:abc123",
+                            "content": {"data": {"password": "new-pass"}},
+                            "description": "updated desc",
+                            "label": "new-name",
+                            "auto-prune": True,
+                        }
+                    ]
+                },
+            )
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        assert len(events) == 1
+        ev = events[0]
+        assert ev["op"] == "secret_update"
+        assert ev["args"]["identifier"] == "secret:abc123"
+        assert ev["args"]["content"] == {"password": "<REDACTED>"}
+        assert ev["args"]["info"] == "updated desc"
+        assert ev["args"]["name"] == "new-name"
+        assert ev["args"]["auto_prune"] is True
+
+    def test_update_secrets_empty_content(self):
+        """Metadata-only update: content.data absent produces empty content dict."""
+        rpcs = [
+            _rpc(
+                "Secrets",
+                "UpdateSecrets",
+                {
+                    "secrets": [
+                        {
+                            "existing-id": "secret:abc123",
+                            "description": "new desc",
+                        }
+                    ]
+                },
+            )
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        assert events[0]["args"]["content"] == {}
+        assert events[0]["args"]["info"] == "new desc"
+
+    def test_remove_secrets_emits_secret_remove(self):
+        rpcs = [
+            _rpc(
+                "Secrets",
+                "RemoveSecrets",
+                {"secrets": [{"uri": "secret:abc123", "revisions": []}]},
+            )
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        assert len(events) == 1
+        ev = events[0]
+        assert ev["op"] == "secret_remove"
+        assert ev["args"]["identifier"] == "secret:abc123"
+        assert ev["args"]["revision"] is None
+
+    def test_remove_secrets_with_revision(self):
+        rpcs = [
+            _rpc(
+                "Secrets",
+                "RemoveSecrets",
+                {"secrets": [{"uri": "secret:abc123", "revisions": [3]}]},
+            )
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        assert events[0]["args"]["revision"] == 3
+
+    def test_grant_secret_emits_secret_grant(self):
+        rpcs = [
+            _rpc(
+                "Secrets",
+                "GrantSecret",
+                {
+                    "uri": "secret:abc123",
+                    "scope-tag": "model-mymodel",
+                    "applications": ["myapp"],
+                },
+            )
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        assert len(events) == 1
+        ev = events[0]
+        assert ev["op"] == "secret_grant"
+        assert ev["args"]["identifier"] == "secret:abc123"
+        assert ev["args"]["app"] == "myapp"
+
+    def test_list_secrets_emits_secret_list(self):
+        rpcs = [
+            _rpc(
+                "Secrets",
+                "ListSecrets",
+                {"show-secrets": False, "filter": {}},
+            )
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        assert len(events) == 1
+        ev = events[0]
+        assert ev["op"] == "secret_list"
+        assert ev["args"]["owner"] is None
+
+    def test_list_secrets_with_owner_filter(self):
+        rpcs = [
+            _rpc(
+                "Secrets",
+                "ListSecrets",
+                {
+                    "show-secrets": False,
+                    "filter": {"owner-tag": "application-myapp"},
+                },
+            )
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        assert events[0]["args"]["owner"] == "myapp"
+
+    def test_revoke_secret_stays_bucket2(self):
+        """Secrets.RevokeSecret has no jubilant equivalent; remains op: 'shell'."""
+        rpcs = [
+            _rpc(
+                "Secrets",
+                "RevokeSecret",
+                {
+                    "uri": "secret:abc123",
+                    "scope-tag": "model-mymodel",
+                    "applications": ["myapp"],
+                },
+            )
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        assert len(events) == 1
+        ev = events[0]
+        assert ev["op"] == "shell"
+        assert "RevokeSecret" in ev["args"]["command"][0]
+
+    def test_secrets_event_has_all_envelope_keys(self):
+        """All bucket-1 Secrets events have the canonical EventEnvelope key set."""
+        rpcs = [
+            _rpc(
+                "Secrets",
+                "CreateSecrets",
+                {"secrets": [{"label": "x", "content": {"data": {"k": "v"}}}]},
+            )
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        ev = events[0]
+        expected_keys = {
+            "seq", "op", "ts", "args", "result",
+            "model_snapshot_before", "model_snapshot_after",
+            "assertions", "gesture", "duration_ms",
+            "_libjuju_source",
+        }
+        assert set(ev.keys()) == expected_keys
