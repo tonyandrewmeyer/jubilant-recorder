@@ -298,3 +298,197 @@ def test_codegen_renders_synthesised_wait_for_idle(tmp_path: Path) -> None:
     # The surrounding ops must also render — synthesis must not break them.
     assert "juju.deploy('ch:my-charm', app='my-charm')" in src, src
     assert "juju.integrate('my-charm:db', 'postgresql:database')" in src, src
+
+
+def test_codegen_renders_secrets_libjuju_session(tmp_path: Path) -> None:
+    """Secrets.* bucket-1 ops produce valid, idiomatic jubilant calls.
+
+    Records CreateSecrets + GrantSecret + UpdateSecrets + RemoveSecrets +
+    ListSecrets through RecordingLibjuju, hands the log to codegen.generate,
+    and checks:
+
+    * The emitted Python parses cleanly.
+    * Each op renders the correct jubilant method with redacted content.
+    * No plaintext secret value appears in the output.
+    * Secrets.RevokeSecret (kept in bucket-2) renders as a # TODO comment.
+    """
+    FakeConnection.rpc = _make_stub(
+        [
+            # CreateSecrets
+            {"request-id": 1, "response": {}},
+            # GrantSecret
+            {"request-id": 2, "response": {}},
+            # UpdateSecrets
+            {"request-id": 3, "response": {}},
+            # RemoveSecrets
+            {"request-id": 4, "response": {}},
+            # ListSecrets
+            {"request-id": 5, "response": {}},
+            # RevokeSecret (bucket-2)
+            {"request-id": 6, "response": {}},
+        ]
+    )
+
+    log_path = tmp_path / "session.json"
+    with RecordingLibjuju.start(
+        log_path=log_path,
+        model="secrets-model",
+        tap=LibjujuTap(_connection_class=FakeConnection),
+    ):
+        _run_rpc(
+            {
+                "type": "Secrets",
+                "request": "CreateSecrets",
+                "version": 2,
+                "params": {
+                    "secrets": [
+                        {
+                            "label": "my-secret",
+                            "content": {"data": {"password": "hunter2"}},
+                            "description": "app password",
+                        }
+                    ]
+                },
+            }
+        )
+        _run_rpc(
+            {
+                "type": "Secrets",
+                "request": "GrantSecret",
+                "version": 2,
+                "params": {
+                    "uri": "secret:abc123",
+                    "scope-tag": "model-m",
+                    "applications": ["consumer"],
+                },
+            }
+        )
+        _run_rpc(
+            {
+                "type": "Secrets",
+                "request": "UpdateSecrets",
+                "version": 2,
+                "params": {
+                    "secrets": [
+                        {
+                            "existing-id": "secret:abc123",
+                            "content": {"data": {"password": "n3w-pass"}},
+                        }
+                    ]
+                },
+            }
+        )
+        _run_rpc(
+            {
+                "type": "Secrets",
+                "request": "RemoveSecrets",
+                "version": 2,
+                "params": {"secrets": [{"uri": "secret:abc123", "revisions": []}]},
+            }
+        )
+        _run_rpc(
+            {
+                "type": "Secrets",
+                "request": "ListSecrets",
+                "version": 2,
+                "params": {"show-secrets": False, "filter": {}},
+            }
+        )
+        _run_rpc(
+            {
+                "type": "Secrets",
+                "request": "RevokeSecret",
+                "version": 2,
+                "params": {
+                    "uri": "secret:abc123",
+                    "scope-tag": "model-m",
+                    "applications": ["consumer"],
+                },
+            }
+        )
+
+    import json as _json
+    log = _json.loads(log_path.read_text(encoding="utf-8"))
+    ops = [e["op"] for e in log["events"]]
+    assert ops == [
+        "secret_add",
+        "secret_grant",
+        "secret_update",
+        "secret_remove",
+        "secret_list",
+        "shell",  # RevokeSecret stays bucket-2
+    ], ops
+
+    src = generate(log)
+
+    # Must be syntactically valid Python.
+    ast.parse(src)
+
+    # Each bucket-1 Secrets op renders the correct jubilant call.
+    assert "juju.add_secret('my-secret'" in src, src
+    assert "juju.grant_secret('secret:abc123', 'consumer')" in src, src
+    assert "juju.update_secret('secret:abc123'" in src, src
+    assert "juju.remove_secret('secret:abc123')" in src, src
+    assert "juju.secrets()" in src, src
+
+    # Redacted content is present; actual secret values are absent.
+    assert "<REDACTED>" in src, src
+    assert "hunter2" not in src, src
+    assert "n3w-pass" not in src, src
+
+    # The TODO comment appears above each content call.
+    assert "# TODO: replace with real secret content" in src, src
+
+    # RevokeSecret (bucket-2) renders as a TODO fallback.
+    assert "# TODO: manual step" in src, src
+
+
+def test_codegen_renders_secret_remove_with_revision(tmp_path: Path) -> None:
+    """RemoveSecrets with a specific revision renders revision= kwarg."""
+    FakeConnection.rpc = _make_stub([{"request-id": 1, "response": {}}])
+    log_path = tmp_path / "session.json"
+    with RecordingLibjuju.start(
+        log_path=log_path,
+        model="m",
+        tap=LibjujuTap(_connection_class=FakeConnection),
+    ):
+        _run_rpc(
+            {
+                "type": "Secrets",
+                "request": "RemoveSecrets",
+                "version": 2,
+                "params": {"secrets": [{"uri": "secret:xyz", "revisions": [5]}]},
+            }
+        )
+
+    log = json.loads(log_path.read_text(encoding="utf-8"))
+    src = generate(log)
+    ast.parse(src)
+    assert "juju.remove_secret('secret:xyz', revision=5)" in src, src
+
+
+def test_codegen_renders_list_secrets_with_owner(tmp_path: Path) -> None:
+    """ListSecrets with an owner filter renders owner= kwarg."""
+    FakeConnection.rpc = _make_stub([{"request-id": 1, "response": {}}])
+    log_path = tmp_path / "session.json"
+    with RecordingLibjuju.start(
+        log_path=log_path,
+        model="m",
+        tap=LibjujuTap(_connection_class=FakeConnection),
+    ):
+        _run_rpc(
+            {
+                "type": "Secrets",
+                "request": "ListSecrets",
+                "version": 2,
+                "params": {
+                    "show-secrets": False,
+                    "filter": {"owner-tag": "application-myapp"},
+                },
+            }
+        )
+
+    log = json.loads(log_path.read_text(encoding="utf-8"))
+    src = generate(log)
+    ast.parse(src)
+    assert "juju.secrets(owner='myapp')" in src, src
