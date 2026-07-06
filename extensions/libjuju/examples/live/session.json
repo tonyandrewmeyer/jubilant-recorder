@@ -1,0 +1,174 @@
+{
+  "events": [
+    {
+      "args": {
+        "app": "ubuntu",
+        "channel": null,
+        "charm": "ch:amd64/noble/ubuntu",
+        "config": {},
+        "num_units": 1,
+        "resources": {}
+      },
+      "assertions": [],
+      "duration_ms": 1075.9999752044678,
+      "gesture": null,
+      "model_snapshot_after": {
+        "apps": {
+          "ubuntu": {
+            "units": {
+              "ubuntu/0": {
+                "agent_status": "allocating",
+                "workload_message": "waiting for machine",
+                "workload_status": "waiting"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-07-06T10:23:20.416Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "model_snapshot_before": {
+        "apps": {},
+        "captured_at": "2026-07-06T10:23:19.340Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "op": "deploy",
+      "result": {
+        "app_name": "ubuntu"
+      },
+      "seq": 1,
+      "ts": "2026-07-06T10:23:19.340Z"
+    },
+    {
+      "args": {
+        "apps": null,
+        "timeout": null
+      },
+      "assertions": [],
+      "duration_ms": 15539.999961853027,
+      "gesture": null,
+      "model_snapshot_after": {
+        "apps": {
+          "ubuntu": {
+            "units": {
+              "ubuntu/0": {
+                "agent_status": "allocating",
+                "workload_message": "waiting for machine",
+                "workload_status": "waiting"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-07-06T10:24:49.342Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "model_snapshot_before": {
+        "apps": {
+          "ubuntu": {
+            "units": {
+              "ubuntu/0": {
+                "agent_status": "allocating",
+                "workload_message": "waiting for machine",
+                "workload_status": "waiting"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-07-06T10:24:49.342Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "op": "wait_for_idle",
+      "result": {
+        "settled_at": "2026-07-06T10:25:04.882Z"
+      },
+      "seq": 2,
+      "ts": "2026-07-06T10:24:49.342Z"
+    },
+    {
+      "args": {
+        "app": "ubuntu",
+        "keys": null
+      },
+      "assertions": [],
+      "duration_ms": 3.000020980834961,
+      "gesture": null,
+      "model_snapshot_after": {
+        "apps": {
+          "ubuntu": {
+            "units": {
+              "ubuntu/0": {
+                "agent_status": "allocating",
+                "workload_message": "waiting for machine",
+                "workload_status": "waiting"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-07-06T10:25:04.885Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "model_snapshot_before": {
+        "apps": {
+          "ubuntu": {
+            "units": {
+              "ubuntu/0": {
+                "agent_status": "allocating",
+                "workload_message": "waiting for machine",
+                "workload_status": "waiting"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-07-06T10:25:04.882Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "op": "config_get",
+      "result": {
+        "values": {}
+      },
+      "seq": 3,
+      "ts": "2026-07-06T10:25:04.882Z"
+    },
+    {
+      "args": {},
+      "assertions": [],
+      "duration_ms": 0.0,
+      "gesture": null,
+      "model_snapshot_after": {
+        "apps": {
+          "ubuntu": {
+            "units": {
+              "ubuntu/0": {
+                "agent_status": "idle",
+                "workload_message": "",
+                "workload_status": "active"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-07-06T10:25:04.885Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "model_snapshot_before": null,
+      "op": "_libjuju_orphan_deltas",
+      "result": {
+        "orphan_delta_count": 25
+      },
+      "seq": 4,
+      "ts": "2026-07-06T10:25:04.885Z"
+    }
+  ],
+  "jubilant_version": "1.10.0",
+  "juju_version": "4.0.12-genericlinux-amd64",
+  "model": "jtr-carry-d",
+  "recorded_at": "2026-07-06T10:25:04.885Z",
+  "schema_version": 1,
+  "session_id": "297ff0c3-d2c4-42a2-b00a-2670ac588265"
+}
