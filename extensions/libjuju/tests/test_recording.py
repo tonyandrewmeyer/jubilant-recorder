@@ -688,3 +688,206 @@ class TestWaitForIdleSynthesisInRecording:
         doc = _read_log(log_path)
         ops = [e["op"] for e in doc["events"]]
         assert "wait_for_idle" not in ops
+
+
+# ---------------------------------------------------------------------------
+# Test: Secrets.* bucket-1 round-trip through RecordingLibjuju (carry c)
+# ---------------------------------------------------------------------------
+
+
+class TestSecretsRecording:
+    """Secrets.* RPCs promoted to bucket-1 write correct events to the log."""
+
+    def test_create_secrets_writes_secret_add_event(self, tmp_path: Path):
+        FakeConnection.rpc = _make_stub([{"request-id": 1, "response": {}}])
+        log_path = tmp_path / "session.json"
+        with RecordingLibjuju.start(
+            log_path=log_path,
+            model="m",
+            tap=LibjujuTap(_connection_class=FakeConnection),
+        ):
+            _run_rpc(
+                {
+                    "type": "Secrets",
+                    "request": "CreateSecrets",
+                    "version": 2,
+                    "params": {
+                        "secrets": [
+                            {
+                                "owner-tag": "application-myapp",
+                                "label": "my-secret",
+                                "content": {"data": {"password": "s3cr3t"}},
+                                "description": "test cred",
+                            }
+                        ]
+                    },
+                }
+            )
+
+        ev = _read_log(log_path)["events"][0]
+        assert ev["op"] == "secret_add"
+        assert ev["args"]["name"] == "my-secret"
+        assert ev["args"]["content"] == {"password": "<REDACTED>"}
+        assert ev["args"]["info"] == "test cred"
+        # Content values must never appear in plaintext.
+        assert "s3cr3t" not in json.dumps(ev)
+
+    def test_update_secrets_writes_secret_update_event(self, tmp_path: Path):
+        FakeConnection.rpc = _make_stub([{"request-id": 1, "response": {}}])
+        log_path = tmp_path / "session.json"
+        with RecordingLibjuju.start(
+            log_path=log_path,
+            model="m",
+            tap=LibjujuTap(_connection_class=FakeConnection),
+        ):
+            _run_rpc(
+                {
+                    "type": "Secrets",
+                    "request": "UpdateSecrets",
+                    "version": 2,
+                    "params": {
+                        "secrets": [
+                            {
+                                "existing-id": "secret:xyz789",
+                                "content": {"data": {"token": "abc"}},
+                                "auto-prune": False,
+                            }
+                        ]
+                    },
+                }
+            )
+
+        ev = _read_log(log_path)["events"][0]
+        assert ev["op"] == "secret_update"
+        assert ev["args"]["identifier"] == "secret:xyz789"
+        assert ev["args"]["content"] == {"token": "<REDACTED>"}
+        assert "abc" not in json.dumps(ev)
+
+    def test_remove_secrets_writes_secret_remove_event(self, tmp_path: Path):
+        FakeConnection.rpc = _make_stub([{"request-id": 1, "response": {}}])
+        log_path = tmp_path / "session.json"
+        with RecordingLibjuju.start(
+            log_path=log_path,
+            model="m",
+            tap=LibjujuTap(_connection_class=FakeConnection),
+        ):
+            _run_rpc(
+                {
+                    "type": "Secrets",
+                    "request": "RemoveSecrets",
+                    "version": 2,
+                    "params": {"secrets": [{"uri": "secret:abc123", "revisions": []}]},
+                }
+            )
+
+        ev = _read_log(log_path)["events"][0]
+        assert ev["op"] == "secret_remove"
+        assert ev["args"]["identifier"] == "secret:abc123"
+        assert ev["args"]["revision"] is None
+
+    def test_grant_secret_writes_secret_grant_event(self, tmp_path: Path):
+        FakeConnection.rpc = _make_stub([{"request-id": 1, "response": {}}])
+        log_path = tmp_path / "session.json"
+        with RecordingLibjuju.start(
+            log_path=log_path,
+            model="m",
+            tap=LibjujuTap(_connection_class=FakeConnection),
+        ):
+            _run_rpc(
+                {
+                    "type": "Secrets",
+                    "request": "GrantSecret",
+                    "version": 2,
+                    "params": {
+                        "uri": "secret:abc123",
+                        "scope-tag": "model-mymodel",
+                        "applications": ["consumer-app"],
+                    },
+                }
+            )
+
+        ev = _read_log(log_path)["events"][0]
+        assert ev["op"] == "secret_grant"
+        assert ev["args"]["identifier"] == "secret:abc123"
+        assert ev["args"]["app"] == "consumer-app"
+
+    def test_list_secrets_writes_secret_list_event(self, tmp_path: Path):
+        FakeConnection.rpc = _make_stub([{"request-id": 1, "response": {}}])
+        log_path = tmp_path / "session.json"
+        with RecordingLibjuju.start(
+            log_path=log_path,
+            model="m",
+            tap=LibjujuTap(_connection_class=FakeConnection),
+        ):
+            _run_rpc(
+                {
+                    "type": "Secrets",
+                    "request": "ListSecrets",
+                    "version": 2,
+                    "params": {"show-secrets": False, "filter": {}},
+                }
+            )
+
+        ev = _read_log(log_path)["events"][0]
+        assert ev["op"] == "secret_list"
+        assert ev["args"]["owner"] is None
+
+    def test_revoke_secret_stays_shell_op(self, tmp_path: Path):
+        """Secrets.RevokeSecret has no jubilant equivalent; must remain bucket-2."""
+        FakeConnection.rpc = _make_stub([{"request-id": 1, "response": {}}])
+        log_path = tmp_path / "session.json"
+        with RecordingLibjuju.start(
+            log_path=log_path,
+            model="m",
+            tap=LibjujuTap(_connection_class=FakeConnection),
+        ):
+            _run_rpc(
+                {
+                    "type": "Secrets",
+                    "request": "RevokeSecret",
+                    "version": 2,
+                    "params": {
+                        "uri": "secret:abc123",
+                        "scope-tag": "model-mymodel",
+                        "applications": ["consumer-app"],
+                    },
+                }
+            )
+
+        ev = _read_log(log_path)["events"][0]
+        assert ev["op"] == "shell"
+        assert "RevokeSecret" in ev["args"]["command"][0]
+
+    def test_secret_add_event_has_canonical_envelope_keys(self, tmp_path: Path):
+        """On-disk event must have exactly the canonical EventEnvelope key set."""
+        FakeConnection.rpc = _make_stub([{"request-id": 1, "response": {}}])
+        log_path = tmp_path / "session.json"
+        with RecordingLibjuju.start(
+            log_path=log_path,
+            model="m",
+            tap=LibjujuTap(_connection_class=FakeConnection),
+        ):
+            _run_rpc(
+                {
+                    "type": "Secrets",
+                    "request": "CreateSecrets",
+                    "version": 2,
+                    "params": {
+                        "secrets": [{"label": "x", "content": {"data": {"k": "v"}}}]
+                    },
+                }
+            )
+
+        ev = _read_log(log_path)["events"][0]
+        assert set(ev.keys()) == {
+            "assertions",
+            "args",
+            "duration_ms",
+            "gesture",
+            "model_snapshot_after",
+            "model_snapshot_before",
+            "op",
+            "result",
+            "seq",
+            "ts",
+        }

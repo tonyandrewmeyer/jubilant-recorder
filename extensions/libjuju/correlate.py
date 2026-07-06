@@ -39,6 +39,11 @@ Bucket 1 — clean mapping (records a fully-typed SCHEMA event):
     Action.Enqueue            → run
     Action.EnqueueOperation   → run
     Client.Status             → status
+    Secrets.CreateSecrets     → secret_add     (content redacted)
+    Secrets.UpdateSecrets     → secret_update  (content redacted)
+    Secrets.RemoveSecrets     → secret_remove
+    Secrets.GrantSecret       → secret_grant
+    Secrets.ListSecrets       → secret_list
 
 Bucket 2 — lossy / decomposable (records event with ``note`` field):
     Application.SetCharm      → note: "libjuju Application.SetCharm"
@@ -47,6 +52,8 @@ Bucket 2 — lossy / decomposable (records event with ``note`` field):
     Application.SetConstraints → note: "libjuju Application.SetConstraints"
     Application.SetRelationsSuspended → note: ...
     Application.UnsetApplicationsConfig → note: ...
+    Secrets.RevokeSecret      → note: "libjuju Secrets.RevokeSecret"
+                                (no jubilant equivalent; see SECRETS-GAPS.md)
 
 Bucket 3 — no mapping (records a ``# TODO: manual step`` shape):
     Everything else (raw facade calls with no CLI equivalent).
@@ -54,6 +61,14 @@ Bucket 3 — no mapping (records a ``# TODO: manual step`` shape):
 Internal RPCs (skipped, never emit events):
     AllWatcher.Next, AllWatcher.Stop, Client.WatchAll, Pinger.Ping,
     and any facade whose name starts with "AllWatcher".
+
+Secret content redaction
+------------------------
+``Secrets.CreateSecrets`` and ``Secrets.UpdateSecrets`` carry actual secret
+values in their ``content.data`` dict.  ``_extract_args`` always redacts these
+values, replacing each with the sentinel ``"<REDACTED>"``, while preserving the
+key names so codegen can hint to the user what keys the secret has.  The
+resulting args dict is safe to write to disk (no plaintext secrets).
 """
 
 from __future__ import annotations
@@ -90,6 +105,12 @@ _BUCKET1_MAP: dict[tuple[str, str], str] = {
     ("Action", "Enqueue"): "run",
     ("Action", "EnqueueOperation"): "run",
     ("Client", "Status"): "status",
+    # Secrets facade — bucket-1 promotions (carry c)
+    ("Secrets", "CreateSecrets"): "secret_add",
+    ("Secrets", "UpdateSecrets"): "secret_update",
+    ("Secrets", "RemoveSecrets"): "secret_remove",
+    ("Secrets", "GrantSecret"): "secret_grant",
+    ("Secrets", "ListSecrets"): "secret_list",
 }
 
 _BUCKET2_FACADES: frozenset[tuple[str, str]] = frozenset(
@@ -102,6 +123,9 @@ _BUCKET2_FACADES: frozenset[tuple[str, str]] = frozenset(
         ("Application", "SetRelationsSuspended"),
         ("Application", "UnsetApplicationsConfig"),
         ("Application", "UpdateApplicationBase"),
+        # Secrets.RevokeSecret has no jubilant equivalent; keep in bucket-2.
+        # See extensions/libjuju/SECRETS-GAPS.md for the documented gap.
+        ("Secrets", "RevokeSecret"),
     }
 )
 
@@ -286,6 +310,58 @@ def _extract_args(facade: str, method: str, params: dict[str, Any]) -> dict[str,
     if key == ("Client", "Status"):
         return {}
 
+    if key == ("Secrets", "CreateSecrets"):
+        secrets = params.get("secrets") or [{}]
+        s = secrets[0] if secrets else {}
+        data = (s.get("content") or {}).get("data") or {}
+        # Always redact secret values; preserve key names as a structure hint.
+        redacted_content: dict[str, str] = {k: "<REDACTED>" for k in data}
+        return {
+            "name": s.get("label") or "",
+            "content": redacted_content,
+            "info": s.get("description") or None,
+        }
+
+    if key == ("Secrets", "UpdateSecrets"):
+        secrets = params.get("secrets") or [{}]
+        s = secrets[0] if secrets else {}
+        data = (s.get("content") or {}).get("data") or {}
+        redacted_content = {k: "<REDACTED>" for k in data}
+        auto_prune = bool(s.get("auto-prune"))
+        return {
+            "identifier": s.get("existing-id") or "",
+            "content": redacted_content,
+            "info": s.get("description") or None,
+            "name": s.get("label") or None,
+            "auto_prune": auto_prune,
+        }
+
+    if key == ("Secrets", "RemoveSecrets"):
+        secrets = params.get("secrets") or [{}]
+        s = secrets[0] if secrets else {}
+        revisions = s.get("revisions") or []
+        return {
+            "identifier": s.get("uri") or "",
+            "revision": revisions[0] if revisions else None,
+        }
+
+    if key == ("Secrets", "GrantSecret"):
+        apps = params.get("applications") or []
+        return {
+            "identifier": params.get("uri") or "",
+            "app": apps[0] if apps else "",
+        }
+
+    if key == ("Secrets", "ListSecrets"):
+        filter_data = params.get("filter") or {}
+        owner_tag = filter_data.get("owner-tag") or None
+        # Strip the "application-" prefix from the owner tag if present.
+        if owner_tag and owner_tag.startswith("application-"):
+            owner: str | None = owner_tag.removeprefix("application-")
+        else:
+            owner = owner_tag
+        return {"owner": owner}
+
     return {}
 
 
@@ -430,6 +506,10 @@ def correlate(
                 result = {"values": {}}
             elif op == "run":
                 result = {"success": True, "results": {}, "message": None}
+            elif op == "secret_add":
+                # URI is assigned by the controller; the tap does not capture
+                # the response body, so we record an empty placeholder here.
+                result = {"uri": ""}
 
             event: dict[str, Any] = {
                 "seq": seq,
