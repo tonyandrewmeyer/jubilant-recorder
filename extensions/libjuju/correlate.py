@@ -86,6 +86,21 @@ _INTERNAL_FACADE_METHODS: frozenset[tuple[str, str]] = frozenset(
         ("AllWatcher", "Next"),
         ("AllWatcher", "Stop"),
         ("Client", "WatchAll"),
+        # ``Client.FullStatus`` is the backend for both ``model.get_status()``
+        # and ``model.wait_for_idle()`` polling. In a real run wait_for_idle
+        # calls it hundreds of times; without this exclusion the correlator
+        # emits one ``status`` event per poll and drowns every other user
+        # intent. Treat as internal; explicit assertions on model state flow
+        # through ``model_snapshot_after`` instead.
+        ("Client", "FullStatus"),
+        # Modern libjuju queries the controller's model config on connect.
+        ("ModelConfig", "ModelGet"),
+        ("ModelConfig", "GetModelConstraints"),
+        # Deploy paths query ResolveCharms / AddCharm before the actual deploy
+        # RPC. These are plumbing — the user asked for ``deploy``, not for
+        # each resolve step.
+        ("Charms", "ResolveCharms"),
+        ("Charms", "AddCharm"),
         ("Pinger", "Ping"),
         ("Controller", "WatchAllModels"),
         ("ModelManager", "WatchModelSummaries"),
@@ -94,6 +109,10 @@ _INTERNAL_FACADE_METHODS: frozenset[tuple[str, str]] = frozenset(
 
 _BUCKET1_MAP: dict[tuple[str, str], str] = {
     ("Application", "Deploy"): "deploy",
+    # ``Application.DeployFromRepository`` is the modern deploy facade libjuju
+    # 3.6.1+ uses when talking to juju 3.6+ controllers. Params are packed as
+    # ``{"Args": ["<json-string>"]}`` — see ``_extract_args``.
+    ("Application", "DeployFromRepository"): "deploy",
     ("Application", "AddRelation"): "integrate",
     ("Application", "DestroyRelation"): "remove_integration",
     ("Application", "SetConfigs"): "config",
@@ -227,6 +246,25 @@ class _ModelState:
 # ---------------------------------------------------------------------------
 
 
+def _strip_charm_url_revision(charm_url: str) -> str:
+    """Strip a trailing ``-<digits>`` revision suffix from the last path segment.
+
+    ``DeployFromRepository`` reports a resolved charm URL like
+    ``ch:amd64/noble/ubuntu-26``; jubilant's CLI rejects revision-in-name and
+    wants ``--revision`` separately. Return the URL with the trailing ``-N``
+    removed from its final segment: ``ch:amd64/noble/ubuntu``. Non-URL inputs
+    and inputs without a numeric suffix pass through unchanged.
+    """
+    if not charm_url:
+        return charm_url
+    head, sep, tail = charm_url.rpartition("/")
+    seg = tail if sep else charm_url
+    app, dash, maybe_rev = seg.rpartition("-")
+    if dash and maybe_rev.isdigit() and app:
+        seg = app
+    return f"{head}/{seg}" if sep else seg
+
+
 def _unit_tag_to_name(receiver: str) -> str:
     """Convert a Juju unit tag (``unit-my-charm-0``) back to ``my-charm/0``.
 
@@ -257,6 +295,43 @@ def _extract_args(facade: str, method: str, params: dict[str, Any]) -> dict[str,
             "num_units": app_params.get("num-units", 1),
             "config": app_params.get("config") or {},
             "resources": app_params.get("resource-file-params") or {},
+        }
+
+    if key == ("Application", "DeployFromRepository"):
+        # libjuju packs the deploy request as ``{"Args": ["<json-string>"]}``
+        # where the JSON string decodes to a single ``DeployFromRepositoryArg``
+        # dict. Fall back to an empty dict if either layer is malformed.
+        raw_args = params.get("Args") or []
+        inner: dict[str, Any] = {}
+        if raw_args:
+            raw = raw_args[0]
+            if isinstance(raw, dict):
+                inner = raw
+            elif isinstance(raw, str):
+                import json as _json
+
+                try:
+                    inner = _json.loads(raw)
+                except (ValueError, TypeError):
+                    inner = {}
+        # ``CharmName`` is the RESOLVED charm URL (``ch:amd64/noble/ubuntu-26``);
+        # jubilant's CLI rejects a trailing ``-<revision>`` in the charm name and
+        # wants ``--revision`` separately. Strip the ``-<digits>`` suffix from
+        # the last path segment so codegen emits a name the CLI accepts.
+        raw_charm = inner.get("CharmName", "")
+        charm = _strip_charm_url_revision(raw_charm)
+        # Do NOT fall back to ``base.channel`` here: the base's channel
+        # (e.g. ``24.04/stable``) is the *Ubuntu release channel*, not the
+        # *charm's tracking channel* that jubilant's ``--channel`` selects.
+        # If the user did not pin a charm channel, emit no channel and let
+        # the CLI default to ``latest/stable``.
+        return {
+            "charm": charm,
+            "app": inner.get("ApplicationName") or None,
+            "channel": inner.get("channel") or None,
+            "num_units": inner.get("num-units", 1),
+            "config": {},
+            "resources": inner.get("resources") or {},
         }
 
     if key == ("Application", "AddRelation"):
