@@ -102,6 +102,36 @@ def run_event() -> dict[str, Any]:
 
 
 @pytest.fixture
+def config_get_event() -> dict[str, Any]:
+    return _event(
+        10,
+        "config_get",
+        {"app": "my-charm", "keys": None},
+        {"values": {}},
+    )
+
+
+@pytest.fixture
+def config_get_specific_keys_event() -> dict[str, Any]:
+    return _event(
+        11,
+        "config_get",
+        {"app": "my-charm", "keys": ["log-level", "debug"]},
+        {"values": {}},
+    )
+
+
+@pytest.fixture
+def orphan_deltas_event() -> dict[str, Any]:
+    return _event(
+        12,
+        "_libjuju_orphan_deltas",
+        {},
+        {"orphan_delta_count": 2},
+    )
+
+
+@pytest.fixture
 def wait_for_idle_event() -> dict[str, Any]:
     return _event(
         6,
@@ -134,6 +164,18 @@ def config_log(config_event: dict[str, Any]) -> dict[str, Any]:
 @pytest.fixture
 def scale_log(scale_event: dict[str, Any]) -> dict[str, Any]:
     return _wrap([scale_event])
+
+
+@pytest.fixture
+def config_get_log(config_get_event: dict[str, Any]) -> dict[str, Any]:
+    return _wrap([config_get_event])
+
+
+@pytest.fixture
+def orphan_deltas_log(
+    config_get_event: dict[str, Any], orphan_deltas_event: dict[str, Any]
+) -> dict[str, Any]:
+    return _wrap([config_get_event, orphan_deltas_event])
 
 
 @pytest.fixture

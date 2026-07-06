@@ -679,6 +679,23 @@ adds new public methods, one of these must happen:
 The recorder's `RecordingJuju` subclass and this schema must be updated in
 lockstep when jubilant's API grows.
 
+### Diagnostic-only ops (`_libjuju*` prefix)
+
+Some extension correlators synthesise trailer events that carry debugging
+information about the recording itself rather than a step the user
+performed — e.g. the libjuju extension's `_libjuju_orphan_deltas`, emitted
+when AllWatcher deltas arrive that can't be attributed to any captured RPC.
+Any `op` beginning with `_libjuju` is by this convention diagnostic-only:
+codegen drops these events entirely (no comment, no TODO) rather than
+asking the user to translate them.
+
+This is narrower than "any op starting with an underscore" — the libjuju
+extension's bucket-3 fallback op, `_todo`, also has a leading underscore
+but is not diagnostic: it marks a genuinely unmapped RPC with no jubilant
+equivalent, and must still render as a `# TODO: manual step` comment so
+the user notices and translates it by hand. Only the `_libjuju`-prefixed
+family is suppressed.
+
 ---
 
 ## Example session log

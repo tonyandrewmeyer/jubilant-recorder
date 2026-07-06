@@ -1,0 +1,128 @@
+{
+  "events": [
+    {
+      "args": {
+        "app": null,
+        "channel": "edge",
+        "charm": "my-charm",
+        "config": {},
+        "num_units": 1,
+        "resources": {}
+      },
+      "assertions": [],
+      "duration_ms": 900,
+      "gesture": null,
+      "model_snapshot_after": {
+        "apps": {
+          "my-charm": {
+            "units": {
+              "my-charm/0": {
+                "agent_status": "idle",
+                "workload_message": "",
+                "workload_status": "active"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-07-06T09:00:05.800Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "model_snapshot_before": {
+        "apps": {},
+        "captured_at": "2026-07-06T09:00:04.900Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "op": "deploy",
+      "result": {
+        "app_name": "my-charm"
+      },
+      "seq": 1,
+      "ts": "2026-07-06T09:00:05.000Z"
+    },
+    {
+      "args": {
+        "app": "my-charm",
+        "keys": null
+      },
+      "assertions": [],
+      "duration_ms": 250,
+      "gesture": null,
+      "model_snapshot_after": {
+        "apps": {
+          "my-charm": {
+            "units": {
+              "my-charm/0": {
+                "agent_status": "idle",
+                "workload_message": "",
+                "workload_status": "active"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-07-06T09:00:06.100Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "model_snapshot_before": {
+        "apps": {
+          "my-charm": {
+            "units": {
+              "my-charm/0": {
+                "agent_status": "idle",
+                "workload_message": "",
+                "workload_status": "active"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-07-06T09:00:05.900Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "op": "config_get",
+      "result": {
+        "values": {}
+      },
+      "seq": 2,
+      "ts": "2026-07-06T09:00:06.000Z"
+    },
+    {
+      "args": {},
+      "assertions": [],
+      "duration_ms": 0.0,
+      "gesture": null,
+      "model_snapshot_after": {
+        "apps": {
+          "my-charm": {
+            "units": {
+              "my-charm/0": {
+                "agent_status": "idle",
+                "workload_message": "",
+                "workload_status": "active"
+              }
+            }
+          }
+        },
+        "captured_at": "2026-07-06T09:00:06.200Z",
+        "relations": [],
+        "schema_version": 1
+      },
+      "model_snapshot_before": null,
+      "note": "# 2 delta(s) not attributable to any RPC",
+      "op": "_libjuju_orphan_deltas",
+      "result": {
+        "orphan_delta_count": 2
+      },
+      "seq": 3,
+      "ts": "2026-07-06T09:00:06.200Z"
+    }
+  ],
+  "jubilant_version": "1.10.0",
+  "juju_version": "3.6.23",
+  "model": "test-model",
+  "recorded_at": "2026-07-06T09:05:00.000Z",
+  "schema_version": 1,
+  "session_id": "0193fc4e-9c3d-7000-8000-1a2b3c4d5e70"
+}

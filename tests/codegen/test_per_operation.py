@@ -4,6 +4,7 @@ from typing import Any
 
 from jubilant_recorder.codegen.operations import (
     config,
+    config_get,
     deploy,
     integrate,
     run_action,
@@ -89,6 +90,26 @@ def test_integrate(integrate_event: dict[str, Any]) -> None:
 def test_config_set(config_event: dict[str, Any]) -> None:
     line = config.emit(config_event, indent=8)
     assert line == "        juju.config('my-charm', values={'log-level': 'info'})"
+
+
+def test_config_get_full(config_get_event: dict[str, Any]) -> None:
+    line = config_get.emit(config_get_event, indent=8, var_name="config_10")
+    assert line == "        config_10 = juju.config('my-charm')"
+
+
+def test_config_get_specific_keys(config_get_specific_keys_event: dict[str, Any]) -> None:
+    line = config_get.emit(config_get_specific_keys_event, indent=8, var_name="config_11")
+    assert line == (
+        "        config_11 = juju.config('my-charm')"
+        "  # requested keys: ['log-level', 'debug']"
+        " — juju.config() always returns the full dict"
+    )
+
+
+def test_config_get_without_var() -> None:
+    event = {"args": {"app": "my-charm", "keys": None}}
+    line = config_get.emit(event, indent=8)
+    assert line == "        juju.config('my-charm')"
 
 
 def test_scale(scale_event: dict[str, Any]) -> None:
