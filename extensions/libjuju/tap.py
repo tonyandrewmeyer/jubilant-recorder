@@ -39,7 +39,6 @@ with the delta burst that followed it.
 
 from __future__ import annotations
 
-import copy
 import types
 from datetime import UTC, datetime
 from typing import Any
@@ -47,6 +46,40 @@ from typing import Any
 
 def _format_ts(dt: datetime) -> str:
     return f"{dt:%Y-%m-%dT%H:%M:%S}.{dt.microsecond // 1000:03d}Z"
+
+
+def _normalise(obj: Any) -> Any:
+    """Recursively convert libjuju-typed objects to JSON-serialisable Python.
+
+    libjuju leaves typed dataclasses (for example ``juju.client._definitions.Base``)
+    in outgoing ``msg["params"]`` and in AllWatcher delta payloads; the WebSocket
+    encoder only sees the wire form. Since the tap captures the pre-send Python
+    view of both, everything downstream (SessionLog JSON serialisation, correlator,
+    tests) requires plain ``dict``/``list``/scalar shapes. This is the single
+    chokepoint that guarantees that.
+    """
+    if obj is None or isinstance(obj, (bool, int, float, str)):
+        return obj
+    if isinstance(obj, dict):
+        return {str(k): _normalise(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple, set, frozenset)):
+        return [_normalise(v) for v in obj]
+    to_json = getattr(obj, "to_json", None)
+    if callable(to_json):
+        try:
+            return _normalise(to_json())
+        except Exception:
+            pass
+    serialize = getattr(obj, "serialize", None)
+    if callable(serialize):
+        try:
+            return _normalise(serialize())
+        except Exception:
+            pass
+    d = getattr(obj, "__dict__", None)
+    if isinstance(d, dict) and d:
+        return {str(k): _normalise(v) for k, v in d.items() if not str(k).startswith("_")}
+    return repr(obj)
 
 
 class LibjujuTap:
@@ -154,7 +187,7 @@ class LibjujuTap:
                                     "ts_iso": _format_ts(ts_end),
                                     "entity_kind": str(entity_kind),
                                     "change_kind": str(change_kind),
-                                    "payload": payload if isinstance(payload, dict) else {},
+                                    "payload": _normalise(payload) if isinstance(payload, dict) else {},
                                 }
                             )
                 # All AllWatcher.* calls (Next, Stop, etc.) are internal — never add to _rpcs.
@@ -167,7 +200,7 @@ class LibjujuTap:
                         "facade": facade,
                         "version": msg.get("version"),
                         "method": method,
-                        "params": copy.deepcopy(params),
+                        "params": _normalise(params),
                     }
                 )
 
