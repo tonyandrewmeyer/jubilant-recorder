@@ -22,6 +22,15 @@ def generate(log: SessionLog, *, test_name: str | None = None) -> str:
     for event in log.get("events", []) or []:
         op = event.get("op", "")
 
+        # Diagnostic-only markers synthesised by extension correlators (e.g.
+        # libjuju's orphan-delta trailer) are never a step for the user to
+        # translate — drop the event entirely. Scoped to the `_libjuju*`
+        # prefix specifically, not a bare `_`: bucket-3's `_todo` op also
+        # starts with an underscore but must still surface as a manual-step
+        # TODO (see SCHEMA.md "Diagnostic-only ops").
+        if op.startswith("_libjuju"):
+            continue
+
         # New shell-hook ops: render as comments, never as jubilant calls.
         if op == "shell_context":
             body_lines.append(ctx.render_shell_context(event, indent))
@@ -67,6 +76,9 @@ def generate(log: SessionLog, *, test_name: str | None = None) -> str:
         elif op == "run":
             run_var = f"result_{event.get('seq')}"
             body_lines.append(EMITTERS["run"](event, indent, var_name=run_var))
+        elif op == "config_get":
+            config_get_var = f"config_{event.get('seq')}"
+            body_lines.append(EMITTERS["config_get"](event, indent, var_name=config_get_var))
         elif op in EMITTERS:
             body_lines.append(EMITTERS[op](event, indent))
             if op == "config":

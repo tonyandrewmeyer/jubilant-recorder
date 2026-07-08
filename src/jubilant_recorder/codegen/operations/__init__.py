@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from jubilant_recorder.codegen.operations import (
     config,
+    config_get,
     deploy,
     integrate,
     run_action,
@@ -18,6 +19,7 @@ EMITTERS = {
     "deploy": deploy.emit,
     "integrate": integrate.emit,
     "config": config.emit,
+    "config_get": config_get.emit,
     "scale": scale.emit,
     "run": run_action.emit,
     "wait_for_idle": wait_for_idle.emit,
@@ -31,6 +33,7 @@ EMITTERS = {
 __all__ = [
     "EMITTERS",
     "config",
+    "config_get",
     "deploy",
     "integrate",
     "run_action",
