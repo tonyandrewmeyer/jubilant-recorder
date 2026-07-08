@@ -74,6 +74,24 @@ def integrate_event() -> dict[str, Any]:
 
 
 @pytest.fixture
+def remove_integration_event() -> dict[str, Any]:
+    return _event(
+        20,
+        "remove_integration",
+        {"app1_endpoint": "my-charm:db", "app2_endpoint": "postgresql:database"},
+    )
+
+
+@pytest.fixture
+def remove_application_event() -> dict[str, Any]:
+    return _event(
+        21,
+        "remove_application",
+        {"app": "my-charm"},
+    )
+
+
+@pytest.fixture
 def config_event() -> dict[str, Any]:
     return _event(
         3,
@@ -238,7 +256,7 @@ def unknown_op_log() -> dict[str, Any]:
         [
             _event(
                 1,
-                "remove_application",
+                "totally_unrecognized_op",
                 {"app": "my-charm"},
             )
         ]

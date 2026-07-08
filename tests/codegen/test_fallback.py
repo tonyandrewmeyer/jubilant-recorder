@@ -8,13 +8,13 @@ from jubilant_recorder.codegen import fallback, generate
 
 def test_fallback_emits_todo_comment() -> None:
     event = {
-        "op": "remove_application",
+        "op": "totally_unrecognized_op",
         "args": {"app": "my-charm"},
         "result": {},
     }
     out = fallback.emit(event, indent=8)
     lines = out.splitlines()
-    assert lines[0] == "        # TODO: manual step — remove_application"
+    assert lines[0] == "        # TODO: manual step — totally_unrecognized_op"
     for rest in lines[1:]:
         assert rest.startswith("        # ")
 
@@ -42,5 +42,5 @@ def test_unknown_op_in_full_log_routes_to_fallback(
 ) -> None:
     src = generate(unknown_op_log)
     ast.parse(src)
-    assert "# TODO: manual step — remove_application" in src
-    assert "juju.remove_application(" not in src
+    assert "# TODO: manual step — totally_unrecognized_op" in src
+    assert "juju.totally_unrecognized_op(" not in src
