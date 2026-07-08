@@ -39,6 +39,21 @@ def test_deploy_only(deploy_log: dict[str, Any]) -> None:
     assert "juju.deploy('my-charm', channel='edge')" in src
 
 
+def test_config_get_appears(config_get_log: dict[str, Any]) -> None:
+    src = generate(config_get_log)
+    _parses(src)
+    assert "config_10 = juju.config('my-charm')" in src
+    assert "# TODO: manual step" not in src
+
+
+def test_libjuju_orphan_deltas_dropped_silently(orphan_deltas_log: dict[str, Any]) -> None:
+    src = generate(orphan_deltas_log)
+    _parses(src)
+    assert "config_10 = juju.config('my-charm')" in src
+    assert "_libjuju_orphan_deltas" not in src
+    assert "# TODO: manual step" not in src
+
+
 def test_all_operations_in_order(all_ops_log: dict[str, Any]) -> None:
     src = generate(all_ops_log)
     _parses(src)
@@ -130,3 +145,21 @@ def test_minimal_session_fixture_parses() -> None:
     assert "juju.wait(" in src
     assert "juju.run(" in src
     assert "# checkpoint: all done" in src
+
+
+def test_config_get_and_orphan_session_fixture_parses() -> None:
+    import json
+    from pathlib import Path
+
+    fixture_path = (
+        Path(__file__).resolve().parents[1]
+        / "fixtures"
+        / "config_get_and_orphan_session.json"
+    )
+    log = json.loads(fixture_path.read_text())
+    src = generate(log)
+    _parses(src)
+    assert "juju.deploy(" in src
+    assert "config_2 = juju.config('my-charm')" in src
+    assert "_libjuju_orphan_deltas" not in src
+    assert "# TODO: manual step" not in src

@@ -117,6 +117,11 @@ def interleave_context(
     for event in events:
         op = event.get("op", "")
 
+        # See emit.generate() for why this is scoped to `_libjuju*` rather
+        # than a bare `_` (bucket-3's `_todo` must still render).
+        if op.startswith("_libjuju"):
+            continue
+
         if op == "shell_context":
             body_lines.append(render_shell_context(event, indent))
             continue
