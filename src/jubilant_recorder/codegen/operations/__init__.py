@@ -5,6 +5,8 @@ from jubilant_recorder.codegen.operations import (
     config_get,
     deploy,
     integrate,
+    remove_application,
+    remove_integration,
     run_action,
     scale,
     secret_add,
@@ -17,7 +19,9 @@ from jubilant_recorder.codegen.operations import (
 
 EMITTERS = {
     "deploy": deploy.emit,
+    "remove_application": remove_application.emit,
     "integrate": integrate.emit,
+    "remove_integration": remove_integration.emit,
     "config": config.emit,
     "config_get": config_get.emit,
     "scale": scale.emit,
@@ -36,6 +40,8 @@ __all__ = [
     "config_get",
     "deploy",
     "integrate",
+    "remove_application",
+    "remove_integration",
     "run_action",
     "scale",
     "secret_add",
