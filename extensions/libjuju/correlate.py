@@ -44,6 +44,18 @@ Bucket 1 — clean mapping (records a fully-typed SCHEMA event):
     Secrets.RemoveSecrets     → secret_remove
     Secrets.GrantSecret       → secret_grant
     Secrets.ListSecrets       → secret_list
+    ApplicationOffers.Offer               → create_offer
+    ApplicationOffers.ListApplicationOffers → list_offers
+    ApplicationOffers.DestroyOffers       → remove_offer
+    ApplicationOffers.GetConsumeDetails   → get_consume_details
+    Application.Consume                   → consume
+    Application.DestroyConsumedApplications → remove_saas
+
+    Cross-model (CMR) note (see the CMR facade notes): the corpus term
+    ``consume_offer`` is a misnomer — there is no ``Model.consume_offer``.
+    The real client call is ``Model.consume()``, which drives
+    ``Application.Consume`` (an ``Application`` facade RPC, not an
+    ``ApplicationOffers.*`` one). Do not add a ``consume_offer`` entry here.
 
 Bucket 2 — lossy / decomposable (records event with ``note`` field):
     Application.SetCharm      → note: "libjuju Application.SetCharm"
@@ -54,6 +66,9 @@ Bucket 2 — lossy / decomposable (records event with ``note`` field):
     Application.UnsetApplicationsConfig → note: ...
     Secrets.RevokeSecret      → note: "libjuju Secrets.RevokeSecret"
                                 (no jubilant equivalent; see SECRETS-GAPS.md)
+    ApplicationOffers.FindApplicationOffers → note: "libjuju ApplicationOffers.FindApplicationOffers"
+                                (no Model/Controller client method calls this
+                                RPC in the recon snapshot; see the CMR facade notes §2.3)
 
 Bucket 3 — no mapping (records a ``# TODO: manual step`` shape):
     Everything else (raw facade calls with no CLI equivalent).
@@ -130,6 +145,20 @@ _BUCKET1_MAP: dict[tuple[str, str], str] = {
     ("Secrets", "RemoveSecrets"): "secret_remove",
     ("Secrets", "GrantSecret"): "secret_grant",
     ("Secrets", "ListSecrets"): "secret_list",
+    # Cross-model (CMR) facades — bucket-1 promotions, see the CMR facade notes §1.
+    # Facade name here is the wire ``type``, which is ``ApplicationOffers``
+    # (v5) for the offer-side calls, not the python-libjuju class name
+    # ``ApplicationOffersFacade``. ``Consume``/``DestroyConsumedApplications``
+    # are ``Application`` facade RPCs (v20), reusing the same wire type as
+    # ``Deploy``/``AddRelation``/etc. above.
+    ("ApplicationOffers", "Offer"): "create_offer",
+    ("ApplicationOffers", "ListApplicationOffers"): "list_offers",
+    ("ApplicationOffers", "DestroyOffers"): "remove_offer",
+    ("ApplicationOffers", "GetConsumeDetails"): "get_consume_details",
+    # NOT "consume_offer" — see the CMR facade notes §2.2: the real client
+    # call is ``Model.consume()``, there is no ``Model.consume_offer``.
+    ("Application", "Consume"): "consume",
+    ("Application", "DestroyConsumedApplications"): "remove_saas",
 }
 
 _BUCKET2_FACADES: frozenset[tuple[str, str]] = frozenset(
@@ -145,6 +174,11 @@ _BUCKET2_FACADES: frozenset[tuple[str, str]] = frozenset(
         # Secrets.RevokeSecret has no jubilant equivalent; keep in bucket-2.
         # See extensions/libjuju/SECRETS-GAPS.md for the documented gap.
         ("Secrets", "RevokeSecret"),
+        # No Model/Controller client method calls FindApplicationOffers in
+        # the recon snapshot (the CMR facade notes §2.3) — known facade RPC,
+        # no direct client-method mapping, so it stubs rather than falling
+        # through to the bucket-3 catch-all.
+        ("ApplicationOffers", "FindApplicationOffers"),
     }
 )
 
@@ -436,6 +470,62 @@ def _extract_args(facade: str, method: str, params: dict[str, Any]) -> dict[str,
         else:
             owner = owner_tag
         return {"owner": owner}
+
+    if key == ("ApplicationOffers", "Offer"):
+        # Wire shape per the CMR facade notes §2.1: {"Offers": [AddApplicationOffer, ...]}.
+        offers = params.get("Offers") or params.get("offers") or [{}]
+        o = offers[0] if offers else {}
+        return {
+            "app": o.get("application-name", ""),
+            "endpoints": o.get("endpoints") or {},
+            "offer_name": o.get("offer-name") or None,
+            "model_tag": o.get("model-tag") or None,
+        }
+
+    if key == ("ApplicationOffers", "ListApplicationOffers"):
+        # No literal wire fixture in the recon (the CMR facade notes §2.3) —
+        # shape inferred from the ``OfferFilter`` definition fields.
+        filters = params.get("filters") or params.get("Filters") or [{}]
+        f = filters[0] if filters else {}
+        return {
+            "model_name": f.get("model-name") or None,
+            "application_name": f.get("application-name") or None,
+            "offer_name": f.get("offer-name") or None,
+        }
+
+    if key == ("ApplicationOffers", "DestroyOffers"):
+        offer_urls = params.get("offer-urls") or params.get("OfferURLs") or []
+        return {
+            "force": bool(params.get("force")),
+            "offer_urls": offer_urls,
+        }
+
+    if key == ("ApplicationOffers", "GetConsumeDetails"):
+        # No literal wire fixture in the recon (the CMR facade notes §2.2) —
+        # ``offer_urls`` is an ``OfferURLs`` wrapper around a list of strings.
+        raw_urls = params.get("offer-urls") or params.get("OfferURLs") or []
+        if isinstance(raw_urls, dict):
+            raw_urls = raw_urls.get("offer-urls") or []
+        return {
+            "offer_urls": raw_urls,
+            "user_tag": params.get("user-tag") or None,
+        }
+
+    if key == ("Application", "Consume"):
+        args_list = params.get("args") or params.get("Args") or [{}]
+        a = args_list[0] if args_list else {}
+        return {
+            "offer_url": a.get("offer-url", ""),
+            "application_alias": a.get("application-alias") or None,
+        }
+
+    if key == ("Application", "DestroyConsumedApplications"):
+        # No literal wire fixture in the recon (mentioned only by source
+        # location, the CMR facade notes §5) — shape inferred from the
+        # sibling ``DestroyApplication`` RPC's ``application-tag`` convention.
+        apps = params.get("applications") or [{}]
+        app_tag = apps[0].get("application-tag", "") if apps else ""
+        return {"app": app_tag.replace("application-", "")}
 
     return {}
 
