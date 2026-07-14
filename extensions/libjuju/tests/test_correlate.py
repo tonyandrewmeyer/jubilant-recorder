@@ -12,7 +12,13 @@ Timestamp convention used in these tests:
 
 from __future__ import annotations
 
-from extensions.libjuju.correlate import _ModelState, _unit_tag_to_name, correlate
+from extensions.libjuju.correlate import (
+    _BUCKET1_MAP,
+    _classify,
+    _ModelState,
+    _unit_tag_to_name,
+    correlate,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -1151,6 +1157,9 @@ class TestSecretsCorrelation:
         assert ev["op"] == "shell"
         assert "RevokeSecret" in ev["args"]["command"][0]
 
+    def test_revoke_secret_stays_bucket2_via_classify(self):
+        assert _classify("Secrets", "RevokeSecret") == ("2", None)
+
     def test_secrets_event_has_all_envelope_keys(self):
         """All bucket-1 Secrets events have the canonical EventEnvelope key set."""
         rpcs = [
@@ -1158,6 +1167,212 @@ class TestSecretsCorrelation:
                 "Secrets",
                 "CreateSecrets",
                 {"secrets": [{"label": "x", "content": {"data": {"k": "v"}}}]},
+            )
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        ev = events[0]
+        expected_keys = {
+            "seq", "op", "ts", "args", "result",
+            "model_snapshot_before", "model_snapshot_after",
+            "assertions", "gesture", "duration_ms",
+            "_libjuju_source",
+        }
+        assert set(ev.keys()) == expected_keys
+
+
+# ---------------------------------------------------------------------------
+# Test: cross-model (CMR) facades — bucket-1/2 promotions per
+# CMR-FACADE-RECON.md (2026-07-09 recon).
+# ---------------------------------------------------------------------------
+
+
+class TestCrossModelClassification:
+    """Direct ``_classify`` checks for every row in CMR-FACADE-RECON.md §1."""
+
+    def test_create_offer_classifies_bucket1(self):
+        assert _classify("ApplicationOffers", "Offer") == ("1", "create_offer")
+
+    def test_list_offers_classifies_bucket1(self):
+        assert _classify("ApplicationOffers", "ListApplicationOffers") == ("1", "list_offers")
+
+    def test_remove_offer_classifies_bucket1(self):
+        assert _classify("ApplicationOffers", "DestroyOffers") == ("1", "remove_offer")
+
+    def test_get_consume_details_classifies_bucket1(self):
+        assert _classify("ApplicationOffers", "GetConsumeDetails") == (
+            "1",
+            "get_consume_details",
+        )
+
+    def test_consume_classifies_bucket1(self):
+        assert _classify("Application", "Consume") == ("1", "consume")
+
+    def test_remove_saas_classifies_bucket1(self):
+        assert _classify("Application", "DestroyConsumedApplications") == ("1", "remove_saas")
+
+    def test_find_application_offers_classifies_bucket2(self):
+        """No client method calls this RPC (recon §2.3) — bucket-2, not bucket-3."""
+        assert _classify("ApplicationOffers", "FindApplicationOffers") == ("2", None)
+
+    def test_consume_offer_misnomer_does_not_resolve(self):
+        """There is no ``Model.consume_offer``; only ``Model.consume`` (recon §2.2).
+
+        A wire call literally named ``ConsumeOffer`` was never real, and must
+        never be added to ``_BUCKET1_MAP`` — it should fall through to the
+        bucket-3 catch-all like any other unrecognised RPC, not resolve to
+        the real ``consume`` op.
+        """
+        assert _classify("ApplicationOffers", "ConsumeOffer") == ("3", None)
+        assert _classify("Application", "ConsumeOffer") == ("3", None)
+
+    def test_no_bucket1_entry_is_named_consume_offer(self):
+        """Guard against ever reintroducing the corpus's misnomer as an op name."""
+        assert "consume_offer" not in _BUCKET1_MAP.values()
+
+
+class TestCrossModelCorrelation:
+    """``correlate()``-level checks mirroring ``TestSecretsCorrelation``'s shape."""
+
+    def test_create_offer_emits_create_offer_event(self):
+        rpcs = [
+            _rpc(
+                "ApplicationOffers",
+                "Offer",
+                {
+                    "Offers": [
+                        {
+                            "application-name": "ubuntu",
+                            "endpoints": {"ubuntu": "ubuntu"},
+                            "offer-name": "ubuntu",
+                            "model-tag": "model-abc123",
+                        }
+                    ]
+                },
+            )
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        assert len(events) == 1
+        ev = events[0]
+        assert ev["op"] == "create_offer"
+        assert ev["args"]["app"] == "ubuntu"
+        assert ev["args"]["endpoints"] == {"ubuntu": "ubuntu"}
+        assert ev["args"]["offer_name"] == "ubuntu"
+        assert ev["args"]["model_tag"] == "model-abc123"
+
+    def test_list_offers_emits_list_offers_event(self):
+        rpcs = [
+            _rpc(
+                "ApplicationOffers",
+                "ListApplicationOffers",
+                {"filters": [{"model-name": "mymodel"}]},
+            )
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        assert len(events) == 1
+        assert events[0]["op"] == "list_offers"
+        assert events[0]["args"]["model_name"] == "mymodel"
+
+    def test_remove_offer_emits_remove_offer_event(self):
+        rpcs = [
+            _rpc(
+                "ApplicationOffers",
+                "DestroyOffers",
+                {"force": True, "offer-urls": ["admin/mymodel.ubuntu"]},
+            )
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        assert len(events) == 1
+        ev = events[0]
+        assert ev["op"] == "remove_offer"
+        assert ev["args"]["force"] is True
+        assert ev["args"]["offer_urls"] == ["admin/mymodel.ubuntu"]
+
+    def test_get_consume_details_emits_get_consume_details_event(self):
+        rpcs = [
+            _rpc(
+                "ApplicationOffers",
+                "GetConsumeDetails",
+                {"offer-urls": ["admin/mymodel.ubuntu"], "user-tag": "user-admin"},
+            )
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        assert len(events) == 1
+        ev = events[0]
+        assert ev["op"] == "get_consume_details"
+        assert ev["args"]["offer_urls"] == ["admin/mymodel.ubuntu"]
+        assert ev["args"]["user_tag"] == "user-admin"
+
+    def test_consume_emits_consume_event_not_consume_offer(self):
+        """The real ``Model.consume()`` call → ``Application.Consume`` → op ``consume``."""
+        rpcs = [
+            _rpc(
+                "Application",
+                "Consume",
+                {
+                    "args": [
+                        {
+                            "offer-url": "admin/mymodel.ubuntu",
+                            "application-alias": "my-ubuntu",
+                        }
+                    ]
+                },
+            )
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        assert len(events) == 1
+        ev = events[0]
+        assert ev["op"] == "consume"
+        assert ev["op"] != "consume_offer"
+        assert ev["args"]["offer_url"] == "admin/mymodel.ubuntu"
+        assert ev["args"]["application_alias"] == "my-ubuntu"
+
+    def test_consume_without_alias(self):
+        rpcs = [
+            _rpc(
+                "Application",
+                "Consume",
+                {"args": [{"offer-url": "admin/mymodel.ubuntu"}]},
+            )
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        assert events[0]["args"]["application_alias"] is None
+
+    def test_remove_saas_emits_remove_saas_event(self):
+        rpcs = [
+            _rpc(
+                "Application",
+                "DestroyConsumedApplications",
+                {"applications": [{"application-tag": "application-my-ubuntu"}]},
+            )
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        assert len(events) == 1
+        ev = events[0]
+        assert ev["op"] == "remove_saas"
+        assert ev["args"]["app"] == "my-ubuntu"
+
+    def test_find_application_offers_stays_bucket2_shell(self):
+        """No jubilant/client-method equivalent — stubs like other bucket-2 facades."""
+        rpcs = [
+            _rpc(
+                "ApplicationOffers",
+                "FindApplicationOffers",
+                {"filters": [{"model-name": "mymodel"}]},
+            )
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        assert len(events) == 1
+        ev = events[0]
+        assert ev["op"] == "shell"
+        assert "FindApplicationOffers" in ev["note"]
+
+    def test_cmr_events_have_all_envelope_keys(self):
+        """Bucket-1 CMR events carry the same canonical EventEnvelope key set."""
+        rpcs = [
+            _rpc(
+                "ApplicationOffers",
+                "Offer",
+                {"Offers": [{"application-name": "ubuntu", "endpoints": {"ubuntu": "ubuntu"}}]},
             )
         ]
         events = correlate(rpcs, [], idle_threshold_seconds=5.0)
