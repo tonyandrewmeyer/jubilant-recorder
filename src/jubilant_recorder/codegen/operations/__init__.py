@@ -3,6 +3,8 @@ from __future__ import annotations
 from jubilant_recorder.codegen.operations import (
     config,
     config_get,
+    consume,
+    create_offer,
     deploy,
     integrate,
     remove_application,
@@ -32,12 +34,22 @@ EMITTERS = {
     "secret_remove": secret_remove.emit,
     "secret_grant": secret_grant.emit,
     "secret_list": secret_list.emit,
+    "create_offer": create_offer.emit,
+    "consume": consume.emit,
+    # "list_offers", "remove_offer", "get_consume_details", "remove_saas" are
+    # correlator-classified bucket-1 (the CMR facade notes) but jubilant 1.10
+    # has no client method for any of them (confirmed by grepping
+    # jubilant/_juju.py — see the corpus audit §5) — no
+    # EMITTERS entry, so they fall through to the fallback `# TODO: manual
+    # step` renderer like any other unmapped op.
 }
 
 __all__ = [
     "EMITTERS",
     "config",
     "config_get",
+    "consume",
+    "create_offer",
     "deploy",
     "integrate",
     "remove_application",
