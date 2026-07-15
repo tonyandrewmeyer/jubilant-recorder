@@ -140,6 +140,65 @@ def config_get_specific_keys_event() -> dict[str, Any]:
 
 
 @pytest.fixture
+def create_offer_event() -> dict[str, Any]:
+    return _event(
+        13,
+        "create_offer",
+        {
+            "app": "postgresql",
+            "endpoints": {"db": "db"},
+            "offer_name": None,
+            "model_tag": None,
+        },
+    )
+
+
+@pytest.fixture
+def consume_event() -> dict[str, Any]:
+    return _event(
+        14,
+        "consume",
+        {"offer_url": "admin/othermodel.postgresql", "application_alias": None},
+    )
+
+
+@pytest.fixture
+def list_offers_event() -> dict[str, Any]:
+    return _event(
+        15,
+        "list_offers",
+        {"model_name": None, "application_name": None, "offer_name": None},
+    )
+
+
+@pytest.fixture
+def remove_offer_event() -> dict[str, Any]:
+    return _event(
+        16,
+        "remove_offer",
+        {"force": True, "offer_urls": ["admin/mymodel.postgresql"]},
+    )
+
+
+@pytest.fixture
+def get_consume_details_event() -> dict[str, Any]:
+    return _event(
+        17,
+        "get_consume_details",
+        {"offer_urls": ["admin/mymodel.postgresql"], "user_tag": None},
+    )
+
+
+@pytest.fixture
+def remove_saas_event() -> dict[str, Any]:
+    return _event(
+        18,
+        "remove_saas",
+        {"app": "postgresql"},
+    )
+
+
+@pytest.fixture
 def orphan_deltas_event() -> dict[str, Any]:
     return _event(
         12,

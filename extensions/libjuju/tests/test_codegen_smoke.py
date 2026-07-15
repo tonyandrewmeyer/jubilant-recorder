@@ -492,3 +492,100 @@ def test_codegen_renders_list_secrets_with_owner(tmp_path: Path) -> None:
     src = generate(log)
     ast.parse(src)
     assert "juju.secrets(owner='myapp')" in src, src
+
+
+def test_codegen_handles_find_application_offers_stub(tmp_path: Path) -> None:
+    """``ApplicationOffers.FindApplicationOffers`` is bucket-2 (no
+    ``Model``/``Controller`` client method calls it — CMR-FACADE-RECON.md
+    §2.3) — it must render as a ``shell``-op ``# TODO`` stub, the same
+    shape as any other bucket-2 RPC, not crash and not fall to bucket-3."""
+
+    FakeConnection.rpc = _make_stub([{"request-id": 1, "response": {}}])
+    log_path = tmp_path / "session.json"
+    with RecordingLibjuju.start(
+        log_path=log_path,
+        model="m",
+        tap=LibjujuTap(_connection_class=FakeConnection),
+    ):
+        _run_rpc(
+            {
+                "type": "ApplicationOffers",
+                "request": "FindApplicationOffers",
+                "version": 5,
+                "params": {"filters": [{"application-name": "postgresql"}]},
+            }
+        )
+
+    log = json.loads(log_path.read_text(encoding="utf-8"))
+    assert [e["op"] for e in log["events"]] == ["shell"]
+
+    src = generate(log)
+    ast.parse(src)
+    assert "# TODO: manual step" in src, src
+    assert '"op": "shell"' in src, src
+    assert "libjuju ApplicationOffers.FindApplicationOffers" in src, src
+
+
+def test_codegen_renders_create_offer_and_consume(tmp_path: Path) -> None:
+    """``ApplicationOffers.Offer`` and ``Application.Consume`` are bucket-1
+    (CMR-FACADE-RECON.md, classified in jubilant-recorder@16fbcf1) and now
+    have working codegen emitters — full tap → correlate → codegen
+    round-trip must produce real ``juju.offer(...)``/``juju.consume(...)``
+    calls, not TODO stubs."""
+
+    FakeConnection.rpc = _make_stub(
+        [
+            # ApplicationOffers.Offer
+            {"request-id": 1, "response": {"results": [{}]}},
+            # Application.Consume
+            {"request-id": 2, "response": {}},
+        ]
+    )
+
+    log_path = tmp_path / "session.json"
+    with RecordingLibjuju.start(
+        log_path=log_path,
+        model="m",
+        tap=LibjujuTap(_connection_class=FakeConnection),
+    ):
+        _run_rpc(
+            {
+                "type": "ApplicationOffers",
+                "request": "Offer",
+                "version": 5,
+                "params": {
+                    "Offers": [
+                        {
+                            "application-name": "postgresql",
+                            "endpoints": {"db": "db"},
+                            "offer-name": "postgresql",
+                            "model-tag": "model-deadbeef",
+                        }
+                    ]
+                },
+            }
+        )
+        _run_rpc(
+            {
+                "type": "Application",
+                "request": "Consume",
+                "version": 20,
+                "params": {
+                    "args": [
+                        {
+                            "offer-url": "admin/othermodel.postgresql",
+                            "application-alias": None,
+                        }
+                    ]
+                },
+            }
+        )
+
+    log = json.loads(log_path.read_text(encoding="utf-8"))
+    assert [e["op"] for e in log["events"]] == ["create_offer", "consume"]
+
+    src = generate(log)
+    ast.parse(src)
+    assert "juju.offer('postgresql', endpoint='db')" in src, src
+    assert "juju.consume('admin/othermodel.postgresql')" in src, src
+    assert "# TODO: manual step" not in src, src
