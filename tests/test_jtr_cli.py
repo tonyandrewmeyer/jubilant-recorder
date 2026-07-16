@@ -171,3 +171,31 @@ def test_session_lifecycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> N
     assert result2.returncode == 0
     assert "unset JTR_SESSION" in result2.stdout
     assert "unset JTR_LOG" in result2.stdout
+
+
+# --- shell-init snippet ---
+
+
+def test_shell_init_bash_registers_functions_into_arrays() -> None:
+    """B1 — bash-preexec iterates preexec_functions/precmd_functions arrays and
+    ignores bare `preexec`/`precmd` names; the snippet must register them."""
+    result = _run_jtr("shell-init", "--shell", "bash", "--no-path-shim")
+    assert result.returncode == 0
+    assert "preexec_functions+=(preexec)" in result.stdout
+    assert "precmd_functions+=(precmd)" in result.stdout
+
+
+def test_shell_init_zsh_omits_bash_preexec_note() -> None:
+    """B2 — the `bash-preexec must be sourced BEFORE this block` header is
+    bash-specific; zsh has native `preexec`/`precmd` and doesn't need it."""
+    result = _run_jtr("shell-init", "--shell", "zsh", "--no-path-shim")
+    assert result.returncode == 0
+    assert "bash-preexec" not in result.stdout
+
+
+def test_shell_init_zsh_does_not_register_into_arrays() -> None:
+    """Zsh's native preexec/precmd are called by name; the bash-specific
+    array-registration would be a no-op at best, confusing at worst."""
+    result = _run_jtr("shell-init", "--shell", "zsh", "--no-path-shim")
+    assert "preexec_functions" not in result.stdout
+    assert "precmd_functions" not in result.stdout
