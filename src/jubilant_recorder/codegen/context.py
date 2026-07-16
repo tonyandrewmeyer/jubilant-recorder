@@ -8,11 +8,37 @@ from jubilant_recorder.codegen.operations import EMITTERS
 
 def render_shell_context(event: dict[str, Any], indent: int = 8) -> str:
     """Produces `# context: <argv>` plus optional exit and stdout lines."""
+    return _render_shell_like(event, indent, prefix="context")
+
+
+def render_shell(event: dict[str, Any], indent: int = 8) -> str:
+    """Produces `# shell: <basename> <argv>` for PATH-shim intercepts.
+
+    Shim events are ``op: "shell"`` (`shim/juju_shim.py`) — a `juju` invocation
+    captured by the PATH shim. Rendered as a context comment so the generated
+    test carries an audit trail of what the user did without codegen having to
+    translate raw juju CLI to jubilant (that's the RecordingJuju wrapper's
+    job).
+    """
+    args = event.get("args") or {}
+    basename = args.get("basename") or ""
+    argv = args.get("argv") or []
+    cmd_parts = [basename] + list(argv) if basename else list(argv)
+    pad = " " * indent
+    lines = [f"{pad}# shell: {' '.join(str(p) for p in cmd_parts).strip()}"]
+    result = event.get("result") or {}
+    exit_code = result.get("exit_code")
+    if exit_code is not None and exit_code != 0:
+        lines.append(f"{pad}# exit {exit_code}")
+    return "\n".join(lines)
+
+
+def _render_shell_like(event: dict[str, Any], indent: int, *, prefix: str) -> str:
     pad = " " * indent
     args = event.get("args") or {}
     argv = args.get("argv") or []
     cmd_str = " ".join(argv) if isinstance(argv, list) else str(argv)
-    lines = [f"{pad}# context: {cmd_str}"]
+    lines = [f"{pad}# {prefix}: {cmd_str}"]
     result = event.get("result") or {}
     exit_code = result.get("exit_code")
     if exit_code is not None and exit_code != 0:

@@ -8,7 +8,9 @@ from jubilant_recorder.codegen.operations import EMITTERS
 SessionLog: TypeAlias = dict[str, Any]
 
 _DEFAULT_TEST_NAME = "test_recorded_session"
-_SKIP_OPS = frozenset({"checkpoint"})
+# `session_end` is an in-band sentinel appended by `jtr stop`; it marks the
+# end of the log, not a step for the user to translate.
+_SKIP_OPS = frozenset({"checkpoint", "session_end"})
 
 
 def generate(log: SessionLog, *, test_name: str | None = None) -> str:
@@ -34,6 +36,14 @@ def generate(log: SessionLog, *, test_name: str | None = None) -> str:
         # New shell-hook ops: render as comments, never as jubilant calls.
         if op == "shell_context":
             body_lines.append(ctx.render_shell_context(event, indent))
+            continue
+        # Only the PATH-shim path uses `op: "shell"` with `args.source =
+        # "shim"` — a plain `juju <argv>` invocation. Bucket-2/no-jubilant-
+        # equivalent libjuju events (bucket-2, find_application_offers) also
+        # use `op: "shell"` but without a shim source; those must still fall
+        # through to fallback so they render as `# TODO: manual step`.
+        if op == "shell" and (event.get("args") or {}).get("source") == "shim":
+            body_lines.append(ctx.render_shell(event, indent))
             continue
         if op == "note":
             body_lines.append(ctx.render_note(event, indent))

@@ -6,6 +6,7 @@ from jubilant_recorder.codegen.context import (
     interleave_context,
     render_config_result,
     render_note,
+    render_shell,
     render_shell_context,
     render_status_comment,
 )
@@ -354,3 +355,86 @@ def test_interleave_context_tag_flushed_before_op() -> None:
     step_pos = combined.index("# step: my step")
     deploy_pos = combined.index("juju.deploy")
     assert step_pos < deploy_pos
+
+
+# --- render_shell (PATH-shim juju intercepts) ---
+
+
+def _shim_shell_event(seq: int, argv: list[str], *, exit_code: int | None = None) -> dict[str, Any]:
+    return {
+        "seq": seq,
+        "op": "shell",
+        "ts": "2026-06-28T10:00:00.000Z",
+        "args": {
+            "argv": argv,
+            "basename": "juju",
+            "source": "shim",
+            "session_id": "sess",
+        },
+        "result": {"captured": False, "exit_code": exit_code},
+        "model_snapshot_before": None,
+        "model_snapshot_after": None,
+        "assertions": [],
+        "gesture": None,
+    }
+
+
+def test_render_shell_shim_basic() -> None:
+    event = _shim_shell_event(1, ["--version"])
+    result = render_shell(event, INDENT)
+    assert result == f"{PAD}# shell: juju --version"
+
+
+def test_render_shell_shim_with_exit() -> None:
+    event = _shim_shell_event(1, ["status"], exit_code=2)
+    lines = render_shell(event, INDENT).splitlines()
+    assert lines == [f"{PAD}# shell: juju status", f"{PAD}# exit 2"]
+
+
+def test_render_shell_shim_no_argv() -> None:
+    event = _shim_shell_event(1, [])
+    result = render_shell(event, INDENT)
+    assert result == f"{PAD}# shell: juju"
+
+
+def test_generate_shim_shell_rendered_as_shell_comment() -> None:
+    """C2 — shim `op: shell` events render as `# shell: <cmd>`, not raw JSON TODO."""
+    events = [_shim_shell_event(1, ["status", "--format=json"])]
+    src = generate(_wrap(events))
+    assert "# shell: juju status --format=json" in src
+    assert "TODO" not in src
+
+
+def test_generate_bucket2_libjuju_shell_still_falls_through() -> None:
+    """Regression: op=shell WITHOUT source=shim must still hit fallback TODO."""
+    events = [{
+        "seq": 1,
+        "op": "shell",
+        "ts": "2026-06-28T10:00:00.000Z",
+        "args": {"note": "libjuju bucket-2 stub"},
+        "result": {},
+        "model_snapshot_before": None,
+        "model_snapshot_after": None,
+        "assertions": [],
+        "gesture": None,
+    }]
+    src = generate(_wrap(events))
+    assert "# TODO: manual step" in src
+
+
+def test_generate_session_end_dropped() -> None:
+    """C1 — the `session_end` sentinel never appears in generated output."""
+    events = [{
+        "seq": 1,
+        "op": "session_end",
+        "ts": "2026-06-28T10:00:00.000Z",
+        "args": {},
+        "result": {},
+        "model_snapshot_before": None,
+        "model_snapshot_after": None,
+        "assertions": [],
+        "gesture": None,
+    }]
+    src = generate(_wrap(events))
+    assert "session_end" not in src
+    assert "TODO" not in src

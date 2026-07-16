@@ -72,9 +72,12 @@ def cmd_shell_init(args: argparse.Namespace) -> int:
         print(f"jtr: cannot detect shell or unsupported shell: {shell!r}", file=sys.stderr)
         return 1
 
-    snippet = """# jtr shell-init output
-# bash-preexec must be sourced BEFORE this block
-preexec() {
+    header = (
+        "# jtr shell-init output\n# bash-preexec must be sourced BEFORE this block"
+        if shell == "bash"
+        else "# jtr shell-init output"
+    )
+    core = """preexec() {
     [[ -z "${JTR_SESSION:-}" ]] && return
     [[ "${JTR_PAUSED:-}" == "1" ]] && return
     _JTR_PREEXEC_CMD="$1"
@@ -104,6 +107,13 @@ jtr() {
             command jtr "$@" ;;
     esac
 }"""
+    # bash-preexec iterates preexec_functions / precmd_functions arrays and
+    # ignores bare functions named preexec/precmd (unlike zsh). Without this
+    # registration, sourcing the snippet in bash records zero shell events.
+    bash_footer = "\npreexec_functions+=(preexec)\nprecmd_functions+=(precmd)"
+    snippet = f"{header}\n{core}"
+    if shell == "bash":
+        snippet += bash_footer
     print(snippet)
     no_path_shim = getattr(args, "no_path_shim", False)
     if not no_path_shim:
