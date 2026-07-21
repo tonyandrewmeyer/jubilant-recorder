@@ -6,9 +6,13 @@ from jubilant_recorder.codegen.operations import (
     consume,
     create_offer,
     deploy,
+    get_consume_details,
     integrate,
+    list_offers,
     remove_application,
     remove_integration,
+    remove_offer,
+    remove_saas,
     run_action,
     scale,
     secret_add,
@@ -37,11 +41,16 @@ EMITTERS = {
     "create_offer": create_offer.emit,
     "consume": consume.emit,
     # "list_offers", "remove_offer", "get_consume_details", "remove_saas" are
-    # correlator-classified bucket-1 (CMR-FACADE-RECON.md) but jubilant 1.10
-    # has no client method for any of them (confirmed by grepping
-    # jubilant/_juju.py — see LIBJUJU-CORPUS-AUDIT-2026-07.md §5) — no
-    # EMITTERS entry, so they fall through to the fallback `# TODO: manual
-    # step` renderer like any other unmapped op.
+    # correlator-classified bucket-1 (CMR-FACADE-RECON.md), and jubilant 1.10
+    # still has no dedicated client method for any of them — but each is
+    # emitted via `juju.cli(...)`, jubilant's public escape hatch
+    # (`jubilant/_juju.py:527`; already used by jubilant's own `bootstrap()`).
+    # See LIBJUJU-CORPUS-AUDIT-2026-07-20.md §5. If jubilant later grows
+    # typed client methods for these, swap the `cli()` calls for them here.
+    "list_offers": list_offers.emit,
+    "remove_offer": remove_offer.emit,
+    "get_consume_details": get_consume_details.emit,
+    "remove_saas": remove_saas.emit,
 }
 
 __all__ = [
@@ -51,9 +60,13 @@ __all__ = [
     "consume",
     "create_offer",
     "deploy",
+    "get_consume_details",
     "integrate",
+    "list_offers",
     "remove_application",
     "remove_integration",
+    "remove_offer",
+    "remove_saas",
     "run_action",
     "scale",
     "secret_add",
