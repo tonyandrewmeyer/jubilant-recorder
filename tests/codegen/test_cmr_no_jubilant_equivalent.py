@@ -1,11 +1,11 @@
 """
 `list_offers`, `remove_offer`, `get_consume_details`, and `remove_saas` are
-correlator-classified bucket-1 (the CMR facade notes), but jubilant 1.10 (the
-installed version, confirmed by grepping ``jubilant/_juju.py``) has no client
-method for any of them. They have no ``EMITTERS`` entry — see
-``operations/__init__.py`` — and so must fall through to the same
-``# TODO: manual step`` fallback path bucket-3 ops use, rather than crash or
-silently drop the step.
+correlator-classified bucket-1 (the CMR facade notes). jubilant 1.10 (the
+installed version, confirmed by grepping ``jubilant/_juju.py``) still has no
+dedicated client method for any of them, but each has an ``EMITTERS`` entry
+that renders a ``juju.cli(...)`` call — see ``operations/__init__.py`` and
+``the corpus audit`` §5. They must not fall through to the
+``# TODO: manual step`` fallback path bucket-3 ops use.
 """
 
 from __future__ import annotations
@@ -16,32 +16,30 @@ from jubilant_recorder.codegen import generate
 from jubilant_recorder.codegen.operations import EMITTERS
 
 
-def test_no_emitters_registered_for_unsupported_cmr_ops() -> None:
+def test_emitters_registered_for_cmr_ops_without_client_methods() -> None:
     for op in ("list_offers", "remove_offer", "get_consume_details", "remove_saas"):
-        assert op not in EMITTERS
+        assert op in EMITTERS
 
 
-def test_list_offers_falls_back_to_todo(list_offers_event: dict[str, Any]) -> None:
+def test_list_offers_emits_cli(list_offers_event: dict[str, Any]) -> None:
     src = generate({"events": [list_offers_event]})
-    assert "# TODO: manual step — list_offers" in src
-    assert "juju.list_offers(" not in src
+    assert 'juju.cli("offers", "--format=json")' in src
+    assert "# TODO: manual step" not in src
 
 
-def test_remove_offer_falls_back_to_todo(remove_offer_event: dict[str, Any]) -> None:
+def test_remove_offer_emits_cli(remove_offer_event: dict[str, Any]) -> None:
     src = generate({"events": [remove_offer_event]})
-    assert "# TODO: manual step — remove_offer" in src
-    assert "juju.remove_offer(" not in src
+    assert 'juju.cli("remove-offer"' in src
+    assert "# TODO: manual step" not in src
 
 
-def test_get_consume_details_falls_back_to_todo(
-    get_consume_details_event: dict[str, Any],
-) -> None:
+def test_get_consume_details_emits_cli(get_consume_details_event: dict[str, Any]) -> None:
     src = generate({"events": [get_consume_details_event]})
-    assert "# TODO: manual step — get_consume_details" in src
-    assert "juju.get_consume_details(" not in src
+    assert 'juju.cli("show-offer"' in src
+    assert "# TODO: manual step" not in src
 
 
-def test_remove_saas_falls_back_to_todo(remove_saas_event: dict[str, Any]) -> None:
+def test_remove_saas_emits_cli(remove_saas_event: dict[str, Any]) -> None:
     src = generate({"events": [remove_saas_event]})
-    assert "# TODO: manual step — remove_saas" in src
-    assert "juju.remove_saas(" not in src
+    assert 'juju.cli("remove-saas"' in src
+    assert "# TODO: manual step" not in src
