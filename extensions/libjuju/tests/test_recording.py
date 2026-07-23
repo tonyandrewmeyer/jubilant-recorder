@@ -319,17 +319,17 @@ class TestBucketTwoAndThree:
         ):
             _run_rpc(
                 {
-                    "type": "Application",
-                    "request": "SetCharm",
-                    "version": 20,
-                    "params": {"application": "my-charm", "charm-url": "ch:my-charm-2"},
+                    "type": "Secrets",
+                    "request": "RevokeSecret",
+                    "version": 1,
+                    "params": {"uri": "secret:abc123"},
                 }
             )
 
         ev = _read_log(log_path)["events"][0]
         assert ev["op"] == "shell"
         # bucket-2 args.command has the original facade/method captured for the human.
-        assert "SetCharm" in ev["args"]["command"][0]
+        assert "RevokeSecret" in ev["args"]["command"][0]
 
     def test_bucket3_emits_todo_op(self, tmp_path: Path):
         FakeConnection.rpc = _make_stub([{"request-id": 1, "response": {}}])

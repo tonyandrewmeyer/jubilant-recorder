@@ -250,9 +250,9 @@ class TestBucketThreeCorrelation:
     def test_unknown_facade_emits_todo_event(self):
         rpcs = [
             _rpc(
-                "Application",
-                "SetCharm",
-                {"application": "my-charm", "charm-url": "ch:my-charm-2"},
+                "Secrets",
+                "RevokeSecret",
+                {"uri": "secret:abc123", "scope-tag": "model-mymodel", "applications": ["myapp"]},
             )
         ]
         events = correlate(rpcs, [])
@@ -260,7 +260,7 @@ class TestBucketThreeCorrelation:
         assert len(events) == 1
         ev = events[0]
         assert ev["op"] == "shell"  # bucket-2 maps to shell with note
-        assert "SetCharm" in ev["note"]
+        assert "RevokeSecret" in ev["note"]
         assert ev["args"]["cwd"] is None
 
     def test_raw_facade_call_with_no_equivalent_emits_todo(self):
@@ -289,7 +289,7 @@ class TestBucketThreeCorrelation:
                 {"applications": [{"charm-url": "ch:x", "application-name": "x"}]},
             ),
             _rpc(
-                "Application", "SetCharm", {"application": "x"}, start=1.0, end=1.1, request_id=2
+                "Secrets", "RevokeSecret", {"uri": "secret:abc"}, start=1.0, end=1.1, request_id=2
             ),
             _rpc(
                 "Application",
@@ -650,7 +650,7 @@ class TestDurationMs:
         assert abs(events[0]["duration_ms"] - 1000.0) <= 1.0
 
     def test_duration_ms_present_on_bucket2_shell_events(self):
-        rpcs = [_rpc("Application", "SetCharm", {"application": "x"}, start=0.0, end=0.5)]
+        rpcs = [_rpc("Secrets", "RevokeSecret", {"uri": "secret:abc"}, start=0.0, end=0.5)]
         events = correlate(rpcs, [])
 
         assert events[0]["op"] == "shell"
@@ -1375,6 +1375,206 @@ class TestCrossModelCorrelation:
                 {"Offers": [{"application-name": "ubuntu", "endpoints": {"ubuntu": "ubuntu"}}]},
             )
         ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        ev = events[0]
+        expected_keys = {
+            "seq", "op", "ts", "args", "result",
+            "model_snapshot_before", "model_snapshot_after",
+            "assertions", "gesture", "duration_ms",
+            "_libjuju_source",
+        }
+        assert set(ev.keys()) == expected_keys
+
+
+# ---------------------------------------------------------------------------
+# Test: Application.* bucket-2 → bucket-1 promotion
+# (LIBJUJU-CORPUS-AUDIT-2026-07-20.md §5 "Natural extension")
+# ---------------------------------------------------------------------------
+
+
+class TestApplicationCliClassification:
+    """Direct ``_classify`` checks for the 8 promoted ``Application.*`` facades."""
+
+    def test_set_charm_classifies_bucket1(self):
+        assert _classify("Application", "SetCharm") == ("1", "set_charm")
+
+    def test_expose_classifies_bucket1(self):
+        assert _classify("Application", "Expose") == ("1", "expose")
+
+    def test_unexpose_classifies_bucket1(self):
+        assert _classify("Application", "Unexpose") == ("1", "unexpose")
+
+    def test_set_constraints_classifies_bucket1(self):
+        assert _classify("Application", "SetConstraints") == ("1", "set_constraints")
+
+    def test_merge_bindings_classifies_bucket1(self):
+        assert _classify("Application", "MergeBindings") == ("1", "merge_bindings")
+
+    def test_set_relations_suspended_classifies_bucket1(self):
+        assert _classify("Application", "SetRelationsSuspended") == (
+            "1",
+            "set_relations_suspended",
+        )
+
+    def test_unset_applications_config_classifies_bucket1(self):
+        assert _classify("Application", "UnsetApplicationsConfig") == ("1", "config_unset")
+
+    def test_update_application_base_classifies_bucket1(self):
+        assert _classify("Application", "UpdateApplicationBase") == (
+            "1",
+            "update_application_base",
+        )
+
+
+class TestApplicationCliCorrelation:
+    """``correlate()``-level checks mirroring ``TestCrossModelCorrelation``'s shape."""
+
+    def test_set_charm_emits_set_charm_event(self):
+        rpcs = [
+            _rpc(
+                "Application",
+                "SetCharm",
+                {"application": "my-charm", "charm-url": "ch:my-charm-2", "channel": "edge"},
+            )
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        assert len(events) == 1
+        ev = events[0]
+        assert ev["op"] == "set_charm"
+        assert ev["args"]["app"] == "my-charm"
+        assert ev["args"]["charm_url"] == "ch:my-charm-2"
+        assert ev["args"]["channel"] == "edge"
+        assert ev["args"]["force"] is False
+
+    def test_set_charm_captures_unrepresentable_config(self):
+        rpcs = [
+            _rpc(
+                "Application",
+                "SetCharm",
+                {"application": "my-charm", "config-settings": {"log-level": "debug"}},
+            )
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        assert events[0]["args"]["config_settings"] == {"log-level": "debug"}
+
+    def test_expose_emits_expose_event(self):
+        rpcs = [_rpc("Application", "Expose", {"application": "my-charm"})]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        assert len(events) == 1
+        ev = events[0]
+        assert ev["op"] == "expose"
+        assert ev["args"]["app"] == "my-charm"
+
+    def test_unexpose_emits_unexpose_event(self):
+        rpcs = [
+            _rpc(
+                "Application",
+                "Unexpose",
+                {"application": "my-charm", "exposed-endpoints": ["db"]},
+            )
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        assert len(events) == 1
+        ev = events[0]
+        assert ev["op"] == "unexpose"
+        assert ev["args"]["app"] == "my-charm"
+        assert ev["args"]["exposed_endpoints"] == ["db"]
+
+    def test_set_constraints_emits_set_constraints_event(self):
+        rpcs = [
+            _rpc(
+                "Application",
+                "SetConstraints",
+                {"application": "my-charm", "constraints": {"mem": "4G", "cores": 2}},
+            )
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        assert len(events) == 1
+        ev = events[0]
+        assert ev["op"] == "set_constraints"
+        assert ev["args"]["app"] == "my-charm"
+        assert ev["args"]["constraints"] == {"mem": "4G", "cores": 2}
+
+    def test_merge_bindings_emits_merge_bindings_event(self):
+        rpcs = [
+            _rpc(
+                "Application",
+                "MergeBindings",
+                {
+                    "args": [
+                        {
+                            "application-tag": "application-my-charm",
+                            "bindings": {"db": "space1"},
+                        }
+                    ]
+                },
+            )
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        assert len(events) == 1
+        ev = events[0]
+        assert ev["op"] == "merge_bindings"
+        assert ev["args"]["app"] == "my-charm"
+        assert ev["args"]["bindings"] == {"db": "space1"}
+        assert ev["args"]["force"] is False
+
+    def test_set_relations_suspended_emits_event(self):
+        rpcs = [
+            _rpc(
+                "Application",
+                "SetRelationsSuspended",
+                {"args": [{"relation-id": 3, "suspended": True, "message": "maintenance"}]},
+            )
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        assert len(events) == 1
+        ev = events[0]
+        assert ev["op"] == "set_relations_suspended"
+        assert ev["args"]["relation_ids"] == [3]
+        assert ev["args"]["suspended"] is True
+        assert ev["args"]["message"] == "maintenance"
+
+    def test_unset_applications_config_emits_config_unset_event(self):
+        rpcs = [
+            _rpc(
+                "Application",
+                "UnsetApplicationsConfig",
+                {"args": [{"application": "my-charm", "options": ["log-level", "debug"]}]},
+            )
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        assert len(events) == 1
+        ev = events[0]
+        assert ev["op"] == "config_unset"
+        assert ev["args"]["app"] == "my-charm"
+        assert ev["args"]["options"] == ["log-level", "debug"]
+
+    def test_update_application_base_emits_event(self):
+        rpcs = [
+            _rpc(
+                "Application",
+                "UpdateApplicationBase",
+                {
+                    "args": [
+                        {
+                            "application-tag": "application-my-charm",
+                            "base": {"name": "ubuntu", "channel": "24.04"},
+                        }
+                    ]
+                },
+            )
+        ]
+        events = correlate(rpcs, [], idle_threshold_seconds=5.0)
+        assert len(events) == 1
+        ev = events[0]
+        assert ev["op"] == "update_application_base"
+        assert ev["args"]["app"] == "my-charm"
+        assert ev["args"]["base_name"] == "ubuntu"
+        assert ev["args"]["base_channel"] == "24.04"
+        assert ev["args"]["force"] is False
+
+    def test_application_cli_events_have_all_envelope_keys(self):
+        rpcs = [_rpc("Application", "Expose", {"application": "my-charm"})]
         events = correlate(rpcs, [], idle_threshold_seconds=5.0)
         ev = events[0]
         expected_keys = {
