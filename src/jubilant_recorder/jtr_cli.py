@@ -6,11 +6,18 @@ import json
 import os
 import re
 import shlex
+import shutil
 import sys
 import time
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
+
+from jubilant_recorder import codegen
+from jubilant_recorder.shim import juju_shim
+
+_SHELL_INIT_BEGIN_MARKER = "# BEGIN jtr shell-init"
+_SHELL_INIT_END_MARKER = "# END jtr shell-init"
 
 
 def _now_ts() -> str:
@@ -60,18 +67,7 @@ _CONTEXT_ALLOWLIST = frozenset({
 })
 
 
-def cmd_shell_init(args: argparse.Namespace) -> int:
-    shell = getattr(args, "shell", None)
-    if not shell:
-        shell_env = os.environ.get("SHELL", "")
-        shell = os.path.basename(shell_env) if shell_env else ""
-    if shell == "fish":
-        print("jtr: fish not yet supported", file=sys.stderr)
-        return 1
-    if not shell or shell not in ("bash", "zsh"):
-        print(f"jtr: cannot detect shell or unsupported shell: {shell!r}", file=sys.stderr)
-        return 1
-
+def _render_shell_init(shell: str, no_path_shim: bool) -> str:
     header = (
         "# jtr shell-init output\n# bash-preexec must be sourced BEFORE this block"
         if shell == "bash"
@@ -114,10 +110,28 @@ jtr() {
     snippet = f"{header}\n{core}"
     if shell == "bash":
         snippet += bash_footer
-    print(snippet)
-    no_path_shim = getattr(args, "no_path_shim", False)
     if not no_path_shim:
-        print('\n# Add jtr shim directory to PATH\nexport PATH="$HOME/.local/share/jtr/shims:$PATH"')
+        snippet += '\n\n# Add jtr shim directory to PATH\nexport PATH="$HOME/.local/share/jtr/shims:$PATH"'
+    return snippet
+
+
+def _resolve_shell(shell: str | None) -> str:
+    if not shell:
+        shell_env = os.environ.get("SHELL", "")
+        shell = os.path.basename(shell_env) if shell_env else ""
+    return shell
+
+
+def cmd_shell_init(args: argparse.Namespace) -> int:
+    shell = _resolve_shell(getattr(args, "shell", None))
+    if shell == "fish":
+        print("jtr: fish not yet supported", file=sys.stderr)
+        return 1
+    if not shell or shell not in ("bash", "zsh"):
+        print(f"jtr: cannot detect shell or unsupported shell: {shell!r}", file=sys.stderr)
+        return 1
+    no_path_shim = getattr(args, "no_path_shim", False)
+    print(_render_shell_init(shell, no_path_shim))
     return 0
 
 
@@ -530,14 +544,156 @@ def cmd_hook_event(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_generate(args: argparse.Namespace) -> int:
+    session_log = getattr(args, "session_log", None) or os.environ.get("JTR_LOG")
+    if not session_log:
+        print("jtr generate: no --session-log given and $JTR_LOG is not set.", file=sys.stderr)
+        return 1
+    log_path = Path(session_log)
+    if not log_path.exists():
+        print(f"jtr generate: session log not found: {log_path}", file=sys.stderr)
+        return 1
+    try:
+        events = [
+            json.loads(line) for line in log_path.read_text().splitlines() if line.strip()
+        ]
+    except json.JSONDecodeError as exc:
+        print(f"jtr generate: could not parse session log {log_path}: {exc}", file=sys.stderr)
+        return 1
+    if not events:
+        print(f"jtr generate: session log {log_path} has no events.", file=sys.stderr)
+        return 1
+    session_id = (events[0].get("args") or {}).get("session_id") or "unknown"
+    wrapped = {"schema_version": "1.0", "session_id": session_id, "events": events}
+    test_name = getattr(args, "name", None) or "test_recorded_session"
+    source = codegen.generate(wrapped, test_name=test_name)
+    out = getattr(args, "out", None)
+    if out:
+        Path(out).write_text(source)
+    else:
+        sys.stdout.write(source)
+    return 0
+
+
+def cmd_shim_install(args: argparse.Namespace) -> int:
+    target = getattr(args, "target", None)
+    if target:
+        target_dir = Path(target)
+    else:
+        xdg_data_home = os.environ.get("XDG_DATA_HOME")
+        base = Path(xdg_data_home) if xdg_data_home else Path.home() / ".local" / "share"
+        target_dir = base / "jtr" / "shims"
+
+    real_juju = getattr(args, "real_juju", None) or shutil.which("juju")
+    if not real_juju:
+        print(
+            "jtr shim install: --real-juju not given and no `juju` found on PATH.",
+            file=sys.stderr,
+        )
+        return 1
+
+    shim_source = Path(juju_shim.__file__).read_text()
+    shim_source = shim_source.replace("__REAL_JUJU__", str(real_juju))
+
+    target_dir.mkdir(parents=True, exist_ok=True)
+    shim_path = target_dir / "juju"
+    shim_path.write_text(shim_source)
+    shim_path.chmod(0o755)
+    print(f"installed at {shim_path}")
+    return 0
+
+
+def cmd_shim(args: argparse.Namespace) -> int:
+    if getattr(args, "shim_command", None) == "install":
+        return cmd_shim_install(args)
+    print("jtr shim: missing subcommand (expected: install)", file=sys.stderr)
+    return 1
+
+
+def cmd_shell_install(args: argparse.Namespace) -> int:
+    shell = _resolve_shell(getattr(args, "shell", None))
+    if not shell or shell not in ("bash", "zsh"):
+        print(f"jtr shell install: cannot detect shell or unsupported shell: {shell!r}", file=sys.stderr)
+        return 1
+
+    rcfile = getattr(args, "rcfile", None)
+    if rcfile:
+        rc_path = Path(rcfile)
+    else:
+        rc_path = Path.home() / (".bashrc" if shell == "bash" else ".zshrc")
+
+    no_path_shim = getattr(args, "no_path_shim", False)
+    snippet = _render_shell_init(shell, no_path_shim)
+    block = f"{_SHELL_INIT_BEGIN_MARKER}\n{snippet}\n{_SHELL_INIT_END_MARKER}"
+
+    existing = rc_path.read_text() if rc_path.exists() else ""
+    marker_pattern = re.compile(
+        re.escape(_SHELL_INIT_BEGIN_MARKER) + r".*?" + re.escape(_SHELL_INIT_END_MARKER),
+        re.DOTALL,
+    )
+    if marker_pattern.search(existing):
+        updated = marker_pattern.sub(lambda _match: block, existing, count=1)
+    else:
+        sep = "" if not existing or existing.endswith("\n") else "\n"
+        updated = f"{existing}{sep}{block}\n"
+
+    rc_path.parent.mkdir(parents=True, exist_ok=True)
+    rc_path.write_text(updated)
+    print(f"updated {rc_path}")
+    print("re-source your rc file to activate", file=sys.stderr)
+    return 0
+
+
+def cmd_shell(args: argparse.Namespace) -> int:
+    if getattr(args, "shell_command", None) == "install":
+        return cmd_shell_install(args)
+    print("jtr shell: missing subcommand (expected: install)", file=sys.stderr)
+    return 1
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="jtr")
     sub = parser.add_subparsers(dest="command")
 
     # shell-init
-    p_shell_init = sub.add_parser("shell-init")
+    p_shell_init = sub.add_parser("shell-init", help="Print the shell-hook init snippet.")
     p_shell_init.add_argument("--shell", choices=["bash", "zsh", "fish"])
     p_shell_init.add_argument("--no-path-shim", action="store_true", dest="no_path_shim")
+
+    # generate
+    p_generate = sub.add_parser(
+        "generate", help="Generate a pytest test from a shell-hook JSONL session log."
+    )
+    p_generate.add_argument(
+        "--session-log",
+        dest="session_log",
+        help="Path to the JSONL session log (defaults to $JTR_LOG).",
+    )
+    p_generate.add_argument("--out", help="Write the generated test to this path instead of stdout.")
+    p_generate.add_argument("--name", help="Test function name (default: test_recorded_session).")
+
+    # shim / shim install
+    p_shim = sub.add_parser("shim", help="Manage the jtr juju PATH shim.")
+    shim_sub = p_shim.add_subparsers(dest="shim_command")
+    p_shim_install = shim_sub.add_parser("install", help="Materialise the juju shim on disk.")
+    p_shim_install.add_argument(
+        "--target", help="Directory to install the shim into (default: $XDG_DATA_HOME/jtr/shims)."
+    )
+    p_shim_install.add_argument(
+        "--real-juju",
+        dest="real_juju",
+        help="Path to the real juju binary (default: `which juju`).",
+    )
+
+    # shell / shell install
+    p_shell = sub.add_parser("shell", help="Manage the jtr shell-init rc file wiring.")
+    shell_sub = p_shell.add_subparsers(dest="shell_command")
+    p_shell_install = shell_sub.add_parser(
+        "install", help="Append/update the shell-init snippet in your rc file."
+    )
+    p_shell_install.add_argument("--shell", choices=["bash", "zsh"])
+    p_shell_install.add_argument("--rcfile", help="rc file to edit (default: ~/.bashrc or ~/.zshrc).")
+    p_shell_install.add_argument("--no-path-shim", action="store_true", dest="no_path_shim")
 
     # start
     p_start = sub.add_parser("start")
@@ -597,6 +753,9 @@ def main() -> None:
 
     handlers = {
         "shell-init": cmd_shell_init,
+        "generate": cmd_generate,
+        "shim": cmd_shim,
+        "shell": cmd_shell,
         "start": cmd_start,
         "stop": cmd_stop,
         "pause": cmd_pause,
