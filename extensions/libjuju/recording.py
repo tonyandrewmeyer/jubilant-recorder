@@ -44,7 +44,7 @@ of three buckets:
 * Bucket 1 (~89% of the sampled corpus): a clean jubilant op (``deploy``,
   ``integrate``, ``run``, ...). The event carries SCHEMA-shaped args and
   result; codegen renders it via the existing op emitters.
-* Bucket 2: lossy ops (for example ``Application.SetCharm``). Emitted as
+* Bucket 2: lossy ops (for example ``Secrets.RevokeSecret``). Emitted as
   ``op: "shell"`` so codegen's fallback path renders a manual-step stub
   with the original facade/method recorded for the human reviewer.
 * Bucket 3: facade calls with no jubilant equivalent. Emitted as

@@ -199,6 +199,78 @@ def remove_saas_event() -> dict[str, Any]:
 
 
 @pytest.fixture
+def set_charm_event() -> dict[str, Any]:
+    return _event(
+        22,
+        "set_charm",
+        {
+            "app": "my-charm",
+            "charm_url": "ch:my-charm-2",
+            "channel": "edge",
+            "force": False,
+            "config_settings": {},
+            "storage_constraints": {},
+            "resource_ids": {},
+        },
+    )
+
+
+@pytest.fixture
+def expose_event() -> dict[str, Any]:
+    return _event(23, "expose", {"app": "my-charm", "exposed_endpoints": {}})
+
+
+@pytest.fixture
+def unexpose_event() -> dict[str, Any]:
+    return _event(24, "unexpose", {"app": "my-charm", "exposed_endpoints": []})
+
+
+@pytest.fixture
+def set_constraints_event() -> dict[str, Any]:
+    return _event(
+        25,
+        "set_constraints",
+        {"app": "my-charm", "constraints": {"mem": "4G", "cores": 2}},
+    )
+
+
+@pytest.fixture
+def merge_bindings_event() -> dict[str, Any]:
+    return _event(
+        26,
+        "merge_bindings",
+        {"app": "my-charm", "bindings": {"db": "space1"}, "force": False},
+    )
+
+
+@pytest.fixture
+def set_relations_suspended_event() -> dict[str, Any]:
+    return _event(
+        27,
+        "set_relations_suspended",
+        {"relation_ids": [3], "suspended": True, "message": "maintenance"},
+    )
+
+
+@pytest.fixture
+def config_unset_event() -> dict[str, Any]:
+    return _event(
+        28,
+        "config_unset",
+        {"app": "my-charm", "options": ["log-level", "debug"]},
+    )
+
+
+@pytest.fixture
+def update_application_base_event() -> dict[str, Any]:
+    return _event(
+        29,
+        "update_application_base",
+        {"app": "my-charm", "base_name": "ubuntu", "base_channel": "24.04", "force": False},
+    )
+
+
+@pytest.fixture
 def orphan_deltas_event() -> dict[str, Any]:
     return _event(
         12,
