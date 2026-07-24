@@ -57,13 +57,21 @@ Bucket 1 — clean mapping (records a fully-typed SCHEMA event):
     ``Application.Consume`` (an ``Application`` facade RPC, not an
     ``ApplicationOffers.*`` one). Do not add a ``consume_offer`` entry here.
 
+    ``Application.*`` bucket-2 → bucket-1 promotion (see
+    the corpus audit §5 "Natural extension"): jubilant
+    1.10 has no client method for any of these, but each has a direct
+    ``juju`` CLI subcommand, so each is rendered via ``juju.cli(...)``
+    rather than left as an opaque shell stub.
+    Application.SetCharm              → set_charm
+    Application.Expose                → expose
+    Application.Unexpose              → unexpose
+    Application.SetConstraints        → set_constraints
+    Application.MergeBindings         → merge_bindings
+    Application.SetRelationsSuspended → set_relations_suspended
+    Application.UnsetApplicationsConfig → config_unset
+    Application.UpdateApplicationBase → update_application_base
+
 Bucket 2 — lossy / decomposable (records event with ``note`` field):
-    Application.SetCharm      → note: "libjuju Application.SetCharm"
-    Application.Expose        → note: "libjuju Application.Expose"
-    Application.Unexpose      → note: "libjuju Application.Unexpose"
-    Application.SetConstraints → note: "libjuju Application.SetConstraints"
-    Application.SetRelationsSuspended → note: ...
-    Application.UnsetApplicationsConfig → note: ...
     Secrets.RevokeSecret      → note: "libjuju Secrets.RevokeSecret"
                                 (no jubilant equivalent; see SECRETS-GAPS.md)
     ApplicationOffers.FindApplicationOffers → note: "libjuju ApplicationOffers.FindApplicationOffers"
@@ -159,18 +167,23 @@ _BUCKET1_MAP: dict[tuple[str, str], str] = {
     # call is ``Model.consume()``, there is no ``Model.consume_offer``.
     ("Application", "Consume"): "consume",
     ("Application", "DestroyConsumedApplications"): "remove_saas",
+    # ``Application.*`` bucket-2 → bucket-1 promotions, see
+    # the corpus audit §5 "Natural extension". None of
+    # these have a jubilant client method, but each has a direct `juju`
+    # CLI subcommand — rendered via `juju.cli(...)`, same escape hatch as
+    # the CMR ops above.
+    ("Application", "SetCharm"): "set_charm",
+    ("Application", "Expose"): "expose",
+    ("Application", "Unexpose"): "unexpose",
+    ("Application", "SetConstraints"): "set_constraints",
+    ("Application", "MergeBindings"): "merge_bindings",
+    ("Application", "SetRelationsSuspended"): "set_relations_suspended",
+    ("Application", "UnsetApplicationsConfig"): "config_unset",
+    ("Application", "UpdateApplicationBase"): "update_application_base",
 }
 
 _BUCKET2_FACADES: frozenset[tuple[str, str]] = frozenset(
     {
-        ("Application", "SetCharm"),
-        ("Application", "Expose"),
-        ("Application", "Unexpose"),
-        ("Application", "SetConstraints"),
-        ("Application", "MergeBindings"),
-        ("Application", "SetRelationsSuspended"),
-        ("Application", "UnsetApplicationsConfig"),
-        ("Application", "UpdateApplicationBase"),
         # Secrets.RevokeSecret has no jubilant equivalent; keep in bucket-2.
         # See extensions/libjuju/SECRETS-GAPS.md for the documented gap.
         ("Secrets", "RevokeSecret"),
@@ -526,6 +539,94 @@ def _extract_args(facade: str, method: str, params: dict[str, Any]) -> dict[str,
         apps = params.get("applications") or [{}]
         app_tag = apps[0].get("application-tag", "") if apps else ""
         return {"app": app_tag.replace("application-", "")}
+
+    # -----------------------------------------------------------------
+    # ``Application.*`` bucket-2 → bucket-1 promotions (see
+    # the corpus audit §5 "Natural extension"). No live
+    # wire fixture was captured for any of these eight — shapes below are
+    # inferred from the apiserver's ``params.Application*`` request structs
+    # (mirroring the field-naming conventions already seen above: kebab-case,
+    # ``application``/``application-tag`` for the target app).
+    # -----------------------------------------------------------------
+
+    if key == ("Application", "SetCharm"):
+        return {
+            "app": params.get("application", ""),
+            "charm_url": params.get("charm-url") or None,
+            "channel": params.get("channel") or None,
+            "force": bool(params.get("force")),
+            "config_settings": params.get("config-settings") or {},
+            "storage_constraints": params.get("storage-constraints") or {},
+            "resource_ids": params.get("resource-ids") or {},
+        }
+
+    if key == ("Application", "Expose"):
+        return {
+            "app": params.get("application", ""),
+            "exposed_endpoints": params.get("exposed-endpoints") or {},
+        }
+
+    if key == ("Application", "Unexpose"):
+        return {
+            "app": params.get("application", ""),
+            "exposed_endpoints": params.get("exposed-endpoints") or [],
+        }
+
+    if key == ("Application", "SetConstraints"):
+        return {
+            "app": params.get("application", ""),
+            "constraints": params.get("constraints") or {},
+        }
+
+    if key == ("Application", "MergeBindings"):
+        # ``MergeBindings`` batches multiple applications per call
+        # (``ApplicationMergeBindingsArgs{Args: []ApplicationMergeBindings}``);
+        # the codegen surface only ever recorded one app per user gesture in
+        # the sampled corpus, so only the first entry is used.
+        args_list = params.get("args") or [{}]
+        a = args_list[0] if args_list else {}
+        app_tag = a.get("application-tag", "")
+        return {
+            "app": app_tag.replace("application-", ""),
+            "bindings": a.get("bindings") or {},
+            "force": bool(a.get("force")),
+        }
+
+    if key == ("Application", "SetRelationsSuspended"):
+        # ``RelationSuspendedArgs{Args: []RelationSuspendedArg}`` — one
+        # relation id per arg entry; a single user gesture (suspend/resume)
+        # can name several relations at once, all sharing one suspended/
+        # message value, so the batch is collapsed to a single event.
+        args_list = params.get("args") or [{}]
+        relation_ids = [a.get("relation-id") for a in args_list if a.get("relation-id") is not None]
+        first = args_list[0] if args_list else {}
+        return {
+            "relation_ids": relation_ids,
+            "suspended": bool(first.get("suspended")),
+            "message": first.get("message") or None,
+        }
+
+    if key == ("Application", "UnsetApplicationsConfig"):
+        # ``ApplicationUnset{ApplicationName string, Options []string}``,
+        # batched the same way ``SetConfigs`` is on the sibling RPC.
+        args_list = params.get("args") or [{}]
+        a = args_list[0] if args_list else {}
+        return {
+            "app": a.get("application", ""),
+            "options": a.get("options") or [],
+        }
+
+    if key == ("Application", "UpdateApplicationBase"):
+        args_list = params.get("args") or [{}]
+        a = args_list[0] if args_list else {}
+        app_tag = a.get("application-tag", "")
+        base = a.get("base") or {}
+        return {
+            "app": app_tag.replace("application-", ""),
+            "base_name": base.get("name") or None,
+            "base_channel": base.get("channel") or None,
+            "force": bool(a.get("force")),
+        }
 
     return {}
 

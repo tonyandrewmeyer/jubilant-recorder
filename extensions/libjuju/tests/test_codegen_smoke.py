@@ -10,7 +10,7 @@ log back, hands it to ``codegen.generate``, asserts the emitted Python
 parses (``ast.parse``), and that the rendered text contains the
 operations the session performed.
 
-A second test exercises a bucket-2 (``Application.SetCharm``) RPC too,
+A second test exercises a bucket-2 (``Secrets.RevokeSecret``) RPC too,
 to prove the codegen fallback emits a ``# TODO`` comment rather than
 crashing on the libjuju-extension's secondary buckets.
 """
@@ -188,7 +188,7 @@ def test_codegen_handles_bucket2_libjuju_log(tmp_path: Path) -> None:
         [
             # Application.Deploy — bucket 1
             {"request-id": 1, "response": {"results": [{"tag": "application-x"}]}},
-            # Application.SetCharm — bucket 2 (no clean jubilant equivalent)
+            # Secrets.RevokeSecret — bucket 2 (no jubilant equivalent)
             {"request-id": 2, "response": {}},
         ]
     )
@@ -213,10 +213,10 @@ def test_codegen_handles_bucket2_libjuju_log(tmp_path: Path) -> None:
         )
         _run_rpc(
             {
-                "type": "Application",
-                "request": "SetCharm",
-                "version": 20,
-                "params": {"application": "x", "charm-url": "ch:x-2"},
+                "type": "Secrets",
+                "request": "RevokeSecret",
+                "version": 1,
+                "params": {"uri": "secret:abc123"},
             }
         )
 

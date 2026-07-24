@@ -3,12 +3,15 @@ from __future__ import annotations
 from jubilant_recorder.codegen.operations import (
     config,
     config_get,
+    config_unset,
     consume,
     create_offer,
     deploy,
+    expose,
     get_consume_details,
     integrate,
     list_offers,
+    merge_bindings,
     remove_application,
     remove_integration,
     remove_offer,
@@ -20,6 +23,11 @@ from jubilant_recorder.codegen.operations import (
     secret_list,
     secret_remove,
     secret_update,
+    set_charm,
+    set_constraints,
+    set_relations_suspended,
+    unexpose,
+    update_application_base,
     wait_for_idle,
 )
 
@@ -51,18 +59,36 @@ EMITTERS = {
     "remove_offer": remove_offer.emit,
     "get_consume_details": get_consume_details.emit,
     "remove_saas": remove_saas.emit,
+    # "set_charm", "expose", "unexpose", "set_constraints", "merge_bindings",
+    # "set_relations_suspended", "config_unset", "update_application_base"
+    # are the 8 `Application.*` bucket-2 → bucket-1 promotions from
+    # the corpus audit §5 "Natural extension" — same
+    # shape as the CMR ops above (no jubilant client method, but a direct
+    # `juju` CLI subcommand), so each is emitted via `juju.cli(...)` too,
+    # rather than falling through to the bucket-2 shell/TODO stub.
+    "set_charm": set_charm.emit,
+    "expose": expose.emit,
+    "unexpose": unexpose.emit,
+    "set_constraints": set_constraints.emit,
+    "merge_bindings": merge_bindings.emit,
+    "set_relations_suspended": set_relations_suspended.emit,
+    "config_unset": config_unset.emit,
+    "update_application_base": update_application_base.emit,
 }
 
 __all__ = [
     "EMITTERS",
     "config",
     "config_get",
+    "config_unset",
     "consume",
     "create_offer",
     "deploy",
+    "expose",
     "get_consume_details",
     "integrate",
     "list_offers",
+    "merge_bindings",
     "remove_application",
     "remove_integration",
     "remove_offer",
@@ -74,5 +100,10 @@ __all__ = [
     "secret_list",
     "secret_remove",
     "secret_update",
+    "set_charm",
+    "set_constraints",
+    "set_relations_suspended",
+    "unexpose",
+    "update_application_base",
     "wait_for_idle",
 ]
