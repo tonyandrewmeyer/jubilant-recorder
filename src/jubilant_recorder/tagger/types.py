@@ -1,12 +1,18 @@
+"""Types shared by the assertion tagger."""
+
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Mapping
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 @dataclasses.dataclass(frozen=True)
 class AssertionTag:
+    """One proposed assertion about a recorded event."""
+
     kind: str
     strict: bool
     source: str

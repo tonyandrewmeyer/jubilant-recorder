@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import ast
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from jubilant_recorder.cli import main
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_run_round_trips(tmp_path: Path, monkeypatch) -> None:

@@ -20,13 +20,14 @@ from __future__ import annotations
 import ast
 import asyncio
 import json
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from extensions.libjuju.recording import RecordingLibjuju
 from extensions.libjuju.tap import LibjujuTap
-
 from jubilant_recorder.codegen import generate
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # Helpers — shared with the unit-test module's FakeConnection pattern.
@@ -408,6 +409,7 @@ def test_codegen_renders_secrets_libjuju_session(tmp_path: Path) -> None:
         )
 
     import json as _json
+
     log = _json.loads(log_path.read_text(encoding="utf-8"))
     ops = [e["op"] for e in log["events"]]
     assert ops == [

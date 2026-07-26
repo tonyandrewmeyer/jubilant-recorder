@@ -12,12 +12,13 @@ import asyncio
 import sys
 from pathlib import Path
 
-from extensions.libjuju.recording import RecordingLibjuju
-
 from juju.model import Model
+
+from extensions.libjuju.recording import RecordingLibjuju
 
 
 async def main(log_path: Path, model_name: str) -> None:
+    """Record a libjuju session to the given log path."""
     model = Model()
     await model.connect(model_name=model_name)
     try:

@@ -1,8 +1,11 @@
+"""Dispatch recorded events to their per-operation emitters."""
+
 from __future__ import annotations
 
 from typing import Any, TypeAlias
 
-from jubilant_recorder.codegen import assertions, context as ctx, fallback, preamble, unrepresentable
+from jubilant_recorder.codegen import assertions, fallback, preamble, unrepresentable
+from jubilant_recorder.codegen import context as ctx
 from jubilant_recorder.codegen.operations import EMITTERS
 
 SessionLog: TypeAlias = dict[str, Any]
@@ -14,6 +17,7 @@ _SKIP_OPS = frozenset({"checkpoint", "session_end"})
 
 
 def generate(log: SessionLog, *, test_name: str | None = None) -> str:
+    """Generate the full jubilant test source for a recorded session."""
     indent = preamble.BODY_INDENT
     pad = " " * indent
 

@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import argparse
 import ast
-from pathlib import Path
-
-import pytest
+from typing import TYPE_CHECKING
 
 from jubilant_recorder.jtr_cli import cmd_generate
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    import pytest
 
 FIXTURE_LINES = [
     '{"seq": 1, "op": "shell_context", "ts": "2026-07-16T00:00:00.000Z", '

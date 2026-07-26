@@ -41,6 +41,7 @@ def _identity(tag_dict: dict[str, Any]) -> tuple[Any, ...]:
 
 
 def tag(log: SessionLog, *, proposer: AssertionProposer | None = None) -> SessionLog:
+    """Return the session log with assertion tags added."""
     out = copy.deepcopy(log)
     events: list[dict[str, Any]] = out.get("events", [])
     for index in range(len(events)):
@@ -61,6 +62,7 @@ def tag(log: SessionLog, *, proposer: AssertionProposer | None = None) -> Sessio
 
     if proposer is not None:
         from jubilant_recorder.tagger.llm import llm_augment
+
         out = llm_augment(out, proposer)
 
     return out

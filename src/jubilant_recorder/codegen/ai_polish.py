@@ -39,6 +39,8 @@ _IDEMPOTENT_CALLS = frozenset({"wait_for_idle", "status"})
 
 @runtime_checkable
 class Polisher(Protocol):
+    """The interface an optional AI polishing backend must provide."""
+
     def polish(self, code: str, session_log: SessionLog) -> str:
         """Return a more readable version of `code`.
 
@@ -144,7 +146,7 @@ def polish(code: str, session_log: SessionLog, *, polisher: Polisher | None = No
 
 
 def behaviour_preserved(original: str, polished: str) -> bool:
-    """True when both sources issue the same behaviour-bearing juju calls.
+    """Return true when both sources issue the same behaviour-bearing juju calls.
 
     Idempotent observation calls (`wait_for_idle`, `status`) are ignored so
     a polisher may collapse redundant polls; every other `juju.<method>()`

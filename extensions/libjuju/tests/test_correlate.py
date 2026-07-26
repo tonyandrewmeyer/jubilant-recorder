@@ -1172,9 +1172,16 @@ class TestSecretsCorrelation:
         events = correlate(rpcs, [], idle_threshold_seconds=5.0)
         ev = events[0]
         expected_keys = {
-            "seq", "op", "ts", "args", "result",
-            "model_snapshot_before", "model_snapshot_after",
-            "assertions", "gesture", "duration_ms",
+            "seq",
+            "op",
+            "ts",
+            "args",
+            "result",
+            "model_snapshot_before",
+            "model_snapshot_after",
+            "assertions",
+            "gesture",
+            "duration_ms",
             "_libjuju_source",
         }
         assert set(ev.keys()) == expected_keys
@@ -1378,9 +1385,16 @@ class TestCrossModelCorrelation:
         events = correlate(rpcs, [], idle_threshold_seconds=5.0)
         ev = events[0]
         expected_keys = {
-            "seq", "op", "ts", "args", "result",
-            "model_snapshot_before", "model_snapshot_after",
-            "assertions", "gesture", "duration_ms",
+            "seq",
+            "op",
+            "ts",
+            "args",
+            "result",
+            "model_snapshot_before",
+            "model_snapshot_after",
+            "assertions",
+            "gesture",
+            "duration_ms",
             "_libjuju_source",
         }
         assert set(ev.keys()) == expected_keys
@@ -1578,9 +1592,16 @@ class TestApplicationCliCorrelation:
         events = correlate(rpcs, [], idle_threshold_seconds=5.0)
         ev = events[0]
         expected_keys = {
-            "seq", "op", "ts", "args", "result",
-            "model_snapshot_before", "model_snapshot_after",
-            "assertions", "gesture", "duration_ms",
+            "seq",
+            "op",
+            "ts",
+            "args",
+            "result",
+            "model_snapshot_before",
+            "model_snapshot_after",
+            "assertions",
+            "gesture",
+            "duration_ms",
             "_libjuju_source",
         }
         assert set(ev.keys()) == expected_keys

@@ -1,3 +1,5 @@
+"""Generate jubilant test code from a recorded session."""
+
 from __future__ import annotations
 
 from jubilant_recorder.codegen import ai_polish

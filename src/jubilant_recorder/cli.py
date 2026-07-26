@@ -87,6 +87,7 @@ def _now_iso() -> str:
 
 
 def cmd_start(args: argparse.Namespace) -> int:
+    """Start recording a session."""
     session_log = Path(args.session_log).absolute() if args.session_log else _default_session_log()
     model = args.model or ""
     state = {
@@ -104,6 +105,7 @@ def cmd_start(args: argparse.Namespace) -> int:
 
 
 def cmd_stop(_args: argparse.Namespace) -> int:
+    """Stop the active recording."""
     state = _read_state()
     if state is None:
         print("error: no active recording session", file=sys.stderr)
@@ -126,6 +128,7 @@ def cmd_stop(_args: argparse.Namespace) -> int:
 
 
 def cmd_generate(args: argparse.Namespace) -> int:
+    """Generate a jubilant test from a recorded session."""
     use_ai = getattr(args, "ai", False)
     proposer, polisher = _make_ai_components(use_ai)
     session_log_path = Path(args.session_log)
@@ -144,6 +147,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
+    """Record a session while running the given command."""
     use_ai = getattr(args, "ai", False)
     proposer, polisher = _make_ai_components(use_ai)
     session_log = Path(args.session_log).absolute() if args.session_log else _default_session_log()
@@ -222,6 +226,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Run the jubilant-recorder command-line interface."""
     parser = _build_parser()
     args = parser.parse_args(argv)
     if hasattr(args, "cmd"):

@@ -76,6 +76,7 @@ from extensions.libjuju.tap import LibjujuTap
 from extensions.libjuju.correlate import correlate
 import juju
 
+
 async def record_session():
     async with juju.model.Model() as model:
         await model.connect_current()
@@ -87,6 +88,7 @@ async def record_session():
     events = correlate(tap.rpcs, tap.deltas)
     for ev in events:
         print(ev["op"], ev["args"])
+
 
 asyncio.run(record_session())
 ```

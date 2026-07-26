@@ -4,11 +4,14 @@ import json
 import os
 import subprocess
 import sys
-from pathlib import Path
+from typing import TYPE_CHECKING
 
-import pytest
+from jubilant_recorder.jtr_cli import _hook_event_impl
 
-from jubilant_recorder.jtr_cli import _hook_event_impl, _state_file, _cache_dir
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    import pytest
 
 
 def _run_jtr(*args: str, env: dict | None = None, **kwargs) -> subprocess.CompletedProcess:
@@ -104,10 +107,14 @@ def test_note_event_shape(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
     log_file.touch()
     monkeypatch.setenv("JTR_SESSION", "test-session")
     monkeypatch.setenv("JTR_LOG", str(log_file))
-    result = _run_jtr("note", "some important note", env={
-        "JTR_SESSION": "test-session",
-        "JTR_LOG": str(log_file),
-    })
+    result = _run_jtr(
+        "note",
+        "some important note",
+        env={
+            "JTR_SESSION": "test-session",
+            "JTR_LOG": str(log_file),
+        },
+    )
     assert result.returncode == 0
     lines = [line for line in log_file.read_text().splitlines() if line.strip()]
     assert len(lines) == 1
@@ -120,10 +127,14 @@ def test_note_event_shape(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
 def test_tag_event_shape(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     log_file = tmp_path / "test.jsonl"
     log_file.touch()
-    result = _run_jtr("tag", "scale up", env={
-        "JTR_SESSION": "test-session",
-        "JTR_LOG": str(log_file),
-    })
+    result = _run_jtr(
+        "tag",
+        "scale up",
+        env={
+            "JTR_SESSION": "test-session",
+            "JTR_LOG": str(log_file),
+        },
+    )
     assert result.returncode == 0
     lines = [line for line in log_file.read_text().splitlines() if line.strip()]
     assert len(lines) == 1
@@ -150,7 +161,7 @@ def test_session_lifecycle(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> N
     exports = {}
     for line in stdout.splitlines():
         if line.startswith("export "):
-            rest = line[len("export "):]
+            rest = line[len("export ") :]
             if "=" in rest:
                 k, v = rest.split("=", 1)
                 exports[k] = v

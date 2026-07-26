@@ -3,9 +3,12 @@ from __future__ import annotations
 import argparse
 import os
 import stat
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from jubilant_recorder.jtr_cli import cmd_shim_install
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _ns(**kwargs) -> argparse.Namespace:
@@ -40,9 +43,7 @@ def test_shim_install_idempotent(tmp_path: Path) -> None:
     assert first_content == second_content
 
 
-def test_shim_install_no_real_juju_error(
-    tmp_path: Path, capsys, monkeypatch
-) -> None:
+def test_shim_install_no_real_juju_error(tmp_path: Path, capsys, monkeypatch) -> None:
     monkeypatch.setattr("shutil.which", lambda _name: None)
     target = tmp_path / "shims"
     rc = cmd_shim_install(_ns(target=str(target), real_juju=None))

@@ -10,7 +10,7 @@ from jubilant_recorder.codegen.operations import update_application_base
 
 def test_update_application_base_basic(update_application_base_event: dict[str, Any]) -> None:
     line = update_application_base.emit(update_application_base_event, indent=8)
-    assert line == '        juju.cli("set-application-base", \'my-charm\', \'ubuntu@24.04\')'
+    assert line == "        juju.cli(\"set-application-base\", 'my-charm', 'ubuntu@24.04')"
 
 
 def test_update_application_base_force() -> None:
@@ -23,7 +23,7 @@ def test_update_application_base_force() -> None:
         }
     }
     line = update_application_base.emit(event, indent=0)
-    assert line == 'juju.cli("set-application-base", \'my-charm\', \'ubuntu@24.04\', "--force")'
+    assert line == "juju.cli(\"set-application-base\", 'my-charm', 'ubuntu@24.04', \"--force\")"
 
 
 def test_update_application_base_missing_app_raises() -> None:

@@ -157,7 +157,7 @@ def _op_call(event: dict[str, Any], indent: int) -> str:
 
 
 def _describe_op(event: dict[str, Any]) -> str:
-    """A one-line, comment-safe description of the attempted op."""
+    """Return a one-line, comment-safe description of the attempted op."""
     op = event.get("op", "") or "<unknown>"
     args = event.get("args") or {}
     rendered = ", ".join(f"{k}={v!r}" for k, v in sorted(args.items()))

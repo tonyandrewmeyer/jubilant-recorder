@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from jubilant_recorder.jtr_cli import cmd_shell_install
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _ns(**kwargs) -> argparse.Namespace:

@@ -1,3 +1,5 @@
+"""Emit jubilant code for recorded ``juju.cli()`` calls."""
+
 from __future__ import annotations
 
 from typing import Any

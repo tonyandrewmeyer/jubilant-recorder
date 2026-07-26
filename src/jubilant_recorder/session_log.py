@@ -1,17 +1,21 @@
+"""Read and write the recorded session log format."""
+
 from __future__ import annotations
 
 import contextlib
 import json
 import subprocess
 import uuid
-from collections.abc import Generator
 from datetime import UTC, datetime
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import jubilant
 
-from jubilant_recorder.events import EventEnvelope
+if TYPE_CHECKING:
+    from collections.abc import Generator
+    from pathlib import Path
+
+    from jubilant_recorder.events import EventEnvelope
 
 
 def _format_ts(dt: datetime) -> str:
@@ -19,6 +23,8 @@ def _format_ts(dt: datetime) -> str:
 
 
 class SessionLog:
+    """A recorded session: its events, metadata and tags."""
+
     def __init__(self, log_path: Path, model: str = "") -> None:
         self._log_path = log_path
         self._model = model

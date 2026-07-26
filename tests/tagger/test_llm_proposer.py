@@ -24,7 +24,9 @@ from jubilant_recorder.tagger.llm import (
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 
-def make_snapshot(*, apps: dict[str, Any] | None = None, relations: list | None = None) -> dict[str, Any]:
+def make_snapshot(
+    *, apps: dict[str, Any] | None = None, relations: list | None = None
+) -> dict[str, Any]:
     return {
         "schema_version": 1,
         "captured_at": "2026-05-30T09:00:00.000Z",
@@ -37,21 +39,37 @@ def make_unit(status: str = "active") -> dict[str, Any]:
     return {"workload_status": status, "workload_message": "", "agent_status": "idle"}
 
 
-def make_event(seq: int, op: str, *, args: dict | None = None, result: dict | None = None,
-               before: dict | None = None, after: dict | None = None) -> dict[str, Any]:
+def make_event(
+    seq: int,
+    op: str,
+    *,
+    args: dict | None = None,
+    result: dict | None = None,
+    before: dict | None = None,
+    after: dict | None = None,
+) -> dict[str, Any]:
     return {
-        "seq": seq, "op": op, "ts": "2026-05-30T09:00:00Z",
-        "args": args or {}, "result": result or {},
-        "model_snapshot_before": before, "model_snapshot_after": after,
-        "assertions": [], "gesture": None,
+        "seq": seq,
+        "op": op,
+        "ts": "2026-05-30T09:00:00Z",
+        "args": args or {},
+        "result": result or {},
+        "model_snapshot_before": before,
+        "model_snapshot_after": after,
+        "assertions": [],
+        "gesture": None,
     }
 
 
 def make_log(events: list[dict]) -> dict[str, Any]:
     return {
-        "schema_version": 1, "session_id": "test", "recorded_at": "2026-05-30T09:05:00Z",
-        "juju_version": "3.6.23", "jubilant_version": "1.0.0",
-        "model": "test-model", "events": events,
+        "schema_version": 1,
+        "session_id": "test",
+        "recorded_at": "2026-05-30T09:05:00Z",
+        "juju_version": "3.6.23",
+        "jubilant_version": "1.0.0",
+        "model": "test-model",
+        "events": events,
     }
 
 
@@ -83,7 +101,9 @@ def test_custom_proposer_satisfies_protocol():
 
 
 def test_collect_known_entities():
-    snap = make_snapshot(apps={"my-charm": {"units": {"my-charm/0": make_unit(), "my-charm/1": make_unit()}}})
+    snap = make_snapshot(
+        apps={"my-charm": {"units": {"my-charm/0": make_unit(), "my-charm/1": make_unit()}}}
+    )
     log = make_log([make_event(1, "deploy", before=snap, after=snap)])
     apps, units = _collect_known_entities(log)
     assert "my-charm" in apps
@@ -114,7 +134,20 @@ def test_llm_augment_unknown_seq_dropped():
 
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
-        out = llm_augment(log, _proposer_from([{"seq": 99, "kind": "unit_status", "app": "x", "unit": "x/0", "expected": "active"}]))
+        out = llm_augment(
+            log,
+            _proposer_from(
+                [
+                    {
+                        "seq": 99,
+                        "kind": "unit_status",
+                        "app": "x",
+                        "unit": "x/0",
+                        "expected": "active",
+                    }
+                ]
+            ),
+        )
 
     assert any("unknown seq" in str(warning.message) for warning in w)
     assert out["events"][0]["assertions"] == []
@@ -126,7 +159,9 @@ def test_llm_augment_unknown_kind_dropped():
 
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
-        out = llm_augment(log, _proposer_from([{"seq": 1, "kind": "hallucinated_kind", "app": "my-charm"}]))
+        out = llm_augment(
+            log, _proposer_from([{"seq": 1, "kind": "hallucinated_kind", "app": "my-charm"}])
+        )
 
     assert any("unknown kind" in str(warning.message) for warning in w)
     assert out["events"][0]["assertions"] == []
@@ -138,9 +173,20 @@ def test_llm_augment_unknown_app_dropped():
 
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
-        out = llm_augment(log, _proposer_from([
-            {"seq": 1, "kind": "unit_status", "app": "ghost-app", "unit": "my-charm/0", "expected": "active"}
-        ]))
+        out = llm_augment(
+            log,
+            _proposer_from(
+                [
+                    {
+                        "seq": 1,
+                        "kind": "unit_status",
+                        "app": "ghost-app",
+                        "unit": "my-charm/0",
+                        "expected": "active",
+                    }
+                ]
+            ),
+        )
 
     assert any("not in session log" in str(warning.message) for warning in w)
     assert out["events"][0]["assertions"] == []
@@ -152,9 +198,20 @@ def test_llm_augment_unknown_unit_dropped():
 
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
-        out = llm_augment(log, _proposer_from([
-            {"seq": 1, "kind": "unit_status", "app": "my-charm", "unit": "my-charm/99", "expected": "active"}
-        ]))
+        out = llm_augment(
+            log,
+            _proposer_from(
+                [
+                    {
+                        "seq": 1,
+                        "kind": "unit_status",
+                        "app": "my-charm",
+                        "unit": "my-charm/99",
+                        "expected": "active",
+                    }
+                ]
+            ),
+        )
 
     assert any("not in session log" in str(warning.message) for warning in w)
     assert out["events"][0]["assertions"] == []
@@ -166,10 +223,21 @@ def test_llm_augment_action_result_wrong_event_dropped():
 
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
-        out = llm_augment(log, _proposer_from([
-            {"seq": 1, "kind": "action_result", "unit": "my-charm/0", "action": "do-thing",
-             "expected_success": True, "expected_results": {}}
-        ]))
+        out = llm_augment(
+            log,
+            _proposer_from(
+                [
+                    {
+                        "seq": 1,
+                        "kind": "action_result",
+                        "unit": "my-charm/0",
+                        "action": "do-thing",
+                        "expected_success": True,
+                        "expected_results": {},
+                    }
+                ]
+            ),
+        )
 
     assert any("not a 'run' event" in str(warning.message) for warning in w)
     assert out["events"][0]["assertions"] == []
@@ -177,32 +245,61 @@ def test_llm_augment_action_result_wrong_event_dropped():
 
 def test_llm_augment_action_result_unit_mismatch_dropped():
     snap = make_snapshot(apps={"my-charm": {"units": {"my-charm/0": make_unit()}}})
-    log = make_log([make_event(
-        1, "run",
-        args={"unit": "my-charm/0", "action": "do-thing", "params": {}},
-        result={"success": True, "results": {}, "message": None},
-        before=snap, after=snap,
-    )])
+    log = make_log(
+        [
+            make_event(
+                1,
+                "run",
+                args={"unit": "my-charm/0", "action": "do-thing", "params": {}},
+                result={"success": True, "results": {}, "message": None},
+                before=snap,
+                after=snap,
+            )
+        ]
+    )
 
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
-        out = llm_augment(log, _proposer_from([
-            {"seq": 1, "kind": "action_result", "unit": "my-charm/1", "action": "do-thing",
-             "expected_success": True, "expected_results": {}}
-        ]))
+        out = llm_augment(
+            log,
+            _proposer_from(
+                [
+                    {
+                        "seq": 1,
+                        "kind": "action_result",
+                        "unit": "my-charm/1",
+                        "action": "do-thing",
+                        "expected_success": True,
+                        "expected_results": {},
+                    }
+                ]
+            ),
+        )
 
     assert any("does not match event unit" in str(warning.message) for warning in w)
     assert out["events"][0]["assertions"] == []
 
 
 def test_llm_augment_relation_invalid_endpoint_dropped():
-    log = make_log([make_event(1, "integrate", args={"app1_endpoint": "a:b", "app2_endpoint": "c:d"})])
+    log = make_log(
+        [make_event(1, "integrate", args={"app1_endpoint": "a:b", "app2_endpoint": "c:d"})]
+    )
 
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
-        out = llm_augment(log, _proposer_from([
-            {"seq": 1, "kind": "relation_exists", "endpoint_a": "no-colon", "endpoint_b": "c:d"}
-        ]))
+        out = llm_augment(
+            log,
+            _proposer_from(
+                [
+                    {
+                        "seq": 1,
+                        "kind": "relation_exists",
+                        "endpoint_a": "no-colon",
+                        "endpoint_b": "c:d",
+                    }
+                ]
+            ),
+        )
 
     assert any("not a valid app:endpoint string" in str(warning.message) for warning in w)
     assert out["events"][0]["assertions"] == []
@@ -225,9 +322,20 @@ def test_llm_augment_unit_status_merged():
     snap = make_snapshot(apps={"my-charm": {"units": {"my-charm/0": make_unit()}}})
     log = make_log([make_event(1, "wait_for_idle", before=snap, after=snap)])
 
-    out = llm_augment(log, _proposer_from([
-        {"seq": 1, "kind": "unit_status", "app": "my-charm", "unit": "my-charm/0", "expected": "active"}
-    ]))
+    out = llm_augment(
+        log,
+        _proposer_from(
+            [
+                {
+                    "seq": 1,
+                    "kind": "unit_status",
+                    "app": "my-charm",
+                    "unit": "my-charm/0",
+                    "expected": "active",
+                }
+            ]
+        ),
+    )
 
     assertions = out["events"][0]["assertions"]
     assert len(assertions) == 1
@@ -240,12 +348,16 @@ def test_llm_augment_unit_status_merged():
 
 
 def test_llm_augment_unit_count_merged():
-    snap = make_snapshot(apps={"my-charm": {"units": {"my-charm/0": make_unit(), "my-charm/1": make_unit()}}})
-    log = make_log([make_event(1, "scale", args={"app": "my-charm", "units": 2}, before=snap, after=snap)])
+    snap = make_snapshot(
+        apps={"my-charm": {"units": {"my-charm/0": make_unit(), "my-charm/1": make_unit()}}}
+    )
+    log = make_log(
+        [make_event(1, "scale", args={"app": "my-charm", "units": 2}, before=snap, after=snap)]
+    )
 
-    out = llm_augment(log, _proposer_from([
-        {"seq": 1, "kind": "unit_count", "app": "my-charm", "expected": 2}
-    ]))
+    out = llm_augment(
+        log, _proposer_from([{"seq": 1, "kind": "unit_count", "app": "my-charm", "expected": 2}])
+    )
 
     assertions = out["events"][0]["assertions"]
     assert len(assertions) == 1
@@ -256,17 +368,34 @@ def test_llm_augment_unit_count_merged():
 
 def test_llm_augment_action_result_merged():
     snap = make_snapshot(apps={"my-charm": {"units": {"my-charm/0": make_unit()}}})
-    log = make_log([make_event(
-        1, "run",
-        args={"unit": "my-charm/0", "action": "do-thing", "params": {}},
-        result={"success": True, "results": {"output": "ok"}, "message": None},
-        before=snap, after=snap,
-    )])
+    log = make_log(
+        [
+            make_event(
+                1,
+                "run",
+                args={"unit": "my-charm/0", "action": "do-thing", "params": {}},
+                result={"success": True, "results": {"output": "ok"}, "message": None},
+                before=snap,
+                after=snap,
+            )
+        ]
+    )
 
-    out = llm_augment(log, _proposer_from([
-        {"seq": 1, "kind": "action_result", "unit": "my-charm/0", "action": "do-thing",
-         "expected_success": True, "expected_results": {"output": "ok"}}
-    ]))
+    out = llm_augment(
+        log,
+        _proposer_from(
+            [
+                {
+                    "seq": 1,
+                    "kind": "action_result",
+                    "unit": "my-charm/0",
+                    "action": "do-thing",
+                    "expected_success": True,
+                    "expected_results": {"output": "ok"},
+                }
+            ]
+        ),
+    )
 
     assertions = out["events"][0]["assertions"]
     assert len(assertions) == 1
@@ -278,11 +407,16 @@ def test_llm_augment_action_result_merged():
 
 
 def test_llm_augment_relation_exists_merged_and_sorted():
-    log = make_log([make_event(1, "integrate", args={"app1_endpoint": "a:rel", "app2_endpoint": "b:db"})])
+    log = make_log(
+        [make_event(1, "integrate", args={"app1_endpoint": "a:rel", "app2_endpoint": "b:db"})]
+    )
 
-    out = llm_augment(log, _proposer_from([
-        {"seq": 1, "kind": "relation_exists", "endpoint_a": "b:db", "endpoint_b": "a:rel"}
-    ]))
+    out = llm_augment(
+        log,
+        _proposer_from(
+            [{"seq": 1, "kind": "relation_exists", "endpoint_a": "b:db", "endpoint_b": "a:rel"}]
+        ),
+    )
 
     assertions = out["events"][0]["assertions"]
     assert len(assertions) == 1
@@ -298,16 +432,31 @@ def test_llm_augment_deduplicates_against_existing():
     """LLM proposal for an assertion already added by the delta tagger is skipped."""
     snap = make_snapshot(apps={"my-charm": {"units": {"my-charm/0": make_unit()}}})
     existing_tag = {
-        "kind": "unit_status", "source": "delta", "strict": False,
-        "app": "my-charm", "unit": "my-charm/0", "expected": "active",
+        "kind": "unit_status",
+        "source": "delta",
+        "strict": False,
+        "app": "my-charm",
+        "unit": "my-charm/0",
+        "expected": "active",
     }
     event = make_event(1, "wait_for_idle", before=snap, after=snap)
     event["assertions"] = [existing_tag]
     log = make_log([event])
 
-    out = llm_augment(log, _proposer_from([
-        {"seq": 1, "kind": "unit_status", "app": "my-charm", "unit": "my-charm/0", "expected": "active"}
-    ]))
+    out = llm_augment(
+        log,
+        _proposer_from(
+            [
+                {
+                    "seq": 1,
+                    "kind": "unit_status",
+                    "app": "my-charm",
+                    "unit": "my-charm/0",
+                    "expected": "active",
+                }
+            ]
+        ),
+    )
 
     # still only one assertion, the original delta one
     assertions = out["events"][0]["assertions"]
@@ -320,9 +469,20 @@ def test_llm_augment_does_not_mutate_input():
     log = make_log([make_event(1, "wait_for_idle", before=snap, after=snap)])
     original = copy.deepcopy(log)
 
-    llm_augment(log, _proposer_from([
-        {"seq": 1, "kind": "unit_status", "app": "my-charm", "unit": "my-charm/0", "expected": "active"}
-    ]))
+    llm_augment(
+        log,
+        _proposer_from(
+            [
+                {
+                    "seq": 1,
+                    "kind": "unit_status",
+                    "app": "my-charm",
+                    "unit": "my-charm/0",
+                    "expected": "active",
+                }
+            ]
+        ),
+    )
 
     assert log == original
 
@@ -360,21 +520,21 @@ def test_tag_with_none_proposer_unchanged():
 
 def test_tag_merges_llm_and_delta_assertions():
     """LLM and delta assertions coexist on the same event."""
-    snap_before = make_snapshot(apps={"my-charm": {"units": {"my-charm/0": make_unit("maintenance")}}})
+    snap_before = make_snapshot(
+        apps={"my-charm": {"units": {"my-charm/0": make_unit("maintenance")}}}
+    )
     snap_after = make_snapshot(apps={"my-charm": {"units": {"my-charm/0": make_unit("active")}}})
     log = make_log([make_event(1, "wait_for_idle", before=snap_before, after=snap_after)])
 
     # Delta rule will emit unit_status for my-charm/0.
     # LLM proposer will propose unit_count (different kind → not a duplicate).
-    proposer = _proposer_from([
-        {"seq": 1, "kind": "unit_count", "app": "my-charm", "expected": 1}
-    ])
+    proposer = _proposer_from([{"seq": 1, "kind": "unit_count", "app": "my-charm", "expected": 1}])
     out = tag(log, proposer=proposer)
 
     event = out["events"][0]
     kinds = {a["kind"] for a in event["assertions"]}
     assert "unit_status" in kinds  # from delta rule
-    assert "unit_count" in kinds   # from LLM proposer
+    assert "unit_count" in kinds  # from LLM proposer
     sources = {a["source"] for a in event["assertions"]}
     assert "delta" in sources
     assert "llm" in sources

@@ -1,18 +1,21 @@
+"""Shared state threaded through code generation."""
+
 from __future__ import annotations
 
 from typing import Any
 
-from jubilant_recorder.codegen import assertions as assertions_mod, fallback, unrepresentable
+from jubilant_recorder.codegen import assertions as assertions_mod
+from jubilant_recorder.codegen import fallback, unrepresentable
 from jubilant_recorder.codegen.operations import EMITTERS
 
 
 def render_shell_context(event: dict[str, Any], indent: int = 8) -> str:
-    """Produces `# context: <argv>` plus optional exit and stdout lines."""
+    """Produce `# context: <argv>` plus optional exit and stdout lines."""
     return _render_shell_like(event, indent, prefix="context")
 
 
 def render_shell(event: dict[str, Any], indent: int = 8) -> str:
-    """Produces `# shell: <basename> <argv>` for PATH-shim intercepts.
+    """Produce `# shell: <basename> <argv>` for PATH-shim intercepts.
 
     Shim events are ``op: "shell"`` (`shim/juju_shim.py`) — a `juju` invocation
     captured by the PATH shim. Rendered as a context comment so the generated
@@ -23,7 +26,7 @@ def render_shell(event: dict[str, Any], indent: int = 8) -> str:
     args = event.get("args") or {}
     basename = args.get("basename") or ""
     argv = args.get("argv") or []
-    cmd_parts = [basename] + list(argv) if basename else list(argv)
+    cmd_parts = [basename, *list(argv)] if basename else list(argv)
     pad = " " * indent
     lines = [f"{pad}# shell: {' '.join(str(p) for p in cmd_parts).strip()}"]
     result = event.get("result") or {}
@@ -47,8 +50,7 @@ def _render_shell_like(event: dict[str, Any], indent: int, *, prefix: str) -> st
     if stdout is not None:
         stdout_lines = stdout.splitlines()
         shown = stdout_lines[:5]
-        for line in shown:
-            lines.append(f"{pad}# | {line}")
+        lines.extend(f"{pad}# | {line}" for line in shown)
         remaining = len(stdout_lines) - len(shown)
         if remaining > 0:
             lines.append(f"{pad}# | ... ({remaining} more)")
@@ -56,14 +58,14 @@ def _render_shell_like(event: dict[str, Any], indent: int, *, prefix: str) -> st
 
 
 def render_note(event: dict[str, Any], indent: int = 8) -> str:
-    """Produces `# note: <text>`."""
+    """Produce `# note: <text>`."""
     pad = " " * indent
     text = (event.get("args") or {}).get("text", "")
     return f"{pad}# note: {text}"
 
 
 def render_status_comment(event: dict[str, Any], indent: int = 8) -> str | None:
-    """Produces `# juju status: ...` summary from status op's model_snapshot_after.
+    """Produce `# juju status: ...` summary from status op's model_snapshot_after.
 
     Returns None if all units are active with empty messages.
     Returns error comment if model_snapshot_after is None.
@@ -96,7 +98,7 @@ def render_status_comment(event: dict[str, Any], indent: int = 8) -> str | None:
 
 
 def render_config_result(event: dict[str, Any], indent: int = 8) -> str | None:
-    """Produces `# result: ...` from config op's before/after delta."""
+    """Produce `# result: ...` from config op's before/after delta."""
     pad = " " * indent
     before = event.get("model_snapshot_before") or {}
     after = event.get("model_snapshot_after") or {}
@@ -125,9 +127,7 @@ def render_config_result(event: dict[str, Any], indent: int = 8) -> str | None:
     return f"{pad}# result: {', '.join(parts)}"
 
 
-def interleave_context(
-    events: list[dict[str, Any]], indent: int = 8
-) -> tuple[list[str], bool]:
+def interleave_context(events: list[dict[str, Any]], indent: int = 8) -> tuple[list[str], bool]:
     """Iterate events in seq order; emit jubilant calls and context comments.
 
     Returns (body_lines, needs_pytest).

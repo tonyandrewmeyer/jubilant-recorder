@@ -1,3 +1,5 @@
+"""Emit jubilant code for recorded ``juju.cli()`` calls."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -25,13 +27,14 @@ def emit(event: dict[str, Any], indent: int) -> str:
     parts: list[str] = ['"bind"', repr(app)]
     if default_space:
         parts.append(repr(default_space))
-    for endpoint in sorted(bindings):
-        parts.append(repr(f"{endpoint}={bindings[endpoint]}"))
+    parts.extend(repr(f"{endpoint}={bindings[endpoint]}") for endpoint in sorted(bindings))
 
     pad = " " * indent
     call = f"{pad}juju.cli({', '.join(parts)})"
 
     if args.get("force"):
-        todo = f"{pad}# TODO: MergeBindings also carried force=True — no `juju bind` flag equivalent"
+        todo = (
+            f"{pad}# TODO: MergeBindings also carried force=True — no `juju bind` flag equivalent"
+        )
         return f"{todo}\n{call}"
     return call

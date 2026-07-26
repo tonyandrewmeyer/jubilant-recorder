@@ -1,3 +1,5 @@
+"""Derive assertion tags from recorded session events."""
+
 from __future__ import annotations
 
 from jubilant_recorder.tagger.engine import SessionLog, tag

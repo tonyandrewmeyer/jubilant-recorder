@@ -10,7 +10,7 @@ from jubilant_recorder.codegen.operations import config_unset
 
 def test_config_unset_basic(config_unset_event: dict[str, Any]) -> None:
     line = config_unset.emit(config_unset_event, indent=8)
-    assert line == '        juju.cli("config", \'my-charm\', "--reset", \'log-level,debug\')'
+    assert line == "        juju.cli(\"config\", 'my-charm', \"--reset\", 'log-level,debug')"
 
 
 def test_config_unset_missing_app_raises() -> None:
