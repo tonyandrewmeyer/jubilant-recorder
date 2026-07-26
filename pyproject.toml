@@ -54,6 +54,7 @@ typeCheckingMode = "standard"
 reportMissingTypeStubs = false
 
 [tool.ruff]
+src = ["src", "tests"]
 line-length = 99
 target-version = "py311"
 
