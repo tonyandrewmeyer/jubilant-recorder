@@ -1,9 +1,13 @@
+"""Assertion-tag rules for recorded scaling."""
+
 from __future__ import annotations
 
-from collections.abc import Iterable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from jubilant_recorder.tagger.types import AssertionTag
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 
 def _app_unit_count(snapshot_apps: dict[str, Any], app_name: str) -> int | None:
@@ -15,6 +19,7 @@ def _app_unit_count(snapshot_apps: dict[str, Any], app_name: str) -> int | None:
 
 
 def evaluate(events: list[dict[str, Any]], index: int) -> Iterable[AssertionTag]:
+    """Yield assertion tags for a scaling change at this point in the session."""
     event = events[index]
     before = event.get("model_snapshot_before") or {}
     after = event.get("model_snapshot_after") or {}

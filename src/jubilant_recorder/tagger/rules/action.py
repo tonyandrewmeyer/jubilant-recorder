@@ -1,10 +1,14 @@
+"""Assertion-tag rules for recorded actions."""
+
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from jubilant_recorder.tagger.types import AssertionTag
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 _TIMESTAMP_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
 _IP_RE = re.compile(r"^\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?$")
@@ -28,6 +32,7 @@ def _stable_results(results: dict[str, Any]) -> dict[str, Any]:
 
 
 def evaluate(events: list[dict[str, Any]], index: int) -> Iterable[AssertionTag]:
+    """Yield assertion tags for an action result at this point in the session."""
     event = events[index]
     if event.get("op") != "run":
         return

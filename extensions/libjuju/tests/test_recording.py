@@ -16,12 +16,15 @@ from __future__ import annotations
 
 import asyncio
 import json
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
+
 from extensions.libjuju.recording import RecordingLibjuju
 from extensions.libjuju.tap import LibjujuTap
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -629,11 +632,7 @@ class TestWaitForIdleSynthesisInRecording:
                     "type": "Application",
                     "request": "Deploy",
                     "version": 20,
-                    "params": {
-                        "applications": [
-                            {"charm-url": "ch:x", "application-name": "x"}
-                        ]
-                    },
+                    "params": {"applications": [{"charm-url": "ch:x", "application-name": "x"}]},
                 }
             )
             _run_rpc(
@@ -669,11 +668,7 @@ class TestWaitForIdleSynthesisInRecording:
                     "type": "Application",
                     "request": "Deploy",
                     "version": 20,
-                    "params": {
-                        "applications": [
-                            {"charm-url": "ch:x", "application-name": "x"}
-                        ]
-                    },
+                    "params": {"applications": [{"charm-url": "ch:x", "application-name": "x"}]},
                 }
             )
             _run_rpc(
@@ -872,9 +867,7 @@ class TestSecretsRecording:
                     "type": "Secrets",
                     "request": "CreateSecrets",
                     "version": 2,
-                    "params": {
-                        "secrets": [{"label": "x", "content": {"data": {"k": "v"}}}]
-                    },
+                    "params": {"secrets": [{"label": "x", "content": {"data": {"k": "v"}}}]},
                 }
             )
 

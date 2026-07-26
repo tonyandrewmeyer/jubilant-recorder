@@ -39,6 +39,7 @@ CLIENT_APP = "data-integrator"
 
 
 def main() -> int:
+    """Run this example session against a live controller."""
     print(f"… recording to {LOG_PATH}", file=sys.stderr)
     with RecordingJuju.start(LOG_PATH, model=MODEL) as juju:
         juju.deploy(DB_APP, channel="14/stable")
@@ -81,6 +82,7 @@ def main() -> int:
 
 
 def all_units_active(status, app: str) -> bool:
+    """Return True when every unit of the application is active."""
     a = status.apps.get(app)
     if not a:
         return False

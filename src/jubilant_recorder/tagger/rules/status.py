@@ -1,14 +1,19 @@
+"""Assertion-tag rules for recorded status checks."""
+
 from __future__ import annotations
 
-from collections.abc import Iterable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from jubilant_recorder.tagger.types import AssertionTag
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 _STABLE_STATUSES = frozenset({"active", "blocked"})
 
 
 def evaluate(events: list[dict[str, Any]], index: int) -> Iterable[AssertionTag]:
+    """Yield assertion tags for a status change at this point in the session."""
     event = events[index]
     before = event.get("model_snapshot_before") or {}
     after = event.get("model_snapshot_after") or {}

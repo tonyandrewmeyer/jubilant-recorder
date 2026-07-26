@@ -11,15 +11,15 @@ from jubilant_recorder.codegen.operations import set_charm
 def test_set_charm_basic(set_charm_event: dict[str, Any]) -> None:
     line = set_charm.emit(set_charm_event, indent=8)
     assert line == (
-        '        juju.cli("refresh", \'my-charm\', "--switch", \'ch:my-charm-2\', '
-        '"--channel", \'edge\')'
+        "        juju.cli(\"refresh\", 'my-charm', \"--switch\", 'ch:my-charm-2', "
+        "\"--channel\", 'edge')"
     )
 
 
 def test_set_charm_minimal() -> None:
     event = {"args": {"app": "my-charm"}}
     line = set_charm.emit(event, indent=0)
-    assert line == 'juju.cli("refresh", \'my-charm\')'
+    assert line == "juju.cli(\"refresh\", 'my-charm')"
 
 
 def test_set_charm_force() -> None:
@@ -37,7 +37,7 @@ def test_set_charm_unrepresentable_config_gets_todo() -> None:
     event = {"args": {"app": "my-charm", "config_settings": {"log-level": "debug"}}}
     line = set_charm.emit(event, indent=0)
     assert line.startswith("# TODO: SetCharm also carried config settings")
-    assert 'juju.cli("refresh", \'my-charm\')' in line
+    assert "juju.cli(\"refresh\", 'my-charm')" in line
 
 
 def test_set_charm_no_assertion_emitted(set_charm_event: dict[str, Any]) -> None:

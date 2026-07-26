@@ -1,3 +1,5 @@
+"""Emit jubilant code for recorded ``juju.cli()`` calls."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -26,7 +28,6 @@ def emit(event: dict[str, Any], indent: int) -> str:
 
     constraints = args.get("constraints") or {}
     parts: list[str] = ['"set-constraints"', repr(app)]
-    for key in sorted(constraints):
-        parts.append(repr(f"{key}={_render_value(constraints[key])}"))
+    parts.extend(repr(f"{key}={_render_value(constraints[key])}") for key in sorted(constraints))
 
     return " " * indent + f"juju.cli({', '.join(parts)})"

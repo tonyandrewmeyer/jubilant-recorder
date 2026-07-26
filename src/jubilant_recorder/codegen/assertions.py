@@ -1,9 +1,12 @@
+"""Turn assertion tags into jubilant assertion source lines."""
+
 from __future__ import annotations
 
 from typing import Any
 
 
 def emit(tag: dict[str, Any], indent: int, *, run_var: str | None = None) -> str:
+    """Emit the source line for one assertion tag."""
     kind = tag.get("kind", "")
     pad = " " * indent
     if kind == "unit_status":

@@ -1,5 +1,4 @@
-"""
-``RecordingLibjuju`` — the libjuju → SessionLog driver.
+"""``RecordingLibjuju`` — the libjuju → SessionLog driver.
 
 This is the libjuju-side counterpart to ``RecordingJuju`` (the wrapper that
 subclasses ``jubilant.Juju._cli()``). It wires the Step 1 PoC together:
@@ -60,16 +59,17 @@ from __future__ import annotations
 
 import contextlib
 import functools
-import types
 from collections.abc import Callable, Generator
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from extensions.libjuju.correlate import correlate as _default_correlate
 from extensions.libjuju.tap import LibjujuTap
-
 from jubilant_recorder.events import EventEnvelope
 from jubilant_recorder.session_log import SessionLog
+
+if TYPE_CHECKING:
+    import types
+    from pathlib import Path
 
 # Keys that ``correlate()`` may attach to an event for debugging / provenance
 # but which are not part of the canonical EventEnvelope. They are stripped
@@ -159,7 +159,8 @@ class RecordingLibjuju:
             self._tap.__exit__(exc_type, exc_val, exc_tb)
         finally:
             log = self._session_log
-            assert log is not None, "context manager not entered"
+            if log is None:
+                raise RuntimeError("context manager not entered")
             try:
                 self._flush_to_log(log, exc_val)
             finally:

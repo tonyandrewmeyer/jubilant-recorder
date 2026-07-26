@@ -1,3 +1,5 @@
+"""The recorded session event types."""
+
 from __future__ import annotations
 
 import dataclasses
@@ -6,6 +8,8 @@ from typing import Any
 
 @dataclasses.dataclass
 class ModelSnapshot:
+    """A point-in-time view of the model, captured alongside an event."""
+
     schema_version: int
     captured_at: str
     apps: dict[str, Any]
@@ -22,6 +26,8 @@ class ModelSnapshot:
 
 @dataclasses.dataclass
 class EventEnvelope:
+    """One recorded event and the metadata surrounding it."""
+
     seq: int
     op: str
     ts: str

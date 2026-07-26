@@ -86,9 +86,9 @@ import jubilant
 
 def test_recorded_session():
     with jubilant.temp_model() as juju:
-        juju.deploy('ch:my-charm', app='my-charm')
-        juju.integrate('my-charm:db', 'postgresql:database')
-        result_3 = juju.run('my-charm/0', 'do-thing')
+        juju.deploy("ch:my-charm", app="my-charm")
+        juju.integrate("my-charm:db", "postgresql:database")
+        result_3 = juju.run("my-charm/0", "do-thing")
 ```
 
 This parses (`ast.parse`), uses the canonical `jubilant.temp_model()`

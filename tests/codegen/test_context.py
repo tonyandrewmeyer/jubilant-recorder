@@ -11,7 +11,6 @@ from jubilant_recorder.codegen.context import (
     render_status_comment,
 )
 from jubilant_recorder.codegen.emit import generate
-
 from tests.codegen.conftest import EMPTY_SNAPSHOT, _event, _wrap
 
 INDENT = 8
@@ -136,9 +135,7 @@ def test_render_shell_context_stdout_shown() -> None:
 
 def test_render_shell_context_stdout_truncated_at_5() -> None:
     lines = [f"line{i}" for i in range(7)]
-    event = _shell_context_event(
-        1, ["kubectl", "logs", "pod"], "kubectl", stdout="\n".join(lines)
-    )
+    event = _shell_context_event(1, ["kubectl", "logs", "pod"], "kubectl", stdout="\n".join(lines))
     result = render_shell_context(event, INDENT)
     assert "line4" in result
     assert "line5" not in result
@@ -165,19 +162,23 @@ def test_render_note_empty_text() -> None:
 
 def test_render_status_comment_all_active_no_message_returns_none() -> None:
     event = _event(1, "status", {}, {"snapshot": EMPTY_SNAPSHOT})
-    event["model_snapshot_after"] = _snapshot_with_units({
-        "my-app/0": ("active", ""),
-        "my-app/1": ("active", ""),
-    })
+    event["model_snapshot_after"] = _snapshot_with_units(
+        {
+            "my-app/0": ("active", ""),
+            "my-app/1": ("active", ""),
+        }
+    )
     result = render_status_comment(event, INDENT)
     assert result is None
 
 
 def test_render_status_comment_nonactive_unit() -> None:
     event = _event(1, "status", {}, {"snapshot": EMPTY_SNAPSHOT})
-    event["model_snapshot_after"] = _snapshot_with_units({
-        "my-app/0": ("waiting", "waiting for db"),
-    })
+    event["model_snapshot_after"] = _snapshot_with_units(
+        {
+            "my-app/0": ("waiting", "waiting for db"),
+        }
+    )
     result = render_status_comment(event, INDENT)
     assert result is not None
     assert "waiting" in result
@@ -229,7 +230,14 @@ def test_generate_shell_context_renders_comment() -> None:
     deploy_event = _event(
         2,
         "deploy",
-        {"charm": "my-charm", "app": None, "channel": None, "num_units": 1, "config": {}, "resources": {}},
+        {
+            "charm": "my-charm",
+            "app": None,
+            "channel": None,
+            "num_units": 1,
+            "config": {},
+            "resources": {},
+        },
         {"app_name": "my-charm"},
     )
     log = _wrap([ctx_event, deploy_event])
@@ -243,7 +251,14 @@ def test_generate_note_renders_comment() -> None:
     deploy_event = _event(
         2,
         "deploy",
-        {"charm": "my-charm", "app": None, "channel": None, "num_units": 1, "config": {}, "resources": {}},
+        {
+            "charm": "my-charm",
+            "app": None,
+            "channel": None,
+            "num_units": 1,
+            "config": {},
+            "resources": {},
+        },
         {"app_name": "my-charm"},
     )
     log = _wrap([note_event, deploy_event])
@@ -257,7 +272,14 @@ def test_generate_tag_emits_step_before_next_op() -> None:
     deploy_event = _event(
         2,
         "deploy",
-        {"charm": "my-charm", "app": None, "channel": None, "num_units": 1, "config": {}, "resources": {}},
+        {
+            "charm": "my-charm",
+            "app": None,
+            "channel": None,
+            "num_units": 1,
+            "config": {},
+            "resources": {},
+        },
         {"app_name": "my-charm"},
     )
     log = _wrap([tag_event, deploy_event])
@@ -281,9 +303,11 @@ def test_generate_tag_only_no_following_op() -> None:
 def test_generate_status_no_assertions_rendered_as_comment() -> None:
     """status with no assertions/gesture becomes a comment, not a jubilant call."""
     status_event = _event(1, "status", {}, {"snapshot": EMPTY_SNAPSHOT})
-    status_event["model_snapshot_after"] = _snapshot_with_units({
-        "my-app/0": ("waiting", "initialising"),
-    })
+    status_event["model_snapshot_after"] = _snapshot_with_units(
+        {
+            "my-app/0": ("waiting", "initialising"),
+        }
+    )
     log = _wrap([status_event])
     output = generate(log)
     assert "juju.status()" not in output
@@ -297,14 +321,16 @@ def test_generate_status_with_assertion_not_a_comment() -> None:
         "status",
         {},
         {"snapshot": EMPTY_SNAPSHOT},
-        assertions=[{
-            "kind": "unit_status",
-            "app": "my-app",
-            "unit": "my-app/0",
-            "expected": "active",
-            "strict": False,
-            "source": "delta",
-        }],
+        assertions=[
+            {
+                "kind": "unit_status",
+                "app": "my-app",
+                "unit": "my-app/0",
+                "expected": "active",
+                "strict": False,
+                "source": "delta",
+            }
+        ],
     )
     log = _wrap([status_event])
     output = generate(log)
@@ -346,7 +372,14 @@ def test_interleave_context_tag_flushed_before_op() -> None:
     deploy_event = _event(
         2,
         "deploy",
-        {"charm": "c", "app": None, "channel": None, "num_units": 1, "config": {}, "resources": {}},
+        {
+            "charm": "c",
+            "app": None,
+            "channel": None,
+            "num_units": 1,
+            "config": {},
+            "resources": {},
+        },
         {"app_name": "c"},
     )
     events = [_tag_event(1, "my step"), deploy_event]
@@ -360,7 +393,9 @@ def test_interleave_context_tag_flushed_before_op() -> None:
 # --- render_shell (PATH-shim juju intercepts) ---
 
 
-def _shim_shell_event(seq: int, argv: list[str], *, exit_code: int | None = None) -> dict[str, Any]:
+def _shim_shell_event(
+    seq: int, argv: list[str], *, exit_code: int | None = None
+) -> dict[str, Any]:
     return {
         "seq": seq,
         "op": "shell",
@@ -407,34 +442,38 @@ def test_generate_shim_shell_rendered_as_shell_comment() -> None:
 
 def test_generate_bucket2_libjuju_shell_still_falls_through() -> None:
     """Regression: op=shell WITHOUT source=shim must still hit fallback TODO."""
-    events = [{
-        "seq": 1,
-        "op": "shell",
-        "ts": "2026-06-28T10:00:00.000Z",
-        "args": {"note": "libjuju bucket-2 stub"},
-        "result": {},
-        "model_snapshot_before": None,
-        "model_snapshot_after": None,
-        "assertions": [],
-        "gesture": None,
-    }]
+    events = [
+        {
+            "seq": 1,
+            "op": "shell",
+            "ts": "2026-06-28T10:00:00.000Z",
+            "args": {"note": "libjuju bucket-2 stub"},
+            "result": {},
+            "model_snapshot_before": None,
+            "model_snapshot_after": None,
+            "assertions": [],
+            "gesture": None,
+        }
+    ]
     src = generate(_wrap(events))
     assert "# TODO: manual step" in src
 
 
 def test_generate_session_end_dropped() -> None:
     """C1 — the `session_end` sentinel never appears in generated output."""
-    events = [{
-        "seq": 1,
-        "op": "session_end",
-        "ts": "2026-06-28T10:00:00.000Z",
-        "args": {},
-        "result": {},
-        "model_snapshot_before": None,
-        "model_snapshot_after": None,
-        "assertions": [],
-        "gesture": None,
-    }]
+    events = [
+        {
+            "seq": 1,
+            "op": "session_end",
+            "ts": "2026-06-28T10:00:00.000Z",
+            "args": {},
+            "result": {},
+            "model_snapshot_before": None,
+            "model_snapshot_after": None,
+            "assertions": [],
+            "gesture": None,
+        }
+    ]
     src = generate(_wrap(events))
     assert "session_end" not in src
     assert "TODO" not in src
