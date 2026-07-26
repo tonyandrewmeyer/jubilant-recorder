@@ -10,13 +10,13 @@ from jubilant_recorder.codegen.operations import unexpose
 
 def test_unexpose_basic(unexpose_event: dict[str, Any]) -> None:
     line = unexpose.emit(unexpose_event, indent=8)
-    assert line == '        juju.cli("unexpose", \'my-charm\')'
+    assert line == "        juju.cli(\"unexpose\", 'my-charm')"
 
 
 def test_unexpose_with_endpoints() -> None:
     event = {"args": {"app": "my-charm", "exposed_endpoints": ["db", "web"]}}
     line = unexpose.emit(event, indent=0)
-    assert line == 'juju.cli("unexpose", \'my-charm\', "--endpoints", \'db,web\')'
+    assert line == "juju.cli(\"unexpose\", 'my-charm', \"--endpoints\", 'db,web')"
 
 
 def test_unexpose_missing_app_raises() -> None:

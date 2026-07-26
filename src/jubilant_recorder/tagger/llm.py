@@ -68,6 +68,8 @@ Session log (JSON):
 
 @runtime_checkable
 class AssertionProposer(Protocol):
+    """The interface an LLM-backed assertion proposer must provide."""
+
     def propose(self, log: SessionLog) -> list[dict[str, Any]]:
         """Return raw assertion proposals for the session.
 
@@ -151,7 +153,7 @@ def _collect_known_entities(log: SessionLog) -> tuple[set[str], set[str]]:
             apps = (snap.get("apps") or {}) if isinstance(snap, dict) else {}
             for app_name, app_data in apps.items():
                 known_apps.add(app_name)
-                for unit_name in ((app_data or {}).get("units") or {}):
+                for unit_name in (app_data or {}).get("units") or {}:
                     known_units.add(unit_name)
     return known_apps, known_units
 
@@ -221,7 +223,12 @@ def _proposal_to_tag_dict(proposal: dict[str, Any]) -> dict[str, Any]:
     base: dict[str, Any] = {"kind": kind, "source": "llm", "strict": False}
 
     if kind == "unit_status":
-        return {**base, "app": proposal["app"], "unit": proposal["unit"], "expected": proposal["expected"]}
+        return {
+            **base,
+            "app": proposal["app"],
+            "unit": proposal["unit"],
+            "expected": proposal["expected"],
+        }
     elif kind == "unit_count":
         return {**base, "app": proposal["app"], "expected": proposal["expected"]}
     elif kind == "action_result":

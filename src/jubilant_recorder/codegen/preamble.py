@@ -15,6 +15,8 @@ BODY_INDENT = 8
 
 @dataclasses.dataclass(frozen=True)
 class Preamble:
+    """The imports and fixtures emitted above a generated test body."""
+
     test_name: str
     needs_pytest: bool = False
 
@@ -37,4 +39,5 @@ class Preamble:
 
 
 def empty_body_filler() -> str:
+    """Return the body used when a session recorded no operations."""
     return " " * BODY_INDENT + "pass"

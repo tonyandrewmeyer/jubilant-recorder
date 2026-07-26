@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
 
 from jubilant_recorder.recording_juju import RecordingJuju
 from jubilant_recorder.session_log import SessionLog
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 MINIMAL_STATUS_JSON = json.dumps(
     {

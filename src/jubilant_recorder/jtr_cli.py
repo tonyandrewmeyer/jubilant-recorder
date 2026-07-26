@@ -1,6 +1,9 @@
+"""The ``jtr`` command-line interface."""
+
 from __future__ import annotations
 
 import argparse
+import contextlib
 import fcntl
 import json
 import os
@@ -47,24 +50,57 @@ def _append_jsonl_event(path: Path | str, event_data: dict) -> None:
             fcntl.flock(f, fcntl.LOCK_UN)
 
 
-_BASENAME_DENYLIST = frozenset({
-    "juju",
-    "ls", "cd", "pwd", "cat", "less", "more", "bat",
-    "vim", "nvim", "nano", "emacs", "code",
-    "clear", "reset", "history", "jtr",
-    "sudo", "pass", "vault", "gpg", "ssh-keygen",
-})
+_BASENAME_DENYLIST = frozenset(
+    {
+        "juju",
+        "ls",
+        "cd",
+        "pwd",
+        "cat",
+        "less",
+        "more",
+        "bat",
+        "vim",
+        "nvim",
+        "nano",
+        "emacs",
+        "code",
+        "clear",
+        "reset",
+        "history",
+        "jtr",
+        "sudo",
+        "pass",
+        "vault",
+        "gpg",
+        "ssh-keygen",
+    }
+)
 _ARGV_DENYPATS = [
     re.compile(r"^kubectl\s+(create|get|describe)\s+secret\b"),
     re.compile(r"^juju\s+(add|update|remove|show|grant|revoke)-secret\b"),
     re.compile(r"^openssl\s+(genrsa|passwd|pkcs8)\b"),
     re.compile(r"^gh\s+auth\b"),
 ]
-_CONTEXT_ALLOWLIST = frozenset({
-    "kubectl", "k8s", "microk8s", "lxc", "lxd",
-    "charmcraft", "rockcraft", "snapcraft",
-    "curl", "http", "wget", "jq", "yq", "helm", "terraform",
-})
+_CONTEXT_ALLOWLIST = frozenset(
+    {
+        "kubectl",
+        "k8s",
+        "microk8s",
+        "lxc",
+        "lxd",
+        "charmcraft",
+        "rockcraft",
+        "snapcraft",
+        "curl",
+        "http",
+        "wget",
+        "jq",
+        "yq",
+        "helm",
+        "terraform",
+    }
+)
 
 
 def _render_shell_init(shell: str, no_path_shim: bool) -> str:
@@ -123,6 +159,7 @@ def _resolve_shell(shell: str | None) -> str:
 
 
 def cmd_shell_init(args: argparse.Namespace) -> int:
+    """Print the shell snippet that wires up jtr."""
     shell = _resolve_shell(getattr(args, "shell", None))
     if shell == "fish":
         print("jtr: fish not yet supported", file=sys.stderr)
@@ -136,6 +173,7 @@ def cmd_shell_init(args: argparse.Namespace) -> int:
 
 
 def cmd_start(args: argparse.Namespace) -> int:
+    """Start a recording session."""
     if os.environ.get("JTR_SESSION"):
         print("jtr: session already active.", file=sys.stderr)
         return 1
@@ -170,6 +208,7 @@ def cmd_start(args: argparse.Namespace) -> int:
 
 
 def cmd_stop(args: argparse.Namespace) -> int:
+    """Stop the active session."""
     session_id = os.environ.get("JTR_SESSION")
     if not session_id:
         print("jtr: no active session.", file=sys.stderr)
@@ -200,15 +239,11 @@ def cmd_stop(args: argparse.Namespace) -> int:
                 _append_jsonl_event(log_path, event)
             except Exception:
                 pass
-        try:
+        with contextlib.suppress(Exception):
             state_file.unlink()
-        except Exception:
-            pass
         if state.get("shared"):
-            try:
+            with contextlib.suppress(Exception):
                 (_cache_dir() / "current").unlink(missing_ok=True)
-            except Exception:
-                pass
     print("unset JTR_SESSION\nunset JTR_LOG\nunset JTR_PAUSED")
     auto = getattr(args, "auto", False)
     if not auto and state:
@@ -218,6 +253,7 @@ def cmd_stop(args: argparse.Namespace) -> int:
 
 
 def cmd_pause(args: argparse.Namespace) -> int:
+    """Pause recording without ending the session."""
     if not os.environ.get("JTR_SESSION"):
         return 0
     print("export JTR_PAUSED=1")
@@ -225,6 +261,7 @@ def cmd_pause(args: argparse.Namespace) -> int:
 
 
 def cmd_resume(args: argparse.Namespace) -> int:
+    """Resume a paused session."""
     if not os.environ.get("JTR_SESSION"):
         return 0
     print("export JTR_PAUSED=")
@@ -232,6 +269,7 @@ def cmd_resume(args: argparse.Namespace) -> int:
 
 
 def cmd_status(args: argparse.Namespace) -> int:
+    """Print the current session's status."""
     as_json = getattr(args, "json", False)
     session_id = os.environ.get("JTR_SESSION")
     log_path = os.environ.get("JTR_LOG")
@@ -245,10 +283,8 @@ def cmd_status(args: argparse.Namespace) -> int:
     state: dict | None = None
     state_file = _state_file(session_id)
     if state_file.exists():
-        try:
+        with contextlib.suppress(Exception):
             state = json.loads(state_file.read_text())
-        except Exception:
-            pass
     event_count = 0
     if log_path and Path(log_path).exists():
         try:
@@ -258,20 +294,25 @@ def cmd_status(args: argparse.Namespace) -> int:
             pass
     name = (state or {}).get("session_name", session_id)
     if as_json:
-        print(json.dumps({
-            "active": True,
-            "session_id": session_id,
-            "session_name": name,
-            "log_path": log_path,
-            "paused": paused,
-            "event_count": event_count,
-        }))
+        print(
+            json.dumps(
+                {
+                    "active": True,
+                    "session_id": session_id,
+                    "session_name": name,
+                    "log_path": log_path,
+                    "paused": paused,
+                    "event_count": event_count,
+                }
+            )
+        )
     else:
         print(f"jtr: session '{name}' active. Log: {log_path}. Events: {event_count}.")
     return 0
 
 
 def cmd_tail(args: argparse.Namespace) -> int:
+    """Follow the active session's events."""
     session_id = os.environ.get("JTR_SESSION")
     log_path = os.environ.get("JTR_LOG")
     if not session_id or not log_path:
@@ -308,6 +349,7 @@ def cmd_tail(args: argparse.Namespace) -> int:
 
 
 def cmd_note(args: argparse.Namespace) -> int:
+    """Attach a free-text note to the session."""
     session_id = os.environ.get("JTR_SESSION")
     log_path = os.environ.get("JTR_LOG")
     if not session_id or not log_path:
@@ -332,6 +374,7 @@ def cmd_note(args: argparse.Namespace) -> int:
 
 
 def cmd_tag(args: argparse.Namespace) -> int:
+    """Attach an assertion tag to the last event."""
     session_id = os.environ.get("JTR_SESSION")
     log_path = os.environ.get("JTR_LOG")
     if not session_id or not log_path:
@@ -357,6 +400,7 @@ def cmd_tag(args: argparse.Namespace) -> int:
 
 
 def cmd_attach(args: argparse.Namespace) -> int:
+    """Attach a file to the session."""
     session_id = getattr(args, "session_id", None)
     if not session_id:
         current_file = _cache_dir() / "current"
@@ -375,14 +419,17 @@ def cmd_attach(args: argparse.Namespace) -> int:
 
 
 def cmd_include(args: argparse.Namespace) -> int:
+    """Include matching events in generation."""
     return _cmd_override(args, "include")
 
 
 def cmd_exclude(args: argparse.Namespace) -> int:
+    """Exclude matching events from generation."""
     return _cmd_override(args, "exclude")
 
 
 def cmd_redact(args: argparse.Namespace) -> int:
+    """Redact matching values from the log."""
     return _cmd_override(args, "redact")
 
 
@@ -465,27 +512,21 @@ def _hook_event_impl(
         # Apply include/exclude overrides
         if basename in include_list:
             pass  # explicitly allowed
-        elif basename in exclude_list:
-            return
-        elif basename not in _CONTEXT_ALLOWLIST:
+        elif basename in exclude_list or basename not in _CONTEXT_ALLOWLIST:
             return
 
         # Apply redaction
         redacted_cmd = cmd
         for pat_str in redact_list:
-            try:
+            with contextlib.suppress(Exception):
                 redacted_cmd = re.sub(pat_str, "<redacted>", redacted_cmd)
-            except Exception:
-                pass
 
         if not Path(log_path).exists():
             return
 
         # Check cap
         try:
-            line_count = sum(
-                1 for line in Path(log_path).read_text().splitlines() if line.strip()
-            )
+            line_count = sum(1 for line in Path(log_path).read_text().splitlines() if line.strip())
             if line_count > 1000:
                 cap_event = {
                     "seq": None,
@@ -530,8 +571,11 @@ def _hook_event_impl(
 
 
 def cmd_hook_event(args: argparse.Namespace) -> int:
-    """Always exits 0."""
-    try:
+    """Record a shell-hook event, swallowing any error.
+
+    Always exits 0 so a recording failure never breaks the user's shell.
+    """
+    with contextlib.suppress(Exception):
         _hook_event_impl(
             session_id=args.session,
             cmd=args.cmd,
@@ -539,12 +583,11 @@ def cmd_hook_event(args: argparse.Namespace) -> int:
             start_ms=int(args.start_ms),
             log_path=args.log,
         )
-    except Exception:
-        pass
     return 0
 
 
 def cmd_generate(args: argparse.Namespace) -> int:
+    """Generate a jubilant test from the session."""
     session_log = getattr(args, "session_log", None) or os.environ.get("JTR_LOG")
     if not session_log:
         print("jtr generate: no --session-log given and $JTR_LOG is not set.", file=sys.stderr)
@@ -554,9 +597,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
         print(f"jtr generate: session log not found: {log_path}", file=sys.stderr)
         return 1
     try:
-        events = [
-            json.loads(line) for line in log_path.read_text().splitlines() if line.strip()
-        ]
+        events = [json.loads(line) for line in log_path.read_text().splitlines() if line.strip()]
     except json.JSONDecodeError as exc:
         print(f"jtr generate: could not parse session log {log_path}: {exc}", file=sys.stderr)
         return 1
@@ -576,6 +617,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
 
 
 def cmd_shim_install(args: argparse.Namespace) -> int:
+    """Install the recording ``juju`` shim."""
     target = getattr(args, "target", None)
     if target:
         target_dir = Path(target)
@@ -604,6 +646,7 @@ def cmd_shim_install(args: argparse.Namespace) -> int:
 
 
 def cmd_shim(args: argparse.Namespace) -> int:
+    """Run the recording ``juju`` shim."""
     if getattr(args, "shim_command", None) == "install":
         return cmd_shim_install(args)
     print("jtr shim: missing subcommand (expected: install)", file=sys.stderr)
@@ -611,9 +654,13 @@ def cmd_shim(args: argparse.Namespace) -> int:
 
 
 def cmd_shell_install(args: argparse.Namespace) -> int:
+    """Install the jtr shell integration into the user's shell rc file."""
     shell = _resolve_shell(getattr(args, "shell", None))
     if not shell or shell not in ("bash", "zsh"):
-        print(f"jtr shell install: cannot detect shell or unsupported shell: {shell!r}", file=sys.stderr)
+        print(
+            f"jtr shell install: cannot detect shell or unsupported shell: {shell!r}",
+            file=sys.stderr,
+        )
         return 1
 
     rcfile = getattr(args, "rcfile", None)
@@ -645,6 +692,7 @@ def cmd_shell_install(args: argparse.Namespace) -> int:
 
 
 def cmd_shell(args: argparse.Namespace) -> int:
+    """Start a shell with recording enabled."""
     if getattr(args, "shell_command", None) == "install":
         return cmd_shell_install(args)
     print("jtr shell: missing subcommand (expected: install)", file=sys.stderr)
@@ -652,6 +700,7 @@ def cmd_shell(args: argparse.Namespace) -> int:
 
 
 def main() -> None:
+    """Run the ``jtr`` command-line interface."""
     parser = argparse.ArgumentParser(prog="jtr")
     sub = parser.add_subparsers(dest="command")
 
@@ -669,7 +718,9 @@ def main() -> None:
         dest="session_log",
         help="Path to the JSONL session log (defaults to $JTR_LOG).",
     )
-    p_generate.add_argument("--out", help="Write the generated test to this path instead of stdout.")
+    p_generate.add_argument(
+        "--out", help="Write the generated test to this path instead of stdout."
+    )
     p_generate.add_argument("--name", help="Test function name (default: test_recorded_session).")
 
     # shim / shim install
@@ -692,7 +743,9 @@ def main() -> None:
         "install", help="Append/update the shell-init snippet in your rc file."
     )
     p_shell_install.add_argument("--shell", choices=["bash", "zsh"])
-    p_shell_install.add_argument("--rcfile", help="rc file to edit (default: ~/.bashrc or ~/.zshrc).")
+    p_shell_install.add_argument(
+        "--rcfile", help="rc file to edit (default: ~/.bashrc or ~/.zshrc)."
+    )
     p_shell_install.add_argument("--no-path-shim", action="store_true", dest="no_path_shim")
 
     # start

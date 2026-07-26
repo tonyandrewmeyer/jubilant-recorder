@@ -1,5 +1,4 @@
-"""
-Monkeypatch tap for libjuju's Connection.rpc + AllWatcher delta stream.
+"""Monkeypatch tap for libjuju's Connection.rpc + AllWatcher delta stream.
 
 ``LibjujuTap`` is a synchronous context manager that:
 
@@ -39,9 +38,11 @@ with the delta burst that followed it.
 
 from __future__ import annotations
 
-import types
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    import types
 
 
 def _format_ts(dt: datetime) -> str:
@@ -152,7 +153,7 @@ class LibjujuTap:
         return Connection
 
     def __enter__(self) -> LibjujuTap:
-        Connection = self._get_connection_class()
+        Connection = self._get_connection_class()  # noqa: N806  # Holds a class.
 
         tap = self
         original_rpc = Connection.rpc
@@ -176,7 +177,8 @@ class LibjujuTap:
             if facade == "AllWatcher":
                 if method == "Next":
                     # Extract delta burst from the AllWatcher.Next response.
-                    # Raw result shape: {"request-id": N, "response": {"deltas": [[ek, ck, payload], ...]}}
+                    # Raw result shape: {"request-id": N, "response": {"deltas": [[ek, ck,
+                    # payload], ...]}}
                     response_body = (result or {}).get("response") or {}
                     raw_deltas = response_body.get("deltas") or []
                     for raw_delta in raw_deltas:
@@ -187,7 +189,9 @@ class LibjujuTap:
                                     "ts_iso": _format_ts(ts_end),
                                     "entity_kind": str(entity_kind),
                                     "change_kind": str(change_kind),
-                                    "payload": _normalise(payload) if isinstance(payload, dict) else {},
+                                    "payload": _normalise(payload)
+                                    if isinstance(payload, dict)
+                                    else {},
                                 }
                             )
                 # All AllWatcher.* calls (Next, Stop, etc.) are internal — never add to _rpcs.

@@ -1,12 +1,12 @@
+"""A jubilant ``Juju`` wrapper that records every call it makes."""
+
 from __future__ import annotations
 
 import contextlib
 import dataclasses
 import json
-from collections.abc import Callable, Generator
 from datetime import UTC, datetime
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import jubilant
 from jubilant.statustypes import Status
@@ -14,6 +14,10 @@ from jubilant.statustypes import Status
 from jubilant_recorder.events import EventEnvelope
 from jubilant_recorder.redaction import redact_config_dict, redact_string
 from jubilant_recorder.session_log import SessionLog, _format_ts
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Generator
+    from pathlib import Path
 
 
 @dataclasses.dataclass

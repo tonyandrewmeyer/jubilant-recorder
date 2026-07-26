@@ -1,3 +1,5 @@
+"""Individual assertion-tag rules."""
+
 from __future__ import annotations
 
 from jubilant_recorder.tagger.rules import action, config, relation, scale, status

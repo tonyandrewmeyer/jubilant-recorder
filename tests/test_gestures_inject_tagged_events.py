@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 from jubilant_recorder import RecordingJuju, assert_action_result, assert_status, checkpoint
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _open(tmp_path: Path):

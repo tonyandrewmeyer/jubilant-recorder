@@ -1,5 +1,4 @@
-"""
-RPC → delta-burst association and SCHEMA.md event emission.
+"""RPC → delta-burst association and SCHEMA.md event emission.
 
 ``correlate()`` takes the two streams captured by ``LibjujuTap`` — a list of
 RPC records and a list of AllWatcher delta records — and produces a list of
@@ -598,7 +597,9 @@ def _extract_args(facade: str, method: str, params: dict[str, Any]) -> dict[str,
         # can name several relations at once, all sharing one suspended/
         # message value, so the batch is collapsed to a single event.
         args_list = params.get("args") or [{}]
-        relation_ids = [a.get("relation-id") for a in args_list if a.get("relation-id") is not None]
+        relation_ids = [
+            a.get("relation-id") for a in args_list if a.get("relation-id") is not None
+        ]
         first = args_list[0] if args_list else {}
         return {
             "relation_ids": relation_ids,
@@ -654,9 +655,8 @@ def _find_last_delta_ts(
     latest: float | None = None
     for d in deltas:
         ts = _parse_iso(d.get("ts_iso", ""))
-        if window_start < ts <= window_end:
-            if latest is None or ts > latest:
-                latest = ts
+        if window_start < ts <= window_end and (latest is None or ts > latest):
+            latest = ts
     return latest
 
 
@@ -716,7 +716,8 @@ def correlate(
         for i, rpc in enumerate(user_rpcs):
             rpc_end_ts = _parse_iso(rpc.get("ts_end_iso", ""))
             dist = delta_ts - rpc_end_ts  # positive = delta after RPC
-            # Accept if delta arrives within window_seconds after (or just slightly before) RPC end.
+            # Accept if delta arrives within window_seconds after (or just slightly before) RPC
+            # end.
             if -0.5 <= dist <= window_seconds and dist < best_dist:
                 best_dist = dist
                 best_idx = i
@@ -826,7 +827,8 @@ def correlate(
         events.append(event)
 
         # Synthesise a wait_for_idle event when the inter-RPC quiet window exceeds the threshold.
-        # A "quiet window" starts at the last delta arrival in the gap and ends when the next RPC starts.
+        # A "quiet window" starts at the last delta arrival in the gap and ends when the next RPC
+        # starts.
         if i + 1 < len(user_rpcs):
             next_rpc = user_rpcs[i + 1]
             next_rpc_start_ts = _parse_iso(
@@ -840,19 +842,21 @@ def correlate(
                 settled_at_iso = _format_ts(datetime.fromtimestamp(next_rpc_start_ts, tz=UTC))
                 idle_snap = state.snapshot(quiet_start_iso)
                 seq += 1
-                events.append({
-                    "seq": seq,
-                    "op": "wait_for_idle",
-                    "ts": quiet_start_iso,
-                    "args": {"apps": None, "timeout": None},
-                    "result": {"settled_at": settled_at_iso},
-                    "model_snapshot_before": idle_snap,
-                    "model_snapshot_after": idle_snap,
-                    "assertions": [],
-                    "gesture": None,
-                    "duration_ms": quiet_duration * 1000,
-                    "_libjuju_source": "synthesised from AllWatcher cadence",
-                })
+                events.append(
+                    {
+                        "seq": seq,
+                        "op": "wait_for_idle",
+                        "ts": quiet_start_iso,
+                        "args": {"apps": None, "timeout": None},
+                        "result": {"settled_at": settled_at_iso},
+                        "model_snapshot_before": idle_snap,
+                        "model_snapshot_after": idle_snap,
+                        "assertions": [],
+                        "gesture": None,
+                        "duration_ms": quiet_duration * 1000,
+                        "_libjuju_source": "synthesised from AllWatcher cadence",
+                    }
+                )
 
     # Emit orphan event if there were unattributed deltas.
     if orphan_deltas:

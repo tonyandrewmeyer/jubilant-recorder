@@ -6,6 +6,7 @@ When $JTR_SESSION is unset the shim is a zero-overhead pass-through.
 REAL_JUJU is hardcoded at shim install time by `jtr shell-init`.
 For testing, set _JTR_REAL_JUJU env var to override.
 """
+
 from __future__ import annotations
 
 import fcntl
@@ -25,22 +26,20 @@ def _now_ts() -> str:
 
 
 def main() -> None:
+    """Forward a shimmed ``juju`` invocation and record it."""
     try:
         real_juju = os.environ.get("_JTR_REAL_JUJU", REAL_JUJU)
 
         session_id = os.environ.get("JTR_SESSION")
         if not session_id:
-            os.execv(real_juju, [real_juju] + sys.argv[1:])
+            os.execv(real_juju, [real_juju, *sys.argv[1:]])
             return
 
         if os.environ.get("JTR_PAUSED") == "1":
-            os.execv(real_juju, [real_juju] + sys.argv[1:])
+            os.execv(real_juju, [real_juju, *sys.argv[1:]])
             return
 
-        if os.environ.get("JTR_PYTHON_ACTIVE"):
-            op = "shell_context"
-        else:
-            op = "shell"
+        op = "shell_context" if os.environ.get("JTR_PYTHON_ACTIVE") else "shell"
 
         ts = _now_ts()
         argv = sys.argv[1:]
@@ -108,7 +107,7 @@ def main() -> None:
         pass
 
     real_juju = os.environ.get("_JTR_REAL_JUJU", REAL_JUJU)
-    os.execv(real_juju, [real_juju] + sys.argv[1:])
+    os.execv(real_juju, [real_juju, *sys.argv[1:]])
 
 
 if __name__ == "__main__":

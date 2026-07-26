@@ -28,7 +28,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=8",
-    "ruff>=0.6",
+    "ruff>=0.16.0",
     "pyright>=1.1",
 ]
 
@@ -47,29 +47,69 @@ packages = ["src/jubilant_recorder"]
 testpaths = ["tests", "extensions/libjuju/tests"]
 pythonpath = ["."]
 
-[tool.ruff]
-line-length = 99
-target-version = "py311"
-src = ["src", "tests"]
-
-[tool.ruff.lint]
-select = [
-    "E", "F", "W",   # pycodestyle + pyflakes
-    "I",             # isort
-    "UP",            # pyupgrade
-    "B",             # bugbear
-    "SIM",           # simplify
-    "RUF",           # ruff-specific
-]
-ignore = [
-    "E501",          # line length handled by formatter
-]
-
-[tool.ruff.lint.per-file-ignores]
-"tests/**" = ["B011"]
-
 [tool.pyright]
 include = ["src", "tests"]
 pythonVersion = "3.11"
 typeCheckingMode = "standard"
 reportMissingTypeStubs = false
+
+[tool.ruff]
+line-length = 99
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "F",
+    "E",
+    "W",
+    "I",
+    "N",
+    "A",
+    "UP",
+    "YTT",
+    "S",
+    "B",
+    "SIM",
+    "RUF",
+    "PERF",
+    "D",
+    "FA",
+    "TC",
+]
+ignore = [
+    "D105",
+    "D107",
+    "D203",
+    "D204",
+    "D213",
+    "D215",
+    "D400",
+    "D404",
+    "D406",
+    "D407",
+    "D408",
+    "D409",
+    "D413",
+    "E501",
+    # Method docstrings are not mandated; module/class/function docs are.
+    "D102",
+    # This tool deliberately shells out to juju/charmcraft/snap.
+    "S603",
+    "S607",
+    # Prose uses real typography (en dashes, ×, curly quotes); these are
+    # intentional, not homoglyph mistakes.
+    "RUF001",
+    "RUF002",
+    "RUF003",
+    # A recorder must never break the session it is recording: failures to
+    # record are swallowed deliberately, and the shim's job is to exec the
+    # real juju binary.
+    "S110",
+    "S112",
+    "S606",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/generated_test.py" = ["S101"]  # Generated example test.
+"tests/test_jtr_cli_shell_install.py" = ["S604"]  # Exercises shell install.
+"**/tests/**" = ["B011", "D", "S101", "S105", "S106", "S108", "PLR2004", "ARG", "SLF001", "N802", "N803", "N806"]

@@ -1,9 +1,13 @@
+"""Assertion-tag rules for recorded relations."""
+
 from __future__ import annotations
 
-from collections.abc import Iterable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from jubilant_recorder.tagger.types import AssertionTag
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 
 def _relation_set(snapshot: dict[str, Any] | None) -> set[frozenset[str]]:
@@ -18,6 +22,7 @@ def _relation_set(snapshot: dict[str, Any] | None) -> set[frozenset[str]]:
 
 
 def evaluate(events: list[dict[str, Any]], index: int) -> Iterable[AssertionTag]:
+    """Yield assertion tags for a relation change at this point in the session."""
     event = events[index]
     op = event.get("op")
     if op not in ("integrate", "remove_integration"):

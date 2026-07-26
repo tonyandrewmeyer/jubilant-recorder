@@ -1,3 +1,5 @@
+"""Per-operation code emitters."""
+
 from __future__ import annotations
 
 from jubilant_recorder.codegen.operations import (

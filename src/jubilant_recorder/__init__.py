@@ -1,3 +1,5 @@
+"""Record Juju sessions and generate jubilant integration tests."""
+
 from __future__ import annotations
 
 from jubilant_recorder.gestures import assert_action_result, assert_status, checkpoint

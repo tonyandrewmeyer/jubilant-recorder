@@ -152,9 +152,7 @@ def test_config_get_and_orphan_session_fixture_parses() -> None:
     from pathlib import Path
 
     fixture_path = (
-        Path(__file__).resolve().parents[1]
-        / "fixtures"
-        / "config_get_and_orphan_session.json"
+        Path(__file__).resolve().parents[1] / "fixtures" / "config_get_and_orphan_session.json"
     )
     log = json.loads(fixture_path.read_text())
     src = generate(log)
