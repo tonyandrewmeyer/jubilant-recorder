@@ -113,8 +113,22 @@ def test_config_get_without_var() -> None:
 
 
 def test_scale(scale_event: dict[str, Any]) -> None:
+    """F1: no `mode` in the fixture → defaults to relative → `add_unit()`."""
     line = scale.emit(scale_event, indent=8)
-    assert line == "        juju.scale('my-charm', units=3)"
+    assert line == "        juju.add_unit('my-charm', num_units=3)"
+
+
+def test_scale_relative_explicit() -> None:
+    event = {"args": {"app": "my-charm", "units": 3, "mode": "relative"}}
+    line = scale.emit(event, indent=8)
+    assert line == "        juju.add_unit('my-charm', num_units=3)"
+
+
+def test_scale_absolute() -> None:
+    """F1/F2: absolute (K8s) scale has no jubilant client method — juju.cli() escape hatch."""
+    event = {"args": {"app": "my-charm", "units": 5, "mode": "absolute"}}
+    line = scale.emit(event, indent=8)
+    assert line == '        juju.cli("scale-application", \'my-charm\', \'5\')'
 
 
 def test_run_action_with_var(run_event: dict[str, Any]) -> None:

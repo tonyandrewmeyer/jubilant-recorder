@@ -85,7 +85,7 @@ The `op` field is a closed set corresponding to jubilant's public API surface
 | `remove_integration` | `Juju.remove_integration()` | `app1_endpoint`, `app2_endpoint` | — |
 | `config` | `Juju.config()` (set path) | `app`, `values` | — |
 | `config_get` | `Juju.config()` (get path) | `app`, `keys` | `values` |
-| `scale` | `Juju.scale()` | `app`, `units` | — |
+| `scale` | `Juju.add_unit()` (relative) / `juju.cli("scale-application")` (absolute) | `app`, `units`, `mode` | — |
 | `run` | `Juju.run()` | `unit`, `action`, `params` | `success`, `results`, `message` |
 | `status` | `Juju.status()` | — | `snapshot` |
 | `wait_for_idle` | `Juju.wait_for_idle()` | `apps`, `timeout` | `settled_at` |
@@ -184,7 +184,8 @@ Same args shape as `integrate`; empty result.
 {
   "args": {
     "app": "my-charm",
-    "units": 3
+    "units": 3,
+    "mode": "relative"
   },
   "result": {}
 }
@@ -193,7 +194,8 @@ Same args shape as `integrate`; empty result.
 | Field | Location | Type | Notes |
 |---|---|---|---|
 | `app` | args | string | Application name. |
-| `units` | args | integer | Target unit count. |
+| `units` | args | integer | Unit delta (`mode: "relative"`) or target count (`mode: "absolute"`). |
+| `mode` | args | `"relative"` \| `"absolute"` | `"relative"` (`Application.AddUnits`, `juju add-unit`) emits `Juju.add_unit(app, num_units=units)`. `"absolute"` (`Application.ScaleApplications`, K8s-only `juju scale-application`) has no jubilant client method, so it emits `juju.cli("scale-application", app, str(units))`. Missing/absent defaults to `"relative"` for events recorded before this field existed. |
 
 ### `run`
 
