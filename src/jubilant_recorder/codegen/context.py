@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from jubilant_recorder.codegen import assertions as assertions_mod
-from jubilant_recorder.codegen import fallback, unrepresentable
+from jubilant_recorder.codegen import cli_translate, fallback, unrepresentable
 from jubilant_recorder.codegen.operations import EMITTERS
 
 
@@ -151,6 +151,16 @@ def interleave_context(events: list[dict[str, Any]], indent: int = 8) -> tuple[l
         if op == "shell_context":
             body_lines.append(render_shell_context(event, indent))
             continue
+        # See emit.generate() for the full comment; mirrored here per
+        # CLI-CORPUS.md §7's regression-scope note that both dispatchers
+        # need the same per-event bucket-1 translation.
+        if op == "shell" and (event.get("args") or {}).get("source") == "shim":
+            translated = cli_translate.classify(event)
+            if translated is None:
+                body_lines.append(render_shell(event, indent))
+                continue
+            op, translated_args = translated
+            event = {**event, "op": op, "args": translated_args}
         if op == "note":
             body_lines.append(render_note(event, indent))
             continue

@@ -128,7 +128,7 @@ def test_scale_absolute() -> None:
     """F1/F2: absolute (K8s) scale has no jubilant client method — juju.cli() escape hatch."""
     event = {"args": {"app": "my-charm", "units": 5, "mode": "absolute"}}
     line = scale.emit(event, indent=8)
-    assert line == '        juju.cli("scale-application", \'my-charm\', \'5\')'
+    assert line == "        juju.cli(\"scale-application\", 'my-charm', '5')"
 
 
 def test_run_action_with_var(run_event: dict[str, Any]) -> None:
