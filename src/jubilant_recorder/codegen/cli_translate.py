@@ -435,8 +435,11 @@ def _classify_run(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
 # ---------------------------------------------------------------------------
 
 
+_ADD_UNIT_VALUED = frozenset({"--num-units", "--to", "--attach-storage"})
+
+
 def _classify_add_unit(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
-    parsed = _parse(rest, aliases={"-n": "--num-units"}, valued=frozenset({"--num-units"}))
+    parsed = _parse(rest, aliases={"-n": "--num-units"}, valued=_ADD_UNIT_VALUED)
     if parsed is None or len(parsed.positionals) != 1:
         return None
     app = parsed.positionals[0]
@@ -446,7 +449,14 @@ def _classify_add_unit(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
         if not _UINT_RE.match(units_str):
             return None
         units = int(units_str)
-    return "scale", {"app": app, "units": units, "mode": "relative"}
+    args: dict[str, Any] = {"app": app, "units": units, "mode": "relative"}
+    to = _last(parsed.flags.get("--to"))
+    if to:
+        args["to"] = to
+    attach_storage = _last(parsed.flags.get("--attach-storage"))
+    if attach_storage:
+        args["attach_storage"] = attach_storage
+    return "scale", args
 
 
 def _classify_scale_application(rest: list[str]) -> tuple[str, dict[str, Any]] | None:

@@ -250,6 +250,18 @@ def test_run_params_file_is_bucket2() -> None:
     assert _c("run", "my-charm/0", "backup", "--params", "p.yaml") is None
 
 
+def test_run_params_file_mixed_with_inline_override_is_bucket2() -> None:
+    """CLI-CORPUS.md §4.6: file + inline-override mix can't resolve without file content.
+
+    ``--params`` is simply absent from ``_classify_run``'s recognized flag set, so any
+    invocation carrying it — whether the file is the only params source or inline
+    ``key=value`` args are meant to override it — aborts classification and falls to
+    bucket 2, regardless of where the flag sits relative to the inline args.
+    """
+    assert _c("run", "my-charm/0", "backup", "--params", "p.yaml", "time=1000") is None
+    assert _c("run", "my-charm/0", "backup", "time=1000", "--params", "p.yaml") is None
+
+
 # --- add-unit / scale-application -> scale (F1/F2 promotion) ---
 
 
@@ -267,9 +279,41 @@ def test_add_unit_num_units() -> None:
     )
 
 
-def test_add_unit_to_is_bucket2() -> None:
-    """scale.py's fixed emitter doesn't forward `to=`/`attach_storage=` — see cli_translate docstring."""
-    assert _c("add-unit", "my-charm", "--to", "0") is None
+def test_add_unit_to() -> None:
+    """Follow-on to F1/F2: scale.py's emitter now forwards `to=` — see its docstring."""
+    assert _c("add-unit", "my-charm", "--to", "0,1") == (
+        "scale",
+        {"app": "my-charm", "units": 1, "mode": "relative", "to": "0,1"},
+    )
+
+
+def test_add_unit_attach_storage() -> None:
+    assert _c("add-unit", "my-charm", "--attach-storage", "foo/0") == (
+        "scale",
+        {"app": "my-charm", "units": 1, "mode": "relative", "attach_storage": "foo/0"},
+    )
+
+
+def test_add_unit_to_and_attach_storage_and_num_units() -> None:
+    assert _c(
+        "add-unit",
+        "my-charm",
+        "-n",
+        "3",
+        "--to",
+        "lxd:7,lxd:7",
+        "--attach-storage",
+        "foo/0",
+    ) == (
+        "scale",
+        {
+            "app": "my-charm",
+            "units": 3,
+            "mode": "relative",
+            "to": "lxd:7,lxd:7",
+            "attach_storage": "foo/0",
+        },
+    )
 
 
 def test_scale_application() -> None:

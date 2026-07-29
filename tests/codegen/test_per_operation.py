@@ -131,6 +131,38 @@ def test_scale_absolute() -> None:
     assert line == "        juju.cli(\"scale-application\", 'my-charm', '5')"
 
 
+def test_scale_relative_with_to_and_attach_storage() -> None:
+    """Follow-on to F1/F2: `to=`/`attach_storage=` forwarded when present."""
+    event = {
+        "args": {
+            "app": "my-charm",
+            "units": 2,
+            "mode": "relative",
+            "to": "0,1",
+            "attach_storage": "foo/0",
+        }
+    }
+    line = scale.emit(event, indent=8)
+    assert line == (
+        "        juju.add_unit('my-charm', num_units=2, to='0,1', attach_storage='foo/0')"
+    )
+
+
+def test_scale_absolute_ignores_to_and_attach_storage() -> None:
+    """`scale-application` (K8s) has no `--to`/`--attach-storage` — never forwarded even if present."""
+    event = {
+        "args": {
+            "app": "my-charm",
+            "units": 5,
+            "mode": "absolute",
+            "to": "0",
+            "attach_storage": "x",
+        }
+    }
+    line = scale.emit(event, indent=8)
+    assert line == "        juju.cli(\"scale-application\", 'my-charm', '5')"
+
+
 def test_run_action_with_var(run_event: dict[str, Any]) -> None:
     line = run_action.emit(run_event, indent=8, var_name="result_5")
     assert line == ("        result_5 = juju.run('my-charm/0', 'do-thing', params={'key': 'val'})")
