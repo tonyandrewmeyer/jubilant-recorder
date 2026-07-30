@@ -62,7 +62,7 @@ def test_all_operations_in_order(all_ops_log: dict[str, Any]) -> None:
         "juju.wait(",
         "juju.integrate(",
         "juju.config(",
-        "juju.scale(",
+        "juju.add_unit(",
         "juju.run(",
     ]
     last = -1

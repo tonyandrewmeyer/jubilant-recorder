@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from typing import Any, TypeAlias
 
-from jubilant_recorder.codegen import assertions, fallback, preamble, unrepresentable
+from jubilant_recorder.codegen import (
+    assertions,
+    cli_translate,
+    fallback,
+    preamble,
+    unrepresentable,
+)
 from jubilant_recorder.codegen import context as ctx
 from jubilant_recorder.codegen.operations import EMITTERS
 
@@ -47,8 +53,15 @@ def generate(log: SessionLog, *, test_name: str | None = None) -> str:
         # use `op: "shell"` but without a shim source; those must still fall
         # through to fallback so they render as `# TODO: manual step`.
         if op == "shell" and (event.get("args") or {}).get("source") == "shim":
-            body_lines.append(ctx.render_shell(event, indent))
-            continue
+            # Step 7 (the CLI corpus notes): bucket-1 argv is translated into the
+            # matching typed op below instead of a raw `# shell:` comment.
+            # Anything not a clean bucket-1 match keeps today's rendering.
+            translated = cli_translate.classify(event)
+            if translated is None:
+                body_lines.append(ctx.render_shell(event, indent))
+                continue
+            op, translated_args = translated
+            event = {**event, "op": op, "args": translated_args}
         if op == "note":
             body_lines.append(ctx.render_note(event, indent))
             continue
