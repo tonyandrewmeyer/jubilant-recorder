@@ -81,7 +81,7 @@ def test_multi_unit_mixed_emits_comment_not_skip() -> None:
     src = _generate("multi_unit_mixed")
     ast.parse(src)
     # The scale call is replayed; only its mixed end-state is unrepresentable.
-    assert "juju.scale('my-charm', units=3)" in src
+    assert "juju.add_unit('my-charm', num_units=3)" in src
     assert "codegen can't represent mixed unit statuses for my-charm" in src
     # A mixed status is a comment-only marker — the test keeps running.
     assert "pytest.skip" not in src

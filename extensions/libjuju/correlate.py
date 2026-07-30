@@ -405,13 +405,22 @@ def _extract_args(facade: str, method: str, params: dict[str, Any]) -> dict[str,
         return {"app": app, "keys": None}
 
     if key == ("Application", "AddUnits"):
-        return {"app": params.get("application", ""), "units": params.get("num-units", 1)}
+        # Relative: "add this many units". Maps to `Juju.add_unit()` — see
+        # scale.py / CLI-CORPUS.md F1-F2.
+        return {
+            "app": params.get("application", ""),
+            "units": params.get("num-units", 1),
+            "mode": "relative",
+        }
 
     if key == ("Application", "ScaleApplications"):
+        # Absolute: "set K8s scale to N". No jubilant client method exists
+        # for this — falls to `juju.cli("scale-application", ...)`.
         scale_params = (params.get("applications") or [{}])[0]
         return {
             "app": scale_params.get("application-tag", "").replace("application-", ""),
             "units": scale_params.get("scale", 1),
+            "mode": "absolute",
         }
 
     if key == ("Application", "DestroyApplication"):

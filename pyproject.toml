@@ -23,6 +23,7 @@ classifiers = [
 dependencies = [
     "anthropic>=0.111.0",
     "jubilant>=1.0",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
