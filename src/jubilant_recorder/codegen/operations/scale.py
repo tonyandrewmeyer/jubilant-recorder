@@ -12,11 +12,12 @@ disambiguates them:
 * ``"relative"`` (default, for events recorded before this field existed —
   ``AddUnits`` is the more common source) → ``juju.add_unit(app,
   num_units=units, to=..., attach_storage=...)``. ``to``/``attach_storage``
-  are optional — see CLI-CORPUS.md §11's follow-on note. Only the CLI/shim
-  translation path (``cli_translate._classify_add_unit``) currently
-  populates these; RPC-sourced ``Application.AddUnits`` events never set
-  them, so this is a pure addition for RPC-sourced events (``args.get()``
-  returns ``None``, nothing forwarded, unchanged output).
+  are optional — see CLI-CORPUS.md §11's follow-on note. Both the CLI/shim
+  translation path (``cli_translate._classify_add_unit``) and the RPC path
+  (``correlate._extract_args`` for ``Application.AddUnits``) populate these
+  as the same comma-joined string shape, so this emitter renders identical
+  output regardless of which source observed the operation — see
+  STEP7-RPC-ADDUNITS-PLACEMENT-RESULTS.md.
 * ``"absolute"`` → jubilant has no client method for "set scale to N", so
   this falls to ``juju.cli("scale-application", ...)``, the same
   escape-hatch pattern already used by ``set_charm``, ``expose``, and the
