@@ -15,7 +15,10 @@ from __future__ import annotations
 from extensions.libjuju.correlate import (
     _BUCKET1_MAP,
     _classify,
+    _extract_args,
     _ModelState,
+    _placement_to_cli_str,
+    _storage_tag_to_id,
     _unit_tag_to_name,
     correlate,
 )
@@ -574,6 +577,149 @@ class TestUnitTagConversion:
         assert events[0]["args"]["unit"] == "postgresql-k8s/2"
         assert events[0]["args"]["action"] == "create-backup"
         assert events[0]["args"]["params"] == {"prefix": "nightly"}
+
+
+class TestStorageTagConversion:
+    """``storage-foo-0`` ↔ ``foo/0`` — same trailing-``-N``-segment encoding as
+    unit tags (``names.NewStorageTag`` replaces only the last ``/``)."""
+
+    def test_single_word_name(self):
+        assert _storage_tag_to_id("storage-foo-0") == "foo/0"
+
+    def test_multi_word_name_preserves_hyphens(self):
+        assert _storage_tag_to_id("storage-my-disk-1") == "my-disk/1"
+
+    def test_no_prefix(self):
+        assert _storage_tag_to_id("foo-0") == "foo/0"
+
+    def test_empty(self):
+        assert _storage_tag_to_id("") == ""
+
+
+class TestPlacementConversion:
+    """Inverse of Juju's ``ParsePlacement`` (core/instance/placement.go), confirmed
+    against upstream source — see the design notes."""
+
+    def test_machine_scope_is_bare_directive(self):
+        assert _placement_to_cli_str({"scope": "#", "directive": "0"}) == "0"
+
+    def test_container_with_directive(self):
+        assert _placement_to_cli_str({"scope": "lxd", "directive": "0"}) == "lxd:0"
+
+    def test_container_type_with_no_directive(self):
+        """Bare ``lxd`` (no machine id) means "new container of this type"."""
+        assert _placement_to_cli_str({"scope": "lxd", "directive": ""}) == "lxd"
+
+    def test_missing_fields(self):
+        assert _placement_to_cli_str({}) == ""
+
+
+# ---------------------------------------------------------------------------
+# Test: Application.AddUnits → op: scale (mode: relative), `to`/`attach_storage`
+# ---------------------------------------------------------------------------
+
+
+class TestScaleCorrelation:
+    """RPC-sourced ``Application.AddUnits`` must carry `to`/`attach_storage` the
+    same as the CLI/shim translation path, so `scale.py`'s emitter produces
+    identical output regardless of source (see the design notes's
+    "still leaves open" list in the staging tree, closed by this session)."""
+
+    def test_no_placement_or_storage(self):
+        args = _extract_args(
+            "Application", "AddUnits", {"application": "my-charm", "num-units": 3}
+        )
+        assert args == {"app": "my-charm", "units": 3, "mode": "relative"}
+        assert "to" not in args
+        assert "attach_storage" not in args
+
+    def test_single_machine_placement(self):
+        args = _extract_args(
+            "Application",
+            "AddUnits",
+            {
+                "application": "my-charm",
+                "num-units": 1,
+                "placement": [{"scope": "#", "directive": "0"}],
+            },
+        )
+        assert args["to"] == "0"
+
+    def test_multiple_placements_comma_joined(self):
+        args = _extract_args(
+            "Application",
+            "AddUnits",
+            {
+                "application": "my-charm",
+                "num-units": 2,
+                "placement": [
+                    {"scope": "#", "directive": "0"},
+                    {"scope": "lxd", "directive": "1"},
+                ],
+            },
+        )
+        assert args["to"] == "0,lxd:1"
+
+    def test_attach_storage_tag_converted_to_id(self):
+        args = _extract_args(
+            "Application",
+            "AddUnits",
+            {
+                "application": "my-charm",
+                "num-units": 1,
+                "attach-storage": ["storage-foo-0"],
+            },
+        )
+        assert args["attach_storage"] == "foo/0"
+
+    def test_placement_and_attach_storage_together(self):
+        args = _extract_args(
+            "Application",
+            "AddUnits",
+            {
+                "application": "my-charm",
+                "num-units": 1,
+                "placement": [{"scope": "#", "directive": "0"}],
+                "attach-storage": ["storage-foo-0"],
+            },
+        )
+        assert args == {
+            "app": "my-charm",
+            "units": 1,
+            "mode": "relative",
+            "to": "0",
+            "attach_storage": "foo/0",
+        }
+
+    def test_full_correlate_emits_to_and_attach_storage(self):
+        rpcs = [
+            _rpc(
+                "Application",
+                "AddUnits",
+                {
+                    "application": "my-charm",
+                    "num-units": 1,
+                    "placement": [{"scope": "lxd", "directive": "7"}],
+                    "attach-storage": ["storage-mydisk-1"],
+                },
+            )
+        ]
+        events = correlate(rpcs, [])
+        assert events[0]["op"] == "scale"
+        assert events[0]["args"]["to"] == "lxd:7"
+        assert events[0]["args"]["attach_storage"] == "mydisk/1"
+
+    def test_scale_applications_absolute_never_sets_to_or_attach_storage(self):
+        """`scale-application` (K8s, absolute) has no `--to`/`--attach-storage`
+        on the wire at all — confirm `_extract_args` never invents them."""
+        args = _extract_args(
+            "Application",
+            "ScaleApplications",
+            {"applications": [{"application-tag": "application-my-charm", "scale": 5}]},
+        )
+        assert "to" not in args
+        assert "attach_storage" not in args
+        assert args["mode"] == "absolute"
 
 
 class TestSeqNumbering:

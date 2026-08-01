@@ -328,6 +328,40 @@ def _unit_tag_to_name(receiver: str) -> str:
     return f"{app}/{num}"
 
 
+def _storage_tag_to_id(tag: str) -> str:
+    """Convert a Juju storage tag (``storage-foo-0``) back to ``foo/0``.
+
+    Same encoding as unit tags (see ``_unit_tag_to_name``): ``names.NewStorageTag``
+    (github.com/juju/names) replaces only the LAST ``/`` with ``-`` when building the
+    tag, so splitting on the last hyphen is the correct inverse — storage names, like
+    application names, may contain hyphens themselves.
+    """
+    if not tag:
+        return ""
+    bare = tag.removeprefix("storage-")
+    name, _, num = bare.rpartition("-")
+    if not name:
+        return bare
+    return f"{name}/{num}"
+
+
+def _placement_to_cli_str(placement: dict[str, Any]) -> str:
+    """Convert one wire ``instance.Placement`` dict back to a ``--to`` token.
+
+    Inverse of Juju's ``ParsePlacement`` (core/instance/placement.go): machine-scope
+    (``scope: "#"``) directives are bare machine ids (``"0"``, not ``"#:0"``); a scope
+    with no directive is a bare container-type shorthand for "new container of this
+    type" (``"lxd"``); anything else is ``scope:directive`` (e.g. ``"lxd:0"``).
+    """
+    scope = placement.get("scope", "")
+    directive = placement.get("directive", "")
+    if scope == "#":
+        return directive
+    if not directive:
+        return scope
+    return f"{scope}:{directive}"
+
+
 def _extract_args(facade: str, method: str, params: dict[str, Any]) -> dict[str, Any]:
     """Map libjuju RPC params to the SCHEMA.md args dict for a bucket-1 op."""
     key = (facade, method)
@@ -407,11 +441,29 @@ def _extract_args(facade: str, method: str, params: dict[str, Any]) -> dict[str,
     if key == ("Application", "AddUnits"):
         # Relative: "add this many units". Maps to `Juju.add_unit()` — see
         # scale.py / the CLI corpus notes F1-F2.
-        return {
+        #
+        # `placement` ([]instance.Placement, wire: {"scope", "directive"} dicts) and
+        # `attach-storage` ([]string of "storage-<id>" tags) are confirmed against
+        # juju's apiserver AddApplicationUnits params struct and addunit.go's client
+        # command (not inferred from the CLI's own `--to`/`--attach-storage` spelling —
+        # see the design notes). Rebuilt here into the same
+        # comma-joined-string shape `cli_translate._classify_add_unit` already produces
+        # from CLI argv, so `scale.py`'s emitter renders identical output regardless of
+        # which source observed the operation.
+        args: dict[str, Any] = {
             "app": params.get("application", ""),
             "units": params.get("num-units", 1),
             "mode": "relative",
         }
+        placements = params.get("placement") or []
+        to = ",".join(_placement_to_cli_str(p) for p in placements if p)
+        if to:
+            args["to"] = to
+        storage_tags = params.get("attach-storage") or []
+        attach_storage = ",".join(_storage_tag_to_id(tag) for tag in storage_tags if tag)
+        if attach_storage:
+            args["attach_storage"] = attach_storage
+        return args
 
     if key == ("Application", "ScaleApplications"):
         # Absolute: "set K8s scale to N". No jubilant client method exists
