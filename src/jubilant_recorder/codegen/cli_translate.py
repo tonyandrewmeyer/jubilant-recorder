@@ -450,12 +450,20 @@ def _classify_add_unit(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
             return None
         units = int(units_str)
     args: dict[str, Any] = {"app": app, "units": units, "mode": "relative"}
+    # `--to` is a single StringVar upstream (cmd/juju/application/addunit.go) — a
+    # repeated occurrence just overwrites, so `_last()` matches real CLI semantics.
     to = _last(parsed.flags.get("--to"))
     if to:
         args["to"] = to
-    attach_storage = _last(parsed.flags.get("--attach-storage"))
-    if attach_storage:
-        args["attach_storage"] = attach_storage
+    # `--attach-storage` is NOT single-valued upstream: it's a `flag.Var` over a
+    # custom `attachStorageFlag` (cmd/juju/application/flags.go) whose `Set()`
+    # comma-splits *and* appends across repeated occurrences, so
+    # `--attach-storage a --attach-storage b` accumulates both. `_last()` would
+    # silently drop everything but the final occurrence — comma-join every
+    # occurrence's values instead so nothing is lost.
+    attach_storage_values = _strs(parsed.flags.get("--attach-storage"))
+    if attach_storage_values:
+        args["attach_storage"] = ",".join(attach_storage_values)
     return "scale", args
 
 
