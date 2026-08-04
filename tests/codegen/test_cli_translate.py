@@ -294,6 +294,23 @@ def test_add_unit_attach_storage() -> None:
     )
 
 
+def test_add_unit_attach_storage_repeated_flag_accumulates() -> None:
+    """`--attach-storage` is a `flag.Var`-backed accumulator upstream (unlike `--to`'s
+    plain `StringVar`), so repeated occurrences must all be kept, not last-wins —
+    see `cmd/juju/application/flags.go`'s `attachStorageFlag.Set()`."""
+    assert _c(
+        "add-unit", "my-charm", "--attach-storage", "foo/0", "--attach-storage", "bar/1"
+    ) == (
+        "scale",
+        {
+            "app": "my-charm",
+            "units": 1,
+            "mode": "relative",
+            "attach_storage": "foo/0,bar/1",
+        },
+    )
+
+
 def test_add_unit_to_and_attach_storage_and_num_units() -> None:
     assert _c(
         "add-unit",
