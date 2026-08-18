@@ -250,11 +250,12 @@ class TestIntegrateCorrelation:
 
 
 class TestBucketThreeCorrelation:
-    def test_unknown_facade_emits_todo_event(self):
+    def test_unknown_facade_emits_todo_event(self, bucket2_facade):
+        facade, method = bucket2_facade
         rpcs = [
             _rpc(
-                "Secrets",
-                "RevokeSecret",
+                facade,
+                method,
                 {"uri": "secret:abc123", "scope-tag": "model-mymodel", "applications": ["myapp"]},
             )
         ]
@@ -263,7 +264,7 @@ class TestBucketThreeCorrelation:
         assert len(events) == 1
         ev = events[0]
         assert ev["op"] == "shell"  # bucket-2 maps to shell with note
-        assert "RevokeSecret" in ev["note"]
+        assert f"{facade}.{method}" in ev["note"]
         assert ev["args"]["cwd"] is None
 
     def test_raw_facade_call_with_no_equivalent_emits_todo(self):
@@ -795,8 +796,12 @@ class TestDurationMs:
         # 1-second RPC → 1000 ms (allow 1 ms rounding from the ms-precision timestamps).
         assert abs(events[0]["duration_ms"] - 1000.0) <= 1.0
 
-    def test_duration_ms_present_on_bucket2_shell_events(self):
-        rpcs = [_rpc("Secrets", "RevokeSecret", {"uri": "secret:abc"}, start=0.0, end=0.5)]
+    def test_duration_ms_present_on_bucket2_shell_events(self, bucket2_facade):
+        # Uses the synthetic bucket-2 member rather than naming a real RPC:
+        # this test is about duration recording on the bucket-2 branch, not
+        # about any particular facade's classification. See conftest.py.
+        facade, method = bucket2_facade
+        rpcs = [_rpc(facade, method, {"uri": "secret:abc"}, start=0.0, end=0.5)]
         events = correlate(rpcs, [])
 
         assert events[0]["op"] == "shell"
@@ -1284,8 +1289,14 @@ class TestSecretsCorrelation:
         events = correlate(rpcs, [], idle_threshold_seconds=5.0)
         assert events[0]["args"]["owner"] == "myapp"
 
-    def test_revoke_secret_stays_bucket2(self):
-        """Secrets.RevokeSecret has no jubilant equivalent; remains op: 'shell'."""
+    def test_revoke_secret_is_bucket1_secret_revoke(self):
+        """Secrets.RevokeSecret is bucket-1 via the ``juju.cli()`` escape hatch.
+
+        jubilant still has no ``revoke_secret()`` method (checked at 1.12.0),
+        which is why this was bucket-2 until 2026-08-18 — but "no client
+        method" is exactly what ``juju.cli()`` answers, as it already did for
+        the 4 CMR ops and the 8 ``Application.*`` ops.
+        """
         rpcs = [
             _rpc(
                 "Secrets",
@@ -1300,11 +1311,11 @@ class TestSecretsCorrelation:
         events = correlate(rpcs, [], idle_threshold_seconds=5.0)
         assert len(events) == 1
         ev = events[0]
-        assert ev["op"] == "shell"
-        assert "RevokeSecret" in ev["args"]["command"][0]
+        assert ev["op"] == "secret_revoke"
+        assert ev["args"] == {"identifier": "secret:abc123", "app": "myapp"}
 
-    def test_revoke_secret_stays_bucket2_via_classify(self):
-        assert _classify("Secrets", "RevokeSecret") == ("2", None)
+    def test_revoke_secret_classifies_bucket1(self):
+        assert _classify("Secrets", "RevokeSecret") == ("1", "secret_revoke")
 
     def test_secrets_event_has_all_envelope_keys(self):
         """All bucket-1 Secrets events have the canonical EventEnvelope key set."""
@@ -1363,9 +1374,17 @@ class TestCrossModelClassification:
     def test_remove_saas_classifies_bucket1(self):
         assert _classify("Application", "DestroyConsumedApplications") == ("1", "remove_saas")
 
-    def test_find_application_offers_classifies_bucket2(self):
-        """No client method calls this RPC (recon §2.3) — bucket-2, not bucket-3."""
-        assert _classify("ApplicationOffers", "FindApplicationOffers") == ("2", None)
+    def test_find_application_offers_classifies_bucket1(self):
+        """Promoted 2026-08-18, following ``ListApplicationOffers``' precedent.
+
+        No client method calls this RPC (recon §2.3), which is the same
+        condition ``list_offers`` was promoted under — a read with unmappable
+        filters, emitted via ``juju.cli()`` with the filters dropped.
+        """
+        assert _classify("ApplicationOffers", "FindApplicationOffers") == (
+            "1",
+            "find_offers",
+        )
 
     def test_consume_offer_misnomer_does_not_resolve(self):
         """There is no ``Model.consume_offer``; only ``Model.consume`` (recon §2.2).
@@ -1504,8 +1523,8 @@ class TestCrossModelCorrelation:
         assert ev["op"] == "remove_saas"
         assert ev["args"]["app"] == "my-ubuntu"
 
-    def test_find_application_offers_stays_bucket2_shell(self):
-        """No jubilant/client-method equivalent — stubs like other bucket-2 facades."""
+    def test_find_application_offers_is_bucket1_find_offers(self):
+        """Same ``OfferFilter`` extraction as ``ListApplicationOffers``."""
         rpcs = [
             _rpc(
                 "ApplicationOffers",
@@ -1516,8 +1535,8 @@ class TestCrossModelCorrelation:
         events = correlate(rpcs, [], idle_threshold_seconds=5.0)
         assert len(events) == 1
         ev = events[0]
-        assert ev["op"] == "shell"
-        assert "FindApplicationOffers" in ev["note"]
+        assert ev["op"] == "find_offers"
+        assert ev["args"]["model_name"] == "mymodel"
 
     def test_cmr_events_have_all_envelope_keys(self):
         """Bucket-1 CMR events carry the same canonical EventEnvelope key set."""
