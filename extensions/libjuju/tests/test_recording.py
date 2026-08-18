@@ -312,7 +312,10 @@ class TestSnapshotsPropagate:
 
 
 class TestBucketTwoAndThree:
-    def test_bucket2_emits_shell_op(self, tmp_path: Path):
+    def test_bucket2_emits_shell_op(self, tmp_path: Path, bucket2_facade):
+        # Synthetic bucket-2 member (conftest.py) — ``_BUCKET2_FACADES`` is
+        # empty as of 2026-08-18, so no real RPC exercises this branch.
+        facade, method = bucket2_facade
         FakeConnection.rpc = _make_stub([{"request-id": 1, "response": {}}])
         log_path = tmp_path / "session.json"
         with RecordingLibjuju.start(
@@ -322,8 +325,8 @@ class TestBucketTwoAndThree:
         ):
             _run_rpc(
                 {
-                    "type": "Secrets",
-                    "request": "RevokeSecret",
+                    "type": facade,
+                    "request": method,
                     "version": 1,
                     "params": {"uri": "secret:abc123"},
                 }
@@ -332,7 +335,7 @@ class TestBucketTwoAndThree:
         ev = _read_log(log_path)["events"][0]
         assert ev["op"] == "shell"
         # bucket-2 args.command has the original facade/method captured for the human.
-        assert "RevokeSecret" in ev["args"]["command"][0]
+        assert method in ev["args"]["command"][0]
 
     def test_bucket3_emits_todo_op(self, tmp_path: Path):
         FakeConnection.rpc = _make_stub([{"request-id": 1, "response": {}}])
@@ -827,8 +830,13 @@ class TestSecretsRecording:
         assert ev["op"] == "secret_list"
         assert ev["args"]["owner"] is None
 
-    def test_revoke_secret_stays_shell_op(self, tmp_path: Path):
-        """Secrets.RevokeSecret has no jubilant equivalent; must remain bucket-2."""
+    def test_revoke_secret_records_secret_revoke_op(self, tmp_path: Path):
+        """Secrets.RevokeSecret records a bucket-1 ``secret_revoke`` event.
+
+        jubilant has no ``revoke_secret()`` method (checked at 1.12.0); the
+        emitter uses ``juju.cli()``, so the recorded op is a real one rather
+        than the bucket-2 ``shell`` stub this asserted until 2026-08-18.
+        """
         FakeConnection.rpc = _make_stub([{"request-id": 1, "response": {}}])
         log_path = tmp_path / "session.json"
         with RecordingLibjuju.start(
@@ -850,8 +858,8 @@ class TestSecretsRecording:
             )
 
         ev = _read_log(log_path)["events"][0]
-        assert ev["op"] == "shell"
-        assert "RevokeSecret" in ev["args"]["command"][0]
+        assert ev["op"] == "secret_revoke"
+        assert ev["args"] == {"identifier": "secret:abc123", "app": "consumer-app"}
 
     def test_secret_add_event_has_canonical_envelope_keys(self, tmp_path: Path):
         """On-disk event must have exactly the canonical EventEnvelope key set."""

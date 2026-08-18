@@ -10,9 +10,11 @@ log back, hands it to ``codegen.generate``, asserts the emitted Python
 parses (``ast.parse``), and that the rendered text contains the
 operations the session performed.
 
-A second test exercises a bucket-2 (``Secrets.RevokeSecret``) RPC too,
-to prove the codegen fallback emits a ``# TODO`` comment rather than
-crashing on the libjuju-extension's secondary buckets.
+A second test exercises a bucket-2 RPC too, to prove the codegen fallback
+emits a ``# TODO`` comment rather than crashing on the libjuju-extension's
+secondary buckets.  It uses the synthetic member from ``conftest.py`` rather
+than a real facade: ``_BUCKET2_FACADES`` is empty as of 2026-08-18, so no
+real RPC classifies that way any more.
 """
 
 from __future__ import annotations
@@ -180,7 +182,7 @@ def test_codegen_consumes_bucket1_libjuju_log(tmp_path: Path) -> None:
     assert "with jubilant.temp_model() as juju:" in src, src
 
 
-def test_codegen_handles_bucket2_libjuju_log(tmp_path: Path) -> None:
+def test_codegen_handles_bucket2_libjuju_log(tmp_path: Path, bucket2_facade) -> None:
     """A bucket-2 (lossy) RPC mixed in must not break codegen; it emits a
     ``# TODO`` comment via the fallback path and the rest of the test
     still parses cleanly."""
@@ -189,7 +191,7 @@ def test_codegen_handles_bucket2_libjuju_log(tmp_path: Path) -> None:
         [
             # Application.Deploy — bucket 1
             {"request-id": 1, "response": {"results": [{"tag": "application-x"}]}},
-            # Secrets.RevokeSecret — bucket 2 (no jubilant equivalent)
+            # synthetic bucket-2 member — see conftest.py
             {"request-id": 2, "response": {}},
         ]
     )
@@ -212,10 +214,11 @@ def test_codegen_handles_bucket2_libjuju_log(tmp_path: Path) -> None:
                 },
             }
         )
+        facade, method = bucket2_facade
         _run_rpc(
             {
-                "type": "Secrets",
-                "request": "RevokeSecret",
+                "type": facade,
+                "request": method,
                 "version": 1,
                 "params": {"uri": "secret:abc123"},
             }
@@ -311,7 +314,9 @@ def test_codegen_renders_secrets_libjuju_session(tmp_path: Path) -> None:
     * The emitted Python parses cleanly.
     * Each op renders the correct jubilant method with redacted content.
     * No plaintext secret value appears in the output.
-    * Secrets.RevokeSecret (kept in bucket-2) renders as a # TODO comment.
+    * Secrets.RevokeSecret renders as ``juju.cli("revoke-secret", ...)`` —
+      bucket-1 since 2026-08-18 via the escape hatch, jubilant still having
+      no ``revoke_secret()`` method of its own.
     """
     FakeConnection.rpc = _make_stub(
         [
@@ -325,7 +330,7 @@ def test_codegen_renders_secrets_libjuju_session(tmp_path: Path) -> None:
             {"request-id": 4, "response": {}},
             # ListSecrets
             {"request-id": 5, "response": {}},
-            # RevokeSecret (bucket-2)
+            # RevokeSecret (bucket-1 via juju.cli)
             {"request-id": 6, "response": {}},
         ]
     )
@@ -418,7 +423,7 @@ def test_codegen_renders_secrets_libjuju_session(tmp_path: Path) -> None:
         "secret_update",
         "secret_remove",
         "secret_list",
-        "shell",  # RevokeSecret stays bucket-2
+        "secret_revoke",
     ], ops
 
     src = generate(log)
@@ -432,6 +437,7 @@ def test_codegen_renders_secrets_libjuju_session(tmp_path: Path) -> None:
     assert "juju.update_secret('secret:abc123'" in src, src
     assert "juju.remove_secret('secret:abc123')" in src, src
     assert "juju.secrets()" in src, src
+    assert "juju.cli(\"revoke-secret\", 'secret:abc123'" in src, src
 
     # Redacted content is present; actual secret values are absent.
     assert "<REDACTED>" in src, src
@@ -441,8 +447,11 @@ def test_codegen_renders_secrets_libjuju_session(tmp_path: Path) -> None:
     # The TODO comment appears above each content call.
     assert "# TODO: replace with real secret content" in src, src
 
-    # RevokeSecret (bucket-2) renders as a TODO fallback.
-    assert "# TODO: manual step" in src, src
+    # Nothing in this session is bucket-2 any more, so no fallback TODO is
+    # expected — RevokeSecret was the last bucket-2 member and was promoted
+    # 2026-08-18. (The "replace with real secret content" TODO above is the
+    # redaction placeholder, a different thing entirely.)
+    assert "# TODO: manual step" not in src, src
 
 
 def test_codegen_renders_secret_remove_with_revision(tmp_path: Path) -> None:
@@ -496,7 +505,7 @@ def test_codegen_renders_list_secrets_with_owner(tmp_path: Path) -> None:
     assert "juju.secrets(owner='myapp')" in src, src
 
 
-def test_codegen_handles_find_application_offers_stub(tmp_path: Path) -> None:
+def test_codegen_renders_find_application_offers(tmp_path: Path) -> None:
     """``ApplicationOffers.FindApplicationOffers`` is bucket-2 (no
     ``Model``/``Controller`` client method calls it — the CMR facade notes
     §2.3) — it must render as a ``shell``-op ``# TODO`` stub, the same
@@ -519,13 +528,17 @@ def test_codegen_handles_find_application_offers_stub(tmp_path: Path) -> None:
         )
 
     log = json.loads(log_path.read_text(encoding="utf-8"))
-    assert [e["op"] for e in log["events"]] == ["shell"]
+    assert [e["op"] for e in log["events"]] == ["find_offers"]
 
     src = generate(log)
     ast.parse(src)
-    assert "# TODO: manual step" in src, src
-    assert '"op": "shell"' in src, src
-    assert "libjuju ApplicationOffers.FindApplicationOffers" in src, src
+    # The recorded ``application-name`` filter is deliberately NOT forwarded:
+    # ``juju find-offers``' flags do not correspond to the ``OfferFilter``
+    # fields the correlator captures, same as ``list_offers``.
+    assert 'juju.cli("find-offers", "--format=json")' in src or (
+        "juju.cli('find-offers', '--format=json')" in src
+    ), src
+    assert "postgresql" not in src, src
 
 
 def test_codegen_renders_create_offer_and_consume(tmp_path: Path) -> None:

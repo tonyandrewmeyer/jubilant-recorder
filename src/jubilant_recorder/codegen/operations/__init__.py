@@ -10,6 +10,7 @@ from jubilant_recorder.codegen.operations import (
     create_offer,
     deploy,
     expose,
+    find_offers,
     get_consume_details,
     integrate,
     list_offers,
@@ -24,6 +25,7 @@ from jubilant_recorder.codegen.operations import (
     secret_grant,
     secret_list,
     secret_remove,
+    secret_revoke,
     secret_update,
     set_charm,
     set_constraints,
@@ -48,6 +50,16 @@ EMITTERS = {
     "secret_remove": secret_remove.emit,
     "secret_grant": secret_grant.emit,
     "secret_list": secret_list.emit,
+    # "secret_revoke" and "find_offers" (below) were the last two members of
+    # the correlator's bucket-2 set, promoted 2026-08-18 for the same reason
+    # as the CMR and `Application.*` groups: bucket 2 there only ever meant
+    # "jubilant has no client method", which `juju.cli()` answers. That set is
+    # now empty by design — see `_BUCKET2_FACADES`' comment in
+    # extensions/libjuju/correlate.py. `juju revoke-secret` and
+    # `juju find-offers` were both verified against juju 3.6.27 rather than
+    # assumed, per the `set_charm` lesson (`juju set-charm` is not a real
+    # subcommand; the target is `juju refresh --switch`).
+    "secret_revoke": secret_revoke.emit,
     "create_offer": create_offer.emit,
     "consume": consume.emit,
     # "list_offers", "remove_offer", "get_consume_details", "remove_saas" are
@@ -61,6 +73,9 @@ EMITTERS = {
     "remove_offer": remove_offer.emit,
     "get_consume_details": get_consume_details.emit,
     "remove_saas": remove_saas.emit,
+    # `find_offers` drops the correlator's captured filters, exactly as
+    # `list_offers` does — see that emitter's docstring.
+    "find_offers": find_offers.emit,
     # "set_charm", "expose", "unexpose", "set_constraints", "merge_bindings",
     # "set_relations_suspended", "config_unset", "update_application_base"
     # are the 8 `Application.*` bucket-2 → bucket-1 promotions from
@@ -87,6 +102,7 @@ __all__ = [
     "create_offer",
     "deploy",
     "expose",
+    "find_offers",
     "get_consume_details",
     "integrate",
     "list_offers",
@@ -101,6 +117,7 @@ __all__ = [
     "secret_grant",
     "secret_list",
     "secret_remove",
+    "secret_revoke",
     "secret_update",
     "set_charm",
     "set_constraints",
