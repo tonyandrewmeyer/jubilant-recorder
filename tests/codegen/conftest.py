@@ -392,3 +392,21 @@ def unknown_op_log() -> dict[str, Any]:
             )
         ]
     )
+
+
+@pytest.fixture
+def secret_revoke_event() -> dict[str, Any]:
+    return _event(
+        30,
+        "secret_revoke",
+        {"identifier": "secret:abc123", "app": "consumer"},
+    )
+
+
+@pytest.fixture
+def find_offers_event() -> dict[str, Any]:
+    return _event(
+        31,
+        "find_offers",
+        {"model_name": None, "application_name": None, "offer_name": None},
+    )

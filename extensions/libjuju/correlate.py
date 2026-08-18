@@ -42,9 +42,11 @@ Bucket 1 — clean mapping (records a fully-typed SCHEMA event):
     Secrets.UpdateSecrets     → secret_update  (content redacted)
     Secrets.RemoveSecrets     → secret_remove
     Secrets.GrantSecret       → secret_grant
+    Secrets.RevokeSecret      → secret_revoke
     Secrets.ListSecrets       → secret_list
     ApplicationOffers.Offer               → create_offer
     ApplicationOffers.ListApplicationOffers → list_offers
+    ApplicationOffers.FindApplicationOffers → find_offers
     ApplicationOffers.DestroyOffers       → remove_offer
     ApplicationOffers.GetConsumeDetails   → get_consume_details
     Application.Consume                   → consume
@@ -71,11 +73,10 @@ Bucket 1 — clean mapping (records a fully-typed SCHEMA event):
     Application.UpdateApplicationBase → update_application_base
 
 Bucket 2 — lossy / decomposable (records event with ``note`` field):
-    Secrets.RevokeSecret      → note: "libjuju Secrets.RevokeSecret"
-                                (no jubilant equivalent; see SECRETS-GAPS.md)
-    ApplicationOffers.FindApplicationOffers → note: "libjuju ApplicationOffers.FindApplicationOffers"
-                                (no Model/Controller client method calls this
-                                RPC in the recon snapshot; see CMR-FACADE-RECON.md §2.3)
+    Currently empty, deliberately — see ``_BUCKET2_FACADES``' comment for why
+    that is the correct end state for this surface rather than a sign the
+    classification stopped discriminating. The branch stays live: any facade
+    added here still records a ``note``-carrying event.
 
 Bucket 3 — no mapping (records a ``# TODO: manual step`` shape):
     Everything else (raw facade calls with no CLI equivalent).
@@ -151,6 +152,7 @@ _BUCKET1_MAP: dict[tuple[str, str], str] = {
     ("Secrets", "UpdateSecrets"): "secret_update",
     ("Secrets", "RemoveSecrets"): "secret_remove",
     ("Secrets", "GrantSecret"): "secret_grant",
+    ("Secrets", "RevokeSecret"): "secret_revoke",
     ("Secrets", "ListSecrets"): "secret_list",
     # Cross-model (CMR) facades — bucket-1 promotions, see CMR-FACADE-RECON.md §1.
     # Facade name here is the wire ``type``, which is ``ApplicationOffers``
@@ -160,6 +162,7 @@ _BUCKET1_MAP: dict[tuple[str, str], str] = {
     # ``Deploy``/``AddRelation``/etc. above.
     ("ApplicationOffers", "Offer"): "create_offer",
     ("ApplicationOffers", "ListApplicationOffers"): "list_offers",
+    ("ApplicationOffers", "FindApplicationOffers"): "find_offers",
     ("ApplicationOffers", "DestroyOffers"): "remove_offer",
     ("ApplicationOffers", "GetConsumeDetails"): "get_consume_details",
     # NOT "consume_offer" — see CMR-FACADE-RECON.md §2.2: the real client
@@ -181,18 +184,29 @@ _BUCKET1_MAP: dict[tuple[str, str], str] = {
     ("Application", "UpdateApplicationBase"): "update_application_base",
 }
 
-_BUCKET2_FACADES: frozenset[tuple[str, str]] = frozenset(
-    {
-        # Secrets.RevokeSecret has no jubilant equivalent; keep in bucket-2.
-        # See extensions/libjuju/SECRETS-GAPS.md for the documented gap.
-        ("Secrets", "RevokeSecret"),
-        # No Model/Controller client method calls FindApplicationOffers in
-        # the recon snapshot (CMR-FACADE-RECON.md §2.3) — known facade RPC,
-        # no direct client-method mapping, so it stubs rather than falling
-        # through to the bucket-3 catch-all.
-        ("ApplicationOffers", "FindApplicationOffers"),
-    }
-)
+# Deliberately empty. Every RPC that has ever sat here was here for one
+# reason — jubilant has no client method for it — and ``Juju.cli()`` is the
+# public escape hatch that answers exactly that (``jubilant/_juju.py:527``,
+# already used by jubilant's own ``bootstrap()``). The last two members,
+# ``Secrets.RevokeSecret`` and ``ApplicationOffers.FindApplicationOffers``,
+# were promoted 2026-08-18 for the same reason the 4 CMR ops and the 8
+# ``Application.*`` ops were before them.
+#
+# An empty bucket 2 on *this* surface is the honest end state, not a
+# collapsed taxonomy: a typed RPC with named parameters is always
+# re-expressible once an escape hatch exists, because the recorder captured
+# the parameter values. The lossy cases all live on the argv surface, where
+# bucket 2 is defined as information loss rather than API coverage and is
+# classified per-invocation (see CLI-CORPUS.md §1) — so that bucket can
+# never empty and the three-way split stays meaningful. Full reasoning:
+# canonical-work-queue non-roadmap/jubilant-test-recorder/BUCKET2-EMPTY-DESIGN.md.
+#
+# The rule for future additions, so the escape hatch does not get
+# over-applied: a ``juju.cli(...)`` emitter is the right answer when
+# jubilant lacks a client method for an op whose arguments were *fully
+# captured*. It is not the right answer when the arguments themselves are
+# incomplete, unredacted, or unreconstructable — those belong here.
+_BUCKET2_FACADES: frozenset[tuple[str, str]] = frozenset()
 
 
 def _is_internal(facade: str, method: str) -> bool:
@@ -534,6 +548,15 @@ def _extract_args(facade: str, method: str, params: dict[str, Any]) -> dict[str,
             "app": apps[0] if apps else "",
         }
 
+    if key == ("Secrets", "RevokeSecret"):
+        # ``GrantRevokeSecretArg`` — same wire shape as ``GrantSecret``
+        # (SECRETS-GAPS.md step 2).
+        apps = params.get("applications") or []
+        return {
+            "identifier": params.get("uri") or "",
+            "app": apps[0] if apps else "",
+        }
+
     if key == ("Secrets", "ListSecrets"):
         filter_data = params.get("filter") or {}
         owner_tag = filter_data.get("owner-tag") or None
@@ -558,6 +581,18 @@ def _extract_args(facade: str, method: str, params: dict[str, Any]) -> dict[str,
     if key == ("ApplicationOffers", "ListApplicationOffers"):
         # No literal wire fixture in the recon (CMR-FACADE-RECON.md §2.3) —
         # shape inferred from the ``OfferFilter`` definition fields.
+        filters = params.get("filters") or params.get("Filters") or [{}]
+        f = filters[0] if filters else {}
+        return {
+            "model_name": f.get("model-name") or None,
+            "application_name": f.get("application-name") or None,
+            "offer_name": f.get("offer-name") or None,
+        }
+
+    if key == ("ApplicationOffers", "FindApplicationOffers"):
+        # Same ``OfferFilter`` shape as ``ListApplicationOffers`` above
+        # (CMR-FACADE-RECON.md §2.3); the two differ in what the server does
+        # with the filter, not in how libjuju packs it.
         filters = params.get("filters") or params.get("Filters") or [{}]
         f = filters[0] if filters else {}
         return {
