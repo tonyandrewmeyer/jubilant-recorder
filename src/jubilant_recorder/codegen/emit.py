@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any, TypeAlias
+from typing import TYPE_CHECKING, Any, TypeAlias
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 from jubilant_recorder.codegen import (
     assertions,
@@ -22,8 +25,22 @@ _DEFAULT_TEST_NAME = "test_recorded_session"
 _SKIP_OPS = frozenset({"checkpoint", "session_end"})
 
 
-def generate(log: SessionLog, *, test_name: str | None = None) -> str:
-    """Generate the full jubilant test source for a recorded session."""
+def generate(
+    log: SessionLog,
+    *,
+    test_name: str | None = None,
+    overlay: Mapping[int, Mapping[str, str]] | None = None,
+) -> str:
+    """Generate the full jubilant test source for a recorded session.
+
+    ``overlay`` is an optional, purely decorative annotation map keyed by
+    event ``seq`` (see ``extensions/libjuju/source_overlay.py``): an entry's
+    ``"comment"`` is rendered as a ``#`` line immediately above that event's
+    block, and its ``"var_name"`` overrides the auto-generated result
+    variable name for ``run``/``config_get`` events. Omitting ``overlay``
+    (the default) produces byte-identical output to before this parameter
+    existed — nothing here is load-bearing for correctness.
+    """
     indent = preamble.BODY_INDENT
     pad = " " * indent
 
@@ -33,6 +50,9 @@ def generate(log: SessionLog, *, test_name: str | None = None) -> str:
     pending_tag: str | None = None
     for event in log.get("events", []) or []:
         op = event.get("op", "")
+        annotation = (overlay or {}).get(event.get("seq"))
+        if annotation and annotation.get("comment"):
+            body_lines.append(f"{pad}# {annotation['comment']}")
 
         # Diagnostic-only markers synthesised by extension correlators (e.g.
         # libjuju's orphan-delta trailer) are never a step for the user to
@@ -101,10 +121,10 @@ def generate(log: SessionLog, *, test_name: str | None = None) -> str:
         if op in _SKIP_OPS:
             pass
         elif op == "run":
-            run_var = f"result_{event.get('seq')}"
+            run_var = (annotation or {}).get("var_name") or f"result_{event.get('seq')}"
             body_lines.append(EMITTERS["run"](event, indent, var_name=run_var))
         elif op == "config_get":
-            config_get_var = f"config_{event.get('seq')}"
+            config_get_var = (annotation or {}).get("var_name") or f"config_{event.get('seq')}"
             body_lines.append(EMITTERS["config_get"](event, indent, var_name=config_get_var))
         elif op in EMITTERS:
             body_lines.append(EMITTERS[op](event, indent))
