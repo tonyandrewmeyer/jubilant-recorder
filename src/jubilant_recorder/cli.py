@@ -134,8 +134,23 @@ def cmd_generate(args: argparse.Namespace) -> int:
     session_log_path = Path(args.session_log)
     log = json.loads(session_log_path.read_text())
     annotated = tagger.tag(log, proposer=proposer if use_ai else None)
-    test_name = args.name or "test_recorded_session"
-    source = codegen.generate(annotated, test_name=test_name)
+
+    overlay = None
+    test_name = args.name
+    source_aware = getattr(args, "source_aware", None)
+    if source_aware:
+        # Optional, purely decorative — see extensions/libjuju/source_overlay.py.
+        # A missing/unparsed source file yields an empty overlay; codegen output
+        # is unaffected either way.
+        from extensions.libjuju.source_overlay import align_events, extract_call_sites
+
+        found = extract_call_sites(Path(source_aware))
+        overlay = align_events(found.call_sites, annotated.get("events", []) or [])
+        if test_name is None:
+            test_name = found.test_name
+    test_name = test_name or "test_recorded_session"
+
+    source = codegen.generate(annotated, test_name=test_name, overlay=overlay)
     if use_ai:
         source = codegen.ai_polish.polish(source, annotated, polisher=polisher)
     if args.out:
@@ -214,6 +229,15 @@ def _build_parser() -> argparse.ArgumentParser:
     p_gen.add_argument("session_log")
     p_gen.add_argument("--out", default=None)
     p_gen.add_argument("--name", default=None)
+    p_gen.add_argument(
+        "--source-aware",
+        default=None,
+        metavar="PATH",
+        help="Path to the libjuju/jubilant test file that produced this session log. "
+        "Decorative only (extensions/libjuju/source_overlay.py): improves generated "
+        "variable names and carries source comments through; the recording alone is "
+        "always sufficient without it.",
+    )
     p_gen.add_argument(
         "--ai",
         action="store_true",
