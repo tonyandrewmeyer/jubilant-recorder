@@ -17,7 +17,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from jubilant_recorder import codegen, tagger
+from jubilant_recorder import codegen, quiet_window, tagger
 from jubilant_recorder.codegen.ai_polish import AnthropicPolisher, Polisher, StubPolisher
 from jubilant_recorder.session_log import SessionLog
 from jubilant_recorder.tagger.llm import AnthropicProposer, AssertionProposer, StubProposer
@@ -133,6 +133,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
     proposer, polisher = _make_ai_components(use_ai)
     session_log_path = Path(args.session_log)
     log = json.loads(session_log_path.read_text())
+    log = quiet_window.synthesize(log)
     annotated = tagger.tag(log, proposer=proposer if use_ai else None)
 
     overlay = None
@@ -185,6 +186,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         _delete_state()
     out_path = Path(args.out).absolute() if args.out else session_log.with_suffix(".py")
     log_doc = json.loads(session_log.read_text())
+    log_doc = quiet_window.synthesize(log_doc)
     annotated = tagger.tag(log_doc, proposer=proposer if use_ai else None)
     source = codegen.generate(annotated, test_name=args.name or "test_recorded_session")
     if use_ai:
