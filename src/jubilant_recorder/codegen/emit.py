@@ -143,7 +143,13 @@ def generate(
     if not _has_statement(body_lines):
         body_lines.append(preamble.empty_body_filler())
 
-    pre = preamble.Preamble(test_name=test_name or _DEFAULT_TEST_NAME, needs_pytest=needs_pytest)
+    events_list = log.get("events", []) or []
+    first_snapshot = events_list[0].get("model_snapshot_before") if events_list else None
+    pre = preamble.Preamble(
+        test_name=test_name or _DEFAULT_TEST_NAME,
+        needs_pytest=needs_pytest,
+        pre_existing_apps=preamble.pre_existing_apps(first_snapshot),
+    )
     return "\n".join([*pre.lines(), *body_lines]) + "\n"
 
 
