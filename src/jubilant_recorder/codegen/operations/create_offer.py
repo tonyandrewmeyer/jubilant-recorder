@@ -8,13 +8,12 @@ from typing import Any
 def emit(event: dict[str, Any], indent: int) -> str:
     """Emit a `juju.offer(...)` call.
 
-    ``model_tag`` (per CMR-FACADE-RECON.md §2.1) is a UUID on the wire — the
+    ``model_tag`` is a UUID on the wire — the
     recorder has no way to resolve it back to a model name, so it's dropped
     rather than fabricated into a dotted ``model.app`` form. This assumes the
     offer was made against the model being recorded; a cross-model offer
     (offering from a *different* model than the recording's own) will replay
-    against the wrong model until model_tag resolution lands (see the open
-    question in CMR-FACADE-RECON.md §4).
+    against the wrong model until model_tag resolution is implemented.
     """
     args = event["args"]
     app = args["app"]

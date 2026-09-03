@@ -1,41 +1,39 @@
 """Bucket-1 argv -> jubilant translation for PATH-shim ``juju <subcommand>`` calls.
 
-Implements the classification built in CLI-CORPUS.md: a recorded shim event
-(``op: "shell"``, ``args.source == "shim"``, ``args.argv`` the raw ``juju``
-argv minus the ``juju`` binary itself) is translated into one of the 28
-existing ``EMITTERS`` ops when its argv shape is a lossless match. Anything
-else (an unhandled subcommand, or a handled subcommand used with a flag
-outside the mapped subset) returns ``None`` so the caller falls through to
-the existing ``# shell: ...`` comment rendering — bucket 2/3 needs no new
-code, that fallback already exists.
+Classifies each recorded shim event (``op: "shell"``, ``args.source ==
+"shim"``, ``args.argv`` the raw ``juju`` argv minus the ``juju`` binary
+itself) and translates it into one of the existing ``EMITTERS`` ops when
+its argv shape is a lossless match. Anything else (an unhandled
+subcommand, or a handled subcommand used with a flag outside the mapped
+subset) returns ``None`` so the caller falls through to the existing
+``# shell: ...`` comment rendering — bucket 2/3 needs no new code, that
+fallback already exists.
 
-Only the 20 subcommands CLI-CORPUS.md §4 classifies bucket 1 are handled
+Only the subcommands classified bucket 1 are handled
 here (plus ``add-unit``/``scale-application``, promoted from bucket 2 to
-bucket 1 by the F1/F2 fix in ``operations/scale.py`` — see the docstring
-there and the dated correction in CLI-CORPUS.md). Every other subcommand —
-including ``add-secret``/``update-secret`` (F5: shim has no redaction),
-``remove-unit`` (F3: no op targets it), and the 130 bucket-3 subcommands —
-is deliberately absent from ``_SUBCOMMANDS`` and falls through untouched.
+bucket 1 — see the docstring in ``operations/scale.py``). Every other
+subcommand — including ``add-secret``/``update-secret`` (the shim has no
+redaction), ``remove-unit`` (no op targets it), and the many bucket-3
+subcommands — is deliberately absent from ``_SUBCOMMANDS`` and falls
+through untouched.
 
 Design rule used throughout: each classifier only recognizes the flags it
 has deliberate handling for (mapped to a kwarg, or a documented "harmless
-to drop" output-shape flag per CLI-CORPUS.md). Any other ``-``-prefixed
+to drop" output-shape flag). Any other ``-``-prefixed
 token — including one this module has simply never heard of — aborts
 classification immediately and returns ``None``. This means a flag that
 would otherwise be silently misparsed as a positional (corrupting the
 translation) can never reach that code path: we bail at the flag, before
-ever touching the tokens after it. This is the "bias to bucket 2 wherever
-the mapping is not exact" rule from PLAN.md, applied structurally rather
-than case-by-case.
+ever touching the tokens after it. This is a "bias to bucket 2 wherever
+the mapping is not exact" rule, applied structurally rather than
+case-by-case.
 
-Version pin (CLI-CORPUS.md §8's open question, task note 4): all flag
-tables below are the Juju **4.0** CLI surface, matching CLI-CORPUS.md's own
-primary pin. A session recorded against a different client version may
-misclassify (a flag that exists on 4.0 but not on the recording's actual
-client, or vice versa) — accepted, not handled, per §8's "pin one version"
-alternative. The one documented 3.6 divergence (``set-application-base``,
-F4) has no CLI-CORPUS.md bucket-1 row at all and is correspondingly absent
-from ``_SUBCOMMANDS`` here.
+Version pin: all flag tables below are the Juju **4.0** CLI surface. A
+session recorded against a different client version may misclassify (a
+flag that exists on 4.0 but not on the recording's actual client, or vice
+versa) — accepted as a known limitation rather than handled. The one
+documented 3.6 divergence (``set-application-base``) has no bucket-1
+mapping at all and is correspondingly absent from ``_SUBCOMMANDS`` here.
 """
 
 from __future__ import annotations
@@ -151,7 +149,7 @@ def _fold_config(values: list[str]) -> dict[str, str] | None:
     """Fold repeated ``--config`` flags into a dict, last wins.
 
     Unlike ``_fold_kv``, a bare path or ``key=@path`` (file content not in
-    argv — CLI-CORPUS.md §5.5) aborts the whole fold, not just that entry.
+    argv) aborts the whole fold, not just that entry.
     """
     result: dict[str, str] = {}
     for v in values:
@@ -165,7 +163,7 @@ def _fold_config(values: list[str]) -> dict[str, str] | None:
 
 
 def _yaml_scalar(raw: str) -> Any:
-    """YAML-type a `run` param value the way juju itself does (§5.3).
+    """YAML-type a `run` param value the way juju itself does.
 
     Uses PyYAML's ``safe_load`` as the "YAML-typed" implementation. One
     known divergence from real juju CLI behaviour, found while implementing
@@ -175,9 +173,9 @@ def _yaml_scalar(raw: str) -> Any:
     ``off``) coerce. A recorded ``key=y`` stays the string ``"y"`` here
     rather than becoming ``True``. Not fixed: hand-rolling a YAML-1.1
     resolver to match one juju quirk is out of proportion to the risk (bare
-    ``y``/``n`` action params are rare in practice), but this is a real,
-    sourced gap between CLI-CORPUS.md §5.3's example and what this module
-    does — flagged rather than silently shipped.
+    ``y``/``n`` action params are rare in practice), but this is a real gap
+    between juju's actual CLI behaviour and what this module does —
+    flagged rather than silently shipped.
     """
     try:
         return yaml.safe_load(raw)
@@ -193,7 +191,7 @@ def _set_dotted(d: dict[str, Any], keys: list[str], value: Any) -> None:
 
 
 # ---------------------------------------------------------------------------
-# §4.1 deploy
+# deploy
 # ---------------------------------------------------------------------------
 
 _DEPLOY_ALIASES = {"-n": "--num-units"}
@@ -264,7 +262,7 @@ def _classify_deploy(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
     if config_flag:
         config_values = _fold_config(_strs(config_flag))
         if config_values is None:
-            return None  # file-content shape — §5.5
+            return None  # file-content shape
         if config_values:
             args["config"] = config_values
 
@@ -272,7 +270,7 @@ def _classify_deploy(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
 
 
 # ---------------------------------------------------------------------------
-# §4.2 config / config_get / config_unset
+# config / config_get / config_unset
 # ---------------------------------------------------------------------------
 
 _CONFIG_ALIASES = {"-m": "--model"}
@@ -285,7 +283,7 @@ def _classify_config(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
     if parsed is None or not parsed.positionals:
         return None
     if _CONFIG_EXCEPTED & parsed.flags.keys():
-        return None  # --file / --model — §5.5 file content, or cross-model
+        return None  # --file / --model — file content, or cross-model
 
     app = parsed.positionals[0]
     rest_pos = parsed.positionals[1:]
@@ -307,7 +305,7 @@ def _classify_config(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
         for p in rest_pos:
             key, _, val = p.partition("=")
             if val.startswith("@"):
-                return None  # key=@path file directive — §5.5
+                return None  # key=@path file directive
             values[key] = val
         if not values:
             return None
@@ -319,7 +317,7 @@ def _classify_config(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
 
 
 # ---------------------------------------------------------------------------
-# §4.3 refresh -> set_charm
+# refresh -> set_charm
 # ---------------------------------------------------------------------------
 
 _REFRESH_VALUED = frozenset({"--switch", "--channel", "--storage", "--resource"})
@@ -355,7 +353,7 @@ def _classify_refresh(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
 
 
 # ---------------------------------------------------------------------------
-# §4.4 remove-application
+# remove-application
 # ---------------------------------------------------------------------------
 
 
@@ -368,7 +366,7 @@ def _classify_remove_application(rest: list[str]) -> tuple[str, dict[str, Any]] 
 
 
 # ---------------------------------------------------------------------------
-# §4.5 integrate/relate, remove-relation
+# integrate/relate, remove-relation
 # ---------------------------------------------------------------------------
 
 
@@ -378,7 +376,7 @@ def _classify_integrate(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
         return None
     a, b = parsed.positionals
     if "." in a.split(":", 1)[0] or "." in b.split(":", 1)[0]:
-        return None  # dotted model-qualified — cross-model, §4.5
+        return None  # dotted model-qualified — cross-model
     return "integrate", {"app1_endpoint": a, "app2_endpoint": b}
 
 
@@ -391,7 +389,7 @@ def _classify_remove_relation(rest: list[str]) -> tuple[str, dict[str, Any]] | N
 
 
 # ---------------------------------------------------------------------------
-# §4.6 run
+# run
 # ---------------------------------------------------------------------------
 
 
@@ -407,7 +405,7 @@ def _classify_run(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
         units.append(positionals[i])
         i += 1
     if len(units) != 1:
-        return None  # zero units, or multi-unit — bucket 2, §4.6
+        return None  # zero units, or multi-unit — bucket 2
     if i >= len(positionals):
         return None  # no action name captured
     action = positionals[i]
@@ -478,7 +476,7 @@ def _classify_scale_application(rest: list[str]) -> tuple[str, dict[str, Any]] |
 
 
 # ---------------------------------------------------------------------------
-# §4.7 secrets
+# secrets
 # ---------------------------------------------------------------------------
 
 
@@ -522,7 +520,7 @@ def _classify_secrets(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
 
 
 # ---------------------------------------------------------------------------
-# §4.8 cross-model (CMR)
+# cross-model (CMR)
 # ---------------------------------------------------------------------------
 
 
@@ -536,7 +534,7 @@ def _classify_offer(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
         return None
     app_part, _, endpoints_part = spec.partition(":")
     if not app_part or "." in app_part:
-        return None  # dotted model-qualified app — §4.8
+        return None  # dotted model-qualified app
     endpoints = [e for e in endpoints_part.split(",") if e]
     if not endpoints:
         return None
@@ -589,12 +587,12 @@ def _classify_show_offer(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
 def _classify_remove_saas(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
     parsed = _parse(rest)
     if parsed is None or len(parsed.positionals) != 1:
-        return None  # multi-name not representable by remove_saas.py — §4.8
+        return None  # multi-name not representable by remove_saas.py
     return "remove_saas", {"app": parsed.positionals[0]}
 
 
 # ---------------------------------------------------------------------------
-# §4.9 expose / unexpose
+# expose / unexpose
 # ---------------------------------------------------------------------------
 
 
@@ -619,7 +617,7 @@ def _classify_unexpose(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
 
 
 # ---------------------------------------------------------------------------
-# §4.10 set-constraints
+# set-constraints
 # ---------------------------------------------------------------------------
 
 
@@ -640,7 +638,7 @@ def _classify_set_constraints(rest: list[str]) -> tuple[str, dict[str, Any]] | N
 
 
 # ---------------------------------------------------------------------------
-# §4.11 bind -> merge_bindings
+# bind -> merge_bindings
 # ---------------------------------------------------------------------------
 
 
@@ -668,7 +666,7 @@ def _classify_bind(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
 
 
 # ---------------------------------------------------------------------------
-# §4.12 suspend-relation / resume-relation -> set_relations_suspended
+# suspend-relation / resume-relation -> set_relations_suspended
 # ---------------------------------------------------------------------------
 
 

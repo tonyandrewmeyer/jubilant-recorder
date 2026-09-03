@@ -52,15 +52,14 @@ Bucket 1 — clean mapping (records a fully-typed SCHEMA event):
     Application.Consume                   → consume
     Application.DestroyConsumedApplications → remove_saas
 
-    Cross-model (CMR) note (see CMR-FACADE-RECON.md): the corpus term
-    ``consume_offer`` is a misnomer — there is no ``Model.consume_offer``.
-    The real client call is ``Model.consume()``, which drives
-    ``Application.Consume`` (an ``Application`` facade RPC, not an
-    ``ApplicationOffers.*`` one). Do not add a ``consume_offer`` entry here.
+    Cross-model (CMR) note: the corpus term ``consume_offer`` is a
+    misnomer — there is no ``Model.consume_offer``. The real client call is
+    ``Model.consume()``, which drives ``Application.Consume`` (an
+    ``Application`` facade RPC, not an ``ApplicationOffers.*`` one). Do not
+    add a ``consume_offer`` entry here.
 
-    ``Application.*`` bucket-2 → bucket-1 promotion (see
-    LIBJUJU-CORPUS-AUDIT-2026-07-20.md §5 "Natural extension"): jubilant
-    1.10 has no client method for any of these, but each has a direct
+    ``Application.*`` bucket-2 → bucket-1 promotion: jubilant 1.10 has no
+    client method for any of these, but each has a direct
     ``juju`` CLI subcommand, so each is rendered via ``juju.cli(...)``
     rather than left as an opaque shell stub.
     Application.SetCharm              → set_charm
@@ -154,7 +153,7 @@ _BUCKET1_MAP: dict[tuple[str, str], str] = {
     ("Secrets", "GrantSecret"): "secret_grant",
     ("Secrets", "RevokeSecret"): "secret_revoke",
     ("Secrets", "ListSecrets"): "secret_list",
-    # Cross-model (CMR) facades — bucket-1 promotions, see CMR-FACADE-RECON.md §1.
+    # Cross-model (CMR) facades — bucket-1 promotions.
     # Facade name here is the wire ``type``, which is ``ApplicationOffers``
     # (v5) for the offer-side calls, not the python-libjuju class name
     # ``ApplicationOffersFacade``. ``Consume``/``DestroyConsumedApplications``
@@ -165,12 +164,11 @@ _BUCKET1_MAP: dict[tuple[str, str], str] = {
     ("ApplicationOffers", "FindApplicationOffers"): "find_offers",
     ("ApplicationOffers", "DestroyOffers"): "remove_offer",
     ("ApplicationOffers", "GetConsumeDetails"): "get_consume_details",
-    # NOT "consume_offer" — see CMR-FACADE-RECON.md §2.2: the real client
-    # call is ``Model.consume()``, there is no ``Model.consume_offer``.
+    # NOT "consume_offer" — the real client call is ``Model.consume()``,
+    # there is no ``Model.consume_offer``.
     ("Application", "Consume"): "consume",
     ("Application", "DestroyConsumedApplications"): "remove_saas",
-    # ``Application.*`` bucket-2 → bucket-1 promotions, see
-    # LIBJUJU-CORPUS-AUDIT-2026-07-20.md §5 "Natural extension". None of
+    # ``Application.*`` bucket-2 → bucket-1 promotions. None of
     # these have a jubilant client method, but each has a direct `juju`
     # CLI subcommand — rendered via `juju.cli(...)`, same escape hatch as
     # the CMR ops above.
@@ -197,9 +195,8 @@ _BUCKET1_MAP: dict[tuple[str, str], str] = {
 # re-expressible once an escape hatch exists, because the recorder captured
 # the parameter values. The lossy cases all live on the argv surface, where
 # bucket 2 is defined as information loss rather than API coverage and is
-# classified per-invocation (see CLI-CORPUS.md §1) — so that bucket can
-# never empty and the three-way split stays meaningful. Full reasoning:
-# canonical-work-queue non-roadmap/jubilant-test-recorder/BUCKET2-EMPTY-DESIGN.md.
+# classified per-invocation — so that bucket can never empty and the
+# three-way split stays meaningful.
 #
 # The rule for future additions, so the escape hatch does not get
 # over-applied: a ``juju.cli(...)`` emitter is the right answer when
@@ -454,13 +451,13 @@ def _extract_args(facade: str, method: str, params: dict[str, Any]) -> dict[str,
 
     if key == ("Application", "AddUnits"):
         # Relative: "add this many units". Maps to `Juju.add_unit()` — see
-        # scale.py / CLI-CORPUS.md F1-F2.
+        # scale.py.
         #
         # `placement` ([]instance.Placement, wire: {"scope", "directive"} dicts) and
         # `attach-storage` ([]string of "storage-<id>" tags) are confirmed against
         # juju's apiserver AddApplicationUnits params struct and addunit.go's client
-        # command (not inferred from the CLI's own `--to`/`--attach-storage` spelling —
-        # see STEP7-RPC-ADDUNITS-PLACEMENT-RESULTS.md). Rebuilt here into the same
+        # command (not inferred from the CLI's own `--to`/`--attach-storage` spelling).
+        # Rebuilt here into the same
         # comma-joined-string shape `cli_translate._classify_add_unit` already produces
         # from CLI argv, so `scale.py`'s emitter renders identical output regardless of
         # which source observed the operation.
@@ -550,7 +547,7 @@ def _extract_args(facade: str, method: str, params: dict[str, Any]) -> dict[str,
 
     if key == ("Secrets", "RevokeSecret"):
         # ``GrantRevokeSecretArg`` — same wire shape as ``GrantSecret``
-        # (SECRETS-GAPS.md step 2).
+        # (see SECRETS-GAPS.md).
         apps = params.get("applications") or []
         return {
             "identifier": params.get("uri") or "",
@@ -568,7 +565,7 @@ def _extract_args(facade: str, method: str, params: dict[str, Any]) -> dict[str,
         return {"owner": owner}
 
     if key == ("ApplicationOffers", "Offer"):
-        # Wire shape per CMR-FACADE-RECON.md §2.1: {"Offers": [AddApplicationOffer, ...]}.
+        # Wire shape: {"Offers": [AddApplicationOffer, ...]}.
         offers = params.get("Offers") or params.get("offers") or [{}]
         o = offers[0] if offers else {}
         return {
@@ -579,8 +576,8 @@ def _extract_args(facade: str, method: str, params: dict[str, Any]) -> dict[str,
         }
 
     if key == ("ApplicationOffers", "ListApplicationOffers"):
-        # No literal wire fixture in the recon (CMR-FACADE-RECON.md §2.3) —
-        # shape inferred from the ``OfferFilter`` definition fields.
+        # No live wire fixture was captured for this RPC — shape inferred
+        # from the ``OfferFilter`` definition fields.
         filters = params.get("filters") or params.get("Filters") or [{}]
         f = filters[0] if filters else {}
         return {
@@ -590,9 +587,9 @@ def _extract_args(facade: str, method: str, params: dict[str, Any]) -> dict[str,
         }
 
     if key == ("ApplicationOffers", "FindApplicationOffers"):
-        # Same ``OfferFilter`` shape as ``ListApplicationOffers`` above
-        # (CMR-FACADE-RECON.md §2.3); the two differ in what the server does
-        # with the filter, not in how libjuju packs it.
+        # Same ``OfferFilter`` shape as ``ListApplicationOffers`` above;
+        # the two differ in what the server does with the filter, not in
+        # how libjuju packs it.
         filters = params.get("filters") or params.get("Filters") or [{}]
         f = filters[0] if filters else {}
         return {
@@ -609,7 +606,7 @@ def _extract_args(facade: str, method: str, params: dict[str, Any]) -> dict[str,
         }
 
     if key == ("ApplicationOffers", "GetConsumeDetails"):
-        # No literal wire fixture in the recon (CMR-FACADE-RECON.md §2.2) —
+        # No live wire fixture was captured for this RPC —
         # ``offer_urls`` is an ``OfferURLs`` wrapper around a list of strings.
         raw_urls = params.get("offer-urls") or params.get("OfferURLs") or []
         if isinstance(raw_urls, dict):
@@ -628,16 +625,15 @@ def _extract_args(facade: str, method: str, params: dict[str, Any]) -> dict[str,
         }
 
     if key == ("Application", "DestroyConsumedApplications"):
-        # No literal wire fixture in the recon (mentioned only by source
-        # location, CMR-FACADE-RECON.md §5) — shape inferred from the
-        # sibling ``DestroyApplication`` RPC's ``application-tag`` convention.
+        # No live wire fixture was captured for this RPC — shape inferred
+        # from the sibling ``DestroyApplication`` RPC's ``application-tag``
+        # convention.
         apps = params.get("applications") or [{}]
         app_tag = apps[0].get("application-tag", "") if apps else ""
         return {"app": app_tag.replace("application-", "")}
 
     # -----------------------------------------------------------------
-    # ``Application.*`` bucket-2 → bucket-1 promotions (see
-    # LIBJUJU-CORPUS-AUDIT-2026-07-20.md §5 "Natural extension"). No live
+    # ``Application.*`` bucket-2 → bucket-1 promotions. No live
     # wire fixture was captured for any of these eight — shapes below are
     # inferred from the apiserver's ``params.Application*`` request structs
     # (mirroring the field-naming conventions already seen above: kebab-case,

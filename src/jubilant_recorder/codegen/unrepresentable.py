@@ -1,11 +1,11 @@
 """Codegen for jubilant operations the deterministic emitter can't represent.
 
-PLAN.md §"Work breakdown" step 10 names three categories the recorder can
+There are three categories the recorder can
 capture but codegen cannot honestly turn into a passing assertion:
 
 * **failed operations** — `_cli()` raised, so the event carries a
-  `result.error` string and a null `model_snapshot_after` (SCHEMA.md Open
-  Q#3). A `wait_for_idle` that times out (the "relation never settles"
+  `result.error` string and a null `model_snapshot_after`. A `wait_for_idle`
+  that times out (the "relation never settles"
   *partial deploy* case) lands here too: its `result.error` holds the
   timeout message.
 * **error-state models** — the operation's CLI call succeeded but the
@@ -17,7 +17,7 @@ capture but codegen cannot honestly turn into a passing assertion:
   single status assertion would be wrong for some unit; codegen can't pick
   one.
 
-Rather than crash (the step-10 regression bar) or silently emit a test
+Rather than crash (the regression bar for unrepresentable operations) or silently emit a test
 that asserts a falsehood, codegen marks the step:
 
 * failed op / error state  → `pytest.skip(reason=...)` plus a `# TODO`

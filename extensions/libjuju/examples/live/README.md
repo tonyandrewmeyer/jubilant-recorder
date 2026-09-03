@@ -1,8 +1,7 @@
-# Live libjuju → jubilant example (Step 4 carry (d))
+# Live libjuju → jubilant example
 
 End-to-end proof that the `RecordingLibjuju` → correlator → codegen pipeline
-works against a live juju controller. Closes the "carry (d) — live-juju
-example" outstanding on the Step 4 tracking sheet.
+works against a live juju controller.
 
 ## What's here
 

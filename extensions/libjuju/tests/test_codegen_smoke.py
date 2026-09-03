@@ -506,10 +506,10 @@ def test_codegen_renders_list_secrets_with_owner(tmp_path: Path) -> None:
 
 
 def test_codegen_renders_find_application_offers(tmp_path: Path) -> None:
-    """``ApplicationOffers.FindApplicationOffers`` is bucket-2 (no
-    ``Model``/``Controller`` client method calls it — CMR-FACADE-RECON.md
-    §2.3) — it must render as a ``shell``-op ``# TODO`` stub, the same
-    shape as any other bucket-2 RPC, not crash and not fall to bucket-3."""
+    """``ApplicationOffers.FindApplicationOffers`` is bucket-1 (no
+    ``Model``/``Controller`` client method calls it, but ``juju.cli(...)``
+    covers the gap) — it must render as a real ``find-offers`` CLI call,
+    not a TODO stub."""
 
     FakeConnection.rpc = _make_stub([{"request-id": 1, "response": {}}])
     log_path = tmp_path / "session.json"
@@ -543,7 +543,7 @@ def test_codegen_renders_find_application_offers(tmp_path: Path) -> None:
 
 def test_codegen_renders_create_offer_and_consume(tmp_path: Path) -> None:
     """``ApplicationOffers.Offer`` and ``Application.Consume`` are bucket-1
-    (CMR-FACADE-RECON.md, classified in jubilant-recorder@16fbcf1) and now
+    (classified in jubilant-recorder@16fbcf1) and now
     have working codegen emitters — full tap → correlate → codegen
     round-trip must produce real ``juju.offer(...)``/``juju.consume(...)``
     calls, not TODO stubs."""

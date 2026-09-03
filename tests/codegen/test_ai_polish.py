@@ -1,4 +1,4 @@
-"""Step 8: optional, flag-gated AI polish over deterministic codegen."""
+"""Optional, flag-gated AI polish over deterministic codegen."""
 
 from __future__ import annotations
 

@@ -3,8 +3,7 @@
 Mirrors ``extensions/libjuju/tests/test_codegen_smoke.py::
 test_codegen_renders_synthesised_wait_for_idle`` — that test proves the libjuju
 extension's synthesised events render unmodified through the existing codegen
-pipeline; this proves the same for the core recorder's quiet-window synthesis
-(PLAN.md open question 7's core-path half).
+pipeline; this proves the same for the core recorder's quiet-window synthesis.
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""Tests for the Step 4 source-aware overlay (extensions/libjuju/source_overlay.py).
+"""Tests for the source-aware overlay (extensions/libjuju/source_overlay.py).
 
 Covers: AST extraction of call sites (test name, variable name, adjacent
 comment), the sequential event-alignment two-pointer walk, and the
@@ -259,7 +259,8 @@ _BASE_LOG = {
 
 def test_generate_without_overlay_is_unaffected() -> None:
     """The recording alone must always be enough — this is the literal
-    "byte-identical without the flag" guarantee from PLAN.md."""
+    "byte-identical without the flag" guarantee from ``source_overlay.py``'s
+    "decorative, not load-bearing" contract."""
     with_none = generate(_BASE_LOG, overlay=None)
     without_param = generate(_BASE_LOG)
     assert with_none == without_param

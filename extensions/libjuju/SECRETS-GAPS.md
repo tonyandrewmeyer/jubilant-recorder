@@ -49,8 +49,7 @@ mapping, op name, and extracted args stay as they are.
 With this promotion and `ApplicationOffers.FindApplicationOffers`'s,
 `correlate.py`'s `_BUCKET2_FACADES` is empty by design. That is the correct
 end state for the RPC surface rather than a collapsed taxonomy — see the
-set's own comment, and
-`canonical-work-queue non-roadmap/jubilant-test-recorder/BUCKET2-EMPTY-DESIGN.md`
-for the full reasoning and the rule that keeps the escape hatch from being
-over-applied. The bucket-2 branch stays live and is exercised by a synthetic
-member (`extensions/libjuju/tests/conftest.py`).
+set's own comment in `correlate.py` for the full reasoning and the rule
+that keeps the escape hatch from being over-applied. The bucket-2 branch
+stays live and is exercised by a synthetic member
+(`extensions/libjuju/tests/conftest.py`).

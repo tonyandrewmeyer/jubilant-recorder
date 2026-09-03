@@ -1,6 +1,6 @@
 """Synthesise ``wait_for_idle`` events for the core recorder's quiet windows.
 
-WHY (PLAN.md open question 7): ``extensions/libjuju/correlate.py`` already solves
+WHY: ``extensions/libjuju/correlate.py`` already solves
 this for the libjuju-tap path, using the gap between the last AllWatcher delta
 and the next user RPC as its quiet-window signal. The core recorder
 (``RecordingJuju``) has no delta stream, so it needs a different signal built from

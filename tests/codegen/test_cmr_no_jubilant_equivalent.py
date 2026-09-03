@@ -1,11 +1,10 @@
 """
 `list_offers`, `remove_offer`, `get_consume_details`, and `remove_saas` are
-correlator-classified bucket-1 (CMR-FACADE-RECON.md). jubilant 1.10 (the
-installed version, confirmed by grepping ``jubilant/_juju.py``) still has no
-dedicated client method for any of them, but each has an ``EMITTERS`` entry
-that renders a ``juju.cli(...)`` call — see ``operations/__init__.py`` and
-``LIBJUJU-CORPUS-AUDIT-2026-07-20.md`` §5. They must not fall through to the
-``# TODO: manual step`` fallback path bucket-3 ops use.
+correlator-classified bucket-1. jubilant 1.10 (the installed version,
+confirmed by grepping ``jubilant/_juju.py``) still has no dedicated client
+method for any of them, but each has an ``EMITTERS`` entry that renders a
+``juju.cli(...)`` call — see ``operations/__init__.py``. They must not fall
+through to the ``# TODO: manual step`` fallback path bucket-3 ops use.
 """
 
 from __future__ import annotations
