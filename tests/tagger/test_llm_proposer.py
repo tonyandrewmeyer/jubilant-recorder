@@ -1,6 +1,6 @@
 """Tests for the LLM-augmented tagger pass.
 
-All tests use stub seams — no real LLM calls are made. The AnthropicProposer
+All tests use stub seams — no real LLM calls are made. The LLMProposer
 path is covered via a minimal mock that returns pre-canned JSON, exercising
 the full parse-and-validate pipeline without a network round-trip.
 """
@@ -14,8 +14,8 @@ from unittest.mock import MagicMock
 
 from jubilant_recorder.tagger import tag
 from jubilant_recorder.tagger.llm import (
-    AnthropicProposer,
     AssertionProposer,
+    LLMProposer,
     StubProposer,
     _collect_known_entities,
     llm_augment,
@@ -540,32 +540,32 @@ def test_tag_merges_llm_and_delta_assertions():
     assert "llm" in sources
 
 
-# ── AnthropicProposer (mock client) ──────────────────────────────────────────
+# ── LLMProposer (mock client) ─────────────────────────────────────────────────
 
 
 def _make_mock_client(response_text: str) -> Any:
-    message = MagicMock()
-    message.content = [MagicMock(text=response_text)]
+    response = MagicMock()
+    response.json.return_value = {"choices": [{"message": {"content": response_text}}]}
     client = MagicMock()
-    client.messages.create.return_value = message
+    client.post.return_value = response
     return client
 
 
-def test_anthropic_proposer_parses_valid_response():
+def test_llm_proposer_parses_valid_response():
     snap = make_snapshot(apps={"my-charm": {"units": {"my-charm/0": make_unit()}}})
     log = make_log([make_event(1, "wait_for_idle", before=snap, after=snap)])
 
     payload = '{"proposals": [{"seq": 1, "kind": "unit_status", "app": "my-charm", "unit": "my-charm/0", "expected": "active"}]}'
-    proposer = AnthropicProposer(_make_mock_client(payload))
+    proposer = LLMProposer(_make_mock_client(payload), model="test/model")
     proposals = proposer.propose(log)
 
     assert len(proposals) == 1
     assert proposals[0]["kind"] == "unit_status"
 
 
-def test_anthropic_proposer_bad_json_warns_and_returns_empty():
+def test_llm_proposer_bad_json_warns_and_returns_empty():
     log = make_log([make_event(1, "deploy")])
-    proposer = AnthropicProposer(_make_mock_client("not json at all"))
+    proposer = LLMProposer(_make_mock_client("not json at all"), model="test/model")
 
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
@@ -575,9 +575,9 @@ def test_anthropic_proposer_bad_json_warns_and_returns_empty():
     assert any("non-JSON" in str(warning.message) for warning in w)
 
 
-def test_anthropic_proposer_missing_proposals_key_warns():
+def test_llm_proposer_missing_proposals_key_warns():
     log = make_log([make_event(1, "deploy")])
-    proposer = AnthropicProposer(_make_mock_client('{"something_else": []}'))
+    proposer = LLMProposer(_make_mock_client('{"something_else": []}'), model="test/model")
 
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
@@ -587,11 +587,11 @@ def test_anthropic_proposer_missing_proposals_key_warns():
     assert any("proposals" in str(warning.message) for warning in w)
 
 
-def test_anthropic_proposer_api_error_warns_and_returns_empty():
+def test_llm_proposer_api_error_warns_and_returns_empty():
     log = make_log([make_event(1, "deploy")])
     client = MagicMock()
-    client.messages.create.side_effect = RuntimeError("network down")
-    proposer = AnthropicProposer(client)
+    client.post.side_effect = RuntimeError("network down")
+    proposer = LLMProposer(client, model="test/model")
 
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
@@ -601,6 +601,6 @@ def test_anthropic_proposer_api_error_warns_and_returns_empty():
     assert any("API call failed" in str(warning.message) for warning in w)
 
 
-def test_anthropic_proposer_satisfies_protocol():
+def test_llm_proposer_satisfies_protocol():
     client = MagicMock()
-    assert isinstance(AnthropicProposer(client), AssertionProposer)
+    assert isinstance(LLMProposer(client, model="test/model"), AssertionProposer)

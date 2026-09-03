@@ -59,8 +59,8 @@ The `jubilant-recorder` command provides four subcommands:
 |---|---|
 | `jubilant-recorder start [--session-log PATH] [--model NAME]` | Begin a recording session. Writes `{pid, session_log_path, model, started_at}` to `$XDG_CACHE_HOME/jubilant-recorder/active.json` (or `~/.cache/jubilant-recorder/active.json`). Prints the session log path to stdout. |
 | `jubilant-recorder stop` | Read the state file, finalise the session log if necessary, remove the state file. |
-| `jubilant-recorder run [--session-log PATH] [--out TEST.py] [--name NAME] [--ai] [-- CMD ARGS…]` | All-in-one: start a session, run `CMD` under the recorder (or `$SHELL` if no command given), stop, and generate a test alongside the session log. |
-| `jubilant-recorder generate SESSION_LOG [--out TEST.py] [--name TEST_NAME] [--ai]` | Pure post-processing: read a completed session log, run the tagger over it, and produce a pytest test file. |
+| `jubilant-recorder run [--session-log PATH] [--out TEST.py] [--name NAME] [--ai] [--ai-model MODEL] [-- CMD ARGS…]` | All-in-one: start a session, run `CMD` under the recorder (or `$SHELL` if no command given), stop, and generate a test alongside the session log. |
+| `jubilant-recorder generate SESSION_LOG [--out TEST.py] [--name TEST_NAME] [--ai] [--ai-model MODEL]` | Pure post-processing: read a completed session log, run the tagger over it, and produce a pytest test file. |
 
 `jubilant-recorder run` exports `JUBILANT_RECORDER_SESSION_LOG` into the
 child process environment so user scripts can locate the active log.
@@ -73,8 +73,8 @@ independent LLM passes (off by default):
 ### (1) Tagger: LLM-augmented assertion inference
 
 After the deterministic delta-based tagger runs, a second pass sends the
-full session log to Claude and asks *"what was the user verifying at each
-step?"* Claude's suggestions are added as additional `source: "llm"`
+full session log to an LLM and asks *"what was the user verifying at each
+step?"* Its suggestions are added as additional `source: "llm"`
 assertion tags alongside the deterministic `source: "delta"` ones. This
 can catch implicit checks (user read the action output → assert result
 contains a key) that the rule-based tagger misses.
@@ -86,7 +86,7 @@ so hallucinations never reach the generated test.
 ### (2) Codegen: LLM polish pass
 
 After the test file is produced deterministically, a second pass sends it
-to Claude asking for readability improvements: a meaningful test name, a
+to an LLM asking for readability improvements: a meaningful test name, a
 one-line docstring per logical step, and collapsing of redundant idempotent
 calls (`status`, `wait_for_idle`). The orchestrator verifies the polished
 code still parses and preserves the behavioural juju call sequence; if not,
@@ -94,21 +94,29 @@ it discards the polished version and returns the deterministic output.
 
 **Experimental — review the generated assertions and test name before committing.**
 
-### Anthropic API key
+### OpenRouter API key
 
-Both LLM passes use [claude-sonnet-4-6](https://docs.anthropic.com/en/docs/models-overview).
-Set the environment variable before running:
+Both LLM passes go through [OpenRouter](https://openrouter.ai)'s
+OpenAI-compatible API, defaulting to `anthropic/claude-sonnet-4.6`. Set the
+environment variable before running:
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...
+export OPENROUTER_API_KEY=sk-or-v1-...
 jubilant-recorder generate session.json --ai
 ```
 
-If `ANTHROPIC_API_KEY` is not set, a warning is printed and both passes fall
+If `OPENROUTER_API_KEY` is not set, a warning is printed and both passes fall
 back to their offline stubs (deterministic output, no network calls, no crash).
 
-The two LLM passes share a single `anthropic.Anthropic()` client instance per
-invocation, so only one connection is established per `generate`/`run` call.
+To use a different model, either set `OPENROUTER_MODEL` or pass
+`--ai-model`, which takes priority:
+
+```bash
+jubilant-recorder generate session.json --ai --ai-model openai/gpt-5.2
+```
+
+The two LLM passes share a single `httpx.Client` instance per invocation, so
+only one connection pool is established per `generate`/`run` call.
 
 ## Repo layout
 

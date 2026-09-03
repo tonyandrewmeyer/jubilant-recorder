@@ -21,7 +21,7 @@ classifiers = [
     "Topic :: Software Development :: Testing",
 ]
 dependencies = [
-    "anthropic>=0.111.0",
+    "httpx>=0.27",
     "jubilant>=1.0",
     "pyyaml>=6.0",
 ]

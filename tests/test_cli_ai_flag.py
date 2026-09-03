@@ -5,11 +5,10 @@ from __future__ import annotations
 import ast
 import warnings
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 from jubilant_recorder.cli import _make_ai_components, main
-from jubilant_recorder.codegen.ai_polish import StubPolisher
-from jubilant_recorder.tagger.llm import StubProposer
+from jubilant_recorder.codegen.ai_polish import LLMPolisher, StubPolisher
+from jubilant_recorder.tagger.llm import LLMProposer, StubProposer
 
 FIXTURE = Path(__file__).parent / "fixtures" / "minimal_session.json"
 
@@ -24,7 +23,10 @@ def test_generate_without_ai_is_unpolished(tmp_path: Path) -> None:
     assert source.startswith("import jubilant\n")
 
 
-def test_generate_with_ai_invokes_stub_polisher(tmp_path: Path) -> None:
+def test_generate_with_ai_invokes_stub_polisher(tmp_path: Path, monkeypatch: object) -> None:
+    # No OPENROUTER_API_KEY → --ai falls back to StubPolisher regardless of
+    # what's in the ambient environment.
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)  # type: ignore[attr-defined]
     out = tmp_path / "test_recorded.py"
     rc = main(["generate", str(FIXTURE), "--out", str(out), "--ai"])
     assert rc == 0
@@ -35,7 +37,8 @@ def test_generate_with_ai_invokes_stub_polisher(tmp_path: Path) -> None:
     assert source.startswith('"""<recorded session:')
 
 
-def test_ai_flag_only_adds_docstring(tmp_path: Path) -> None:
+def test_ai_flag_only_adds_docstring(tmp_path: Path, monkeypatch: object) -> None:
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)  # type: ignore[attr-defined]
     plain = tmp_path / "plain.py"
     polished = tmp_path / "polished.py"
     main(["generate", str(FIXTURE), "--out", str(plain)])
@@ -48,8 +51,8 @@ def test_ai_flag_only_adds_docstring(tmp_path: Path) -> None:
 
 
 def test_make_ai_components_no_api_key_returns_stubs(monkeypatch: object) -> None:
-    """Without ANTHROPIC_API_KEY, _make_ai_components returns offline stubs."""
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)  # type: ignore[attr-defined]
+    """Without OPENROUTER_API_KEY, _make_ai_components returns offline stubs."""
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)  # type: ignore[attr-defined]
 
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
@@ -57,25 +60,17 @@ def test_make_ai_components_no_api_key_returns_stubs(monkeypatch: object) -> Non
 
     assert isinstance(proposer, StubProposer)
     assert isinstance(polisher, StubPolisher)
-    assert any("ANTHROPIC_API_KEY" in str(warning.message) for warning in w)
+    assert any("OPENROUTER_API_KEY" in str(warning.message) for warning in w)
 
 
 def test_make_ai_components_with_api_key_returns_real_clients(monkeypatch: object) -> None:
-    """With ANTHROPIC_API_KEY set, _make_ai_components returns Anthropic-backed objects."""
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-key")  # type: ignore[attr-defined]
+    """With OPENROUTER_API_KEY set, _make_ai_components returns OpenRouter-backed objects."""
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test-key")  # type: ignore[attr-defined]
 
-    mock_anthropic_module = MagicMock()
-    mock_client = MagicMock()
-    mock_anthropic_module.Anthropic.return_value = mock_client
+    proposer, polisher = _make_ai_components(True)
 
-    with patch.dict("sys.modules", {"anthropic": mock_anthropic_module}):
-        from jubilant_recorder.codegen.ai_polish import AnthropicPolisher
-        from jubilant_recorder.tagger.llm import AnthropicProposer
-
-        proposer, polisher = _make_ai_components(True)
-
-    assert isinstance(proposer, AnthropicProposer)
-    assert isinstance(polisher, AnthropicPolisher)
+    assert isinstance(proposer, LLMProposer)
+    assert isinstance(polisher, LLMPolisher)
 
 
 def test_make_ai_components_use_ai_false_returns_stubs() -> None:
