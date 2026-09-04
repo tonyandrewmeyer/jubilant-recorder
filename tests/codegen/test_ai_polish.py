@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 
 from jubilant_recorder import codegen, tagger
 from jubilant_recorder.codegen import ai_polish
-from jubilant_recorder.codegen.ai_polish import AnthropicPolisher, Polisher, StubPolisher, polish
+from jubilant_recorder.codegen.ai_polish import LLMPolisher, Polisher, StubPolisher, polish
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "minimal_session.json"
 
@@ -117,49 +117,49 @@ def test_behaviour_preserved_rejects_dropped_deploy() -> None:
     assert not ai_polish.behaviour_preserved(original, without)
 
 
-# ── AnthropicPolisher ─────────────────────────────────────────────────────────
+# ── LLMPolisher ────────────────────────────────────────────────────────────────
 
 
 def _make_mock_client(response_text: str) -> Any:
-    message = MagicMock()
-    message.content = [MagicMock(text=response_text)]
+    response = MagicMock()
+    response.json.return_value = {"choices": [{"message": {"content": response_text}}]}
     client = MagicMock()
-    client.messages.create.return_value = message
+    client.post.return_value = response
     return client
 
 
-def test_anthropic_polisher_satisfies_protocol() -> None:
-    assert isinstance(AnthropicPolisher(MagicMock()), Polisher)
+def test_llm_polisher_satisfies_protocol() -> None:
+    assert isinstance(LLMPolisher(MagicMock(), model="test/model"), Polisher)
 
 
-def test_anthropic_polisher_returns_improved_code_when_valid() -> None:
+def test_llm_polisher_returns_improved_code_when_valid() -> None:
     log = _annotated()
     deterministic = codegen.generate(log)
     # The "polished" version renames the test function but keeps all juju calls.
     improved = deterministic.replace("def test_recorded_session(", "def test_deploy_my_charm(")
-    polisher = AnthropicPolisher(_make_mock_client(improved))
+    polisher = LLMPolisher(_make_mock_client(improved), model="test/model")
     result = polish(deterministic, log, polisher=polisher)
     # behaviour_preserved passes → polished version is used
     assert "test_deploy_my_charm" in result
     ast.parse(result)
 
 
-def test_anthropic_polisher_falls_back_on_behaviour_violation() -> None:
+def test_llm_polisher_falls_back_on_behaviour_violation() -> None:
     log = _annotated()
     deterministic = codegen.generate(log)
     # Mock returns code that drops juju.deploy — behaviour_preserved will reject it
     bad_code = "\n".join(line for line in deterministic.splitlines() if "juju.deploy(" not in line)
-    polisher = AnthropicPolisher(_make_mock_client(bad_code))
+    polisher = LLMPolisher(_make_mock_client(bad_code), model="test/model")
     result = polish(deterministic, log, polisher=polisher)
     assert result == deterministic
 
 
-def test_anthropic_polisher_api_error_warns_and_returns_original() -> None:
+def test_llm_polisher_api_error_warns_and_returns_original() -> None:
     log = _annotated()
     deterministic = codegen.generate(log)
     client = MagicMock()
-    client.messages.create.side_effect = RuntimeError("connection refused")
-    polisher = AnthropicPolisher(client)
+    client.post.side_effect = RuntimeError("connection refused")
+    polisher = LLMPolisher(client, model="test/model")
 
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
@@ -169,14 +169,14 @@ def test_anthropic_polisher_api_error_warns_and_returns_original() -> None:
     assert any("API call failed" in str(warning.message) for warning in w)
 
 
-def test_anthropic_polisher_empty_response_returns_original() -> None:
+def test_llm_polisher_empty_response_returns_original() -> None:
     log = _annotated()
     deterministic = codegen.generate(log)
-    message = MagicMock()
-    message.content = []
+    response = MagicMock()
+    response.json.return_value = {"choices": []}
     client = MagicMock()
-    client.messages.create.return_value = message
-    polisher = AnthropicPolisher(client)
+    client.post.return_value = response
+    polisher = LLMPolisher(client, model="test/model")
     result = polisher.polish(deterministic, log)
-    # empty content → returns the original code unchanged (polish() will keep it)
+    # empty choices → returns the original code unchanged (polish() will keep it)
     assert result == deterministic

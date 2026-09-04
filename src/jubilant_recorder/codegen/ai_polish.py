@@ -11,9 +11,9 @@ This module provides:
 * `Polisher` — a one-method Protocol (`polish(code, session_log) -> str`).
 * `StubPolisher` — a deterministic, network-free implementation used by
   tests. Adds a module docstring with the event count.
-* `AnthropicPolisher` — real LLM polisher using claude-sonnet-4-6. Requires
-  an anthropic.Anthropic() client injected at construction time (shared with
-  the tagger's AnthropicProposer — one client per run).
+* `LLMPolisher` — real LLM polisher, calling an OpenRouter chat-completions
+  model. Requires an httpx.Client injected at construction time (shared with
+  the tagger's LLMProposer — one client per run).
 * `polish()` — the orchestrator. Runs the polisher then *verifies* the
   result: the polished code must still parse, and the sequence of
   behaviour-bearing jubilant calls must be unchanged. Falls back to the
@@ -26,6 +26,8 @@ import ast
 import json
 import warnings
 from typing import Any, Protocol, TypeAlias, runtime_checkable
+
+from jubilant_recorder.openrouter import complete
 
 SessionLog: TypeAlias = dict[str, Any]
 
@@ -92,26 +94,24 @@ Test to improve:
 """
 
 
-class AnthropicPolisher:
-    """LLM polisher using the Anthropic API (claude-sonnet-4-6).
+class LLMPolisher:
+    """LLM polisher, calling an OpenRouter chat-completions model.
 
-    Requires an anthropic.Anthropic() client injected at construction.
-    The same client instance should be shared with AnthropicProposer in the
-    tagger so only one anthropic.Anthropic() is created per run.
+    Requires an httpx.Client injected at construction (see
+    jubilant_recorder.openrouter.make_client). The same client instance
+    should be shared with LLMProposer in the tagger so only one
+    httpx.Client is created per run.
     """
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: Any, *, model: str) -> None:
         self._client = client
+        self._model = model
 
     def polish(self, code: str, session_log: SessionLog) -> str:
         log_json = json.dumps(session_log, indent=2, sort_keys=True)
         prompt = _POLISH_PROMPT.format(session_log_json=log_json, code=code)
         try:
-            message = self._client.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=4096,
-                messages=[{"role": "user", "content": prompt}],
-            )
+            raw = complete(self._client, model=self._model, prompt=prompt, max_tokens=4096)
         except Exception as exc:
             warnings.warn(
                 f"LLM polish API call failed: {exc} — using deterministic output",
@@ -119,9 +119,9 @@ class AnthropicPolisher:
             )
             return code
 
-        if not message.content:
+        if not raw:
             return code
-        return message.content[0].text.strip()
+        return raw.strip()
 
 
 def polish(code: str, session_log: SessionLog, *, polisher: Polisher | None = None) -> str:

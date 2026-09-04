@@ -17,10 +17,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from jubilant_recorder import codegen, quiet_window, tagger
-from jubilant_recorder.codegen.ai_polish import AnthropicPolisher, Polisher, StubPolisher
+from jubilant_recorder import codegen, openrouter, quiet_window, tagger
+from jubilant_recorder.codegen.ai_polish import LLMPolisher, Polisher, StubPolisher
 from jubilant_recorder.session_log import SessionLog
-from jubilant_recorder.tagger.llm import AnthropicProposer, AssertionProposer, StubProposer
+from jubilant_recorder.tagger.llm import AssertionProposer, LLMProposer, StubProposer
 
 
 def _state_dir() -> Path:
@@ -57,29 +57,31 @@ def _default_session_log() -> Path:
     return Path.cwd() / "session.json"
 
 
-def _make_ai_components(use_ai: bool) -> tuple[AssertionProposer, Polisher]:
+def _make_ai_components(
+    use_ai: bool, *, model: str | None = None
+) -> tuple[AssertionProposer, Polisher]:
     """Return (proposer, polisher) for the current run.
 
     When --ai is not set, both are stubs (no LLM calls, deterministic output).
-    When --ai is set, tries to build a shared anthropic.Anthropic() client from
-    ANTHROPIC_API_KEY; falls back to stubs with a warning if the key is absent.
+    When --ai is set, tries to build a shared httpx.Client for OpenRouter from
+    OPENROUTER_API_KEY; falls back to stubs with a warning if the key is
+    absent. `model` overrides OPENROUTER_MODEL and the built-in default.
     """
     if not use_ai:
         return StubProposer(), StubPolisher()
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    api_key = os.environ.get("OPENROUTER_API_KEY")
     if not api_key:
         warnings.warn(
-            "ANTHROPIC_API_KEY is not set — --ai flag has no effect; "
-            "using offline stubs. Set ANTHROPIC_API_KEY to enable LLM features.",
+            "OPENROUTER_API_KEY is not set — --ai flag has no effect; "
+            "using offline stubs. Set OPENROUTER_API_KEY to enable LLM features.",
             stacklevel=3,
         )
         return StubProposer(), StubPolisher()
 
-    import anthropic
-
-    client = anthropic.Anthropic(api_key=api_key)
-    return AnthropicProposer(client), AnthropicPolisher(client)
+    client = openrouter.make_client(api_key)
+    resolved_model = openrouter.resolve_model(model)
+    return LLMProposer(client, model=resolved_model), LLMPolisher(client, model=resolved_model)
 
 
 def _now_iso() -> str:
@@ -130,7 +132,7 @@ def cmd_stop(_args: argparse.Namespace) -> int:
 def cmd_generate(args: argparse.Namespace) -> int:
     """Generate a jubilant test from a recorded session."""
     use_ai = getattr(args, "ai", False)
-    proposer, polisher = _make_ai_components(use_ai)
+    proposer, polisher = _make_ai_components(use_ai, model=getattr(args, "ai_model", None))
     session_log_path = Path(args.session_log)
     log = json.loads(session_log_path.read_text())
     log = quiet_window.synthesize(log)
@@ -165,7 +167,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
 def cmd_run(args: argparse.Namespace) -> int:
     """Record a session while running the given command."""
     use_ai = getattr(args, "ai", False)
-    proposer, polisher = _make_ai_components(use_ai)
+    proposer, polisher = _make_ai_components(use_ai, model=getattr(args, "ai_model", None))
     session_log = Path(args.session_log).absolute() if args.session_log else _default_session_log()
     log = SessionLog(session_log)
     log.close()
@@ -224,6 +226,13 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Run the optional LLM polish pass over the generated test "
         "(experimental — review the output before committing).",
     )
+    p_run.add_argument(
+        "--ai-model",
+        default=None,
+        metavar="MODEL",
+        help="OpenRouter model id for --ai (default: $OPENROUTER_MODEL or "
+        f"{openrouter.DEFAULT_MODEL}).",
+    )
     p_run.add_argument("cmd", nargs=argparse.REMAINDER)
     p_run.set_defaults(func=cmd_run)
 
@@ -245,6 +254,13 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Run the optional LLM polish pass over the generated test "
         "(experimental — review the output before committing).",
+    )
+    p_gen.add_argument(
+        "--ai-model",
+        default=None,
+        metavar="MODEL",
+        help="OpenRouter model id for --ai (default: $OPENROUTER_MODEL or "
+        f"{openrouter.DEFAULT_MODEL}).",
     )
     p_gen.set_defaults(func=cmd_generate)
 
