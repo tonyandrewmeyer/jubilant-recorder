@@ -19,6 +19,8 @@ import json
 import warnings
 from typing import Any, Protocol, TypeAlias, runtime_checkable
 
+from jubilant_recorder.openrouter import complete
+
 SessionLog: TypeAlias = dict[str, Any]
 
 _VALID_KINDS = frozenset({"unit_status", "unit_count", "action_result", "relation_exists"})
@@ -90,34 +92,31 @@ class StubProposer:
         return []
 
 
-class AnthropicProposer:
-    """Real LLM proposer using the Anthropic API (claude-sonnet-4-6).
+class LLMProposer:
+    """Real LLM proposer, calling an OpenRouter chat-completions model.
 
-    Requires an anthropic.Anthropic() client built with ANTHROPIC_API_KEY.
-    API errors are caught and surfaced as warnings; the empty-list fallback
-    keeps the rest of the pipeline intact.
+    Requires an httpx.Client built with OPENROUTER_API_KEY (see
+    jubilant_recorder.openrouter.make_client). API errors are caught and
+    surfaced as warnings; the empty-list fallback keeps the rest of the
+    pipeline intact.
     """
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: Any, *, model: str) -> None:
         self._client = client
+        self._model = model
 
     def propose(self, log: SessionLog) -> list[dict[str, Any]]:
         log_json = json.dumps(log, indent=2, sort_keys=True)
         prompt = _PROMPT.format(log=log_json)
         try:
-            message = self._client.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=2048,
-                messages=[{"role": "user", "content": prompt}],
-            )
-        except Exception as exc:  # anthropic.APIError and network errors
+            raw = complete(self._client, model=self._model, prompt=prompt, max_tokens=2048)
+        except Exception as exc:  # httpx.HTTPError and friends
             warnings.warn(
                 f"LLM assertion proposer API call failed: {exc} — skipping LLM pass",
                 stacklevel=2,
             )
             return []
 
-        raw = message.content[0].text if message.content else ""
         try:
             parsed = json.loads(raw)
         except json.JSONDecodeError as exc:
