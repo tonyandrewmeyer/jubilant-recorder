@@ -8,9 +8,12 @@ the full parse-and-validate pipeline without a network round-trip.
 from __future__ import annotations
 
 import copy
+import json
 import warnings
 from typing import Any
 from unittest.mock import MagicMock
+
+import pytest
 
 from jubilant_recorder.tagger import tag
 from jubilant_recorder.tagger.llm import (
@@ -18,6 +21,7 @@ from jubilant_recorder.tagger.llm import (
     LLMProposer,
     StubProposer,
     _collect_known_entities,
+    _json_payload,
     llm_augment,
 )
 
@@ -604,3 +608,36 @@ def test_llm_proposer_api_error_warns_and_returns_empty():
 def test_llm_proposer_satisfies_protocol():
     client = MagicMock()
     assert isinstance(LLMProposer(client, model="test/model"), AssertionProposer)
+
+
+class TestTolerantJSONPayload:
+    """A fenced or preambled reply is still a usable set of proposals.
+
+    Seen intermittently from a live model: the prompt asks for bare JSON and
+    usually gets it, but not always, and a bare json.loads skipped the whole
+    LLM pass with a warning when it did not.
+    """
+
+    _OBJ = '{"proposals": [{"seq": 1, "kind": "unit_count", "app": "ubuntu", "expected": 1}]}'
+
+    def test_bare_json_is_unchanged(self):
+        assert json.loads(_json_payload(self._OBJ))["proposals"]
+
+    def test_json_fence_is_stripped(self):
+        raw = f"```json\n{self._OBJ}\n```"
+        assert json.loads(_json_payload(raw))["proposals"]
+
+    def test_bare_fence_is_stripped(self):
+        raw = f"```\n{self._OBJ}\n```"
+        assert json.loads(_json_payload(raw))["proposals"]
+
+    def test_preamble_before_the_object_is_dropped(self):
+        raw = f"Here are the proposals:\n\n{self._OBJ}"
+        assert json.loads(_json_payload(raw))["proposals"]
+
+    def test_prose_with_no_object_is_returned_unchanged(self):
+        """The caller's JSONDecodeError path has to stay reachable."""
+        raw = "I can't help with that."
+        assert _json_payload(raw) == raw
+        with pytest.raises(json.JSONDecodeError):
+            json.loads(_json_payload(raw))

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import copy
 import json
+import re
 import warnings
 from typing import Any, Protocol, TypeAlias, runtime_checkable
 
@@ -118,7 +119,7 @@ class LLMProposer:
             return []
 
         try:
-            parsed = json.loads(raw)
+            parsed = json.loads(_json_payload(raw))
         except json.JSONDecodeError as exc:
             warnings.warn(
                 f"LLM assertion proposer returned non-JSON response: {exc} — skipping",
@@ -243,6 +244,39 @@ def _proposal_to_tag_dict(proposal: dict[str, Any]) -> dict[str, Any]:
         return {**base, "endpoint_a": ep_a, "endpoint_b": ep_b}
     else:
         return base  # unreachable after validation
+
+
+_FENCE_RE = re.compile(r"^\s*```(?:json)?\s*\n(?P<body>.*?)\n?\s*```\s*$", re.DOTALL)
+
+
+def _json_payload(raw: str) -> str:
+    """Return the JSON object in *raw*, tolerating a fence or a preamble.
+
+    The prompt asks for bare JSON and usually gets it, but not always: a
+    model may wrap the object in a ```json fence, or open with a sentence
+    before it. Neither is a refusal and neither means the proposals are
+    bad - but a bare `json.loads` treats both as garbage, and the whole
+    tagger half of `--ai` is then skipped with a warning.
+
+    That failure was seen intermittently rather than every time, which is
+    what makes it worth handling here rather than by rewording the prompt:
+    an intermittent silent degradation is the kind you discover in front
+    of an audience.
+
+    Anything that still is not JSON is returned unchanged, so the caller's
+    `JSONDecodeError` path stays exactly as it was.
+    """
+    fenced = _FENCE_RE.match(raw)
+    if fenced:
+        return fenced.group("body")
+    stripped = raw.strip()
+    if stripped.startswith("{"):
+        return stripped
+    start = stripped.find("{")
+    end = stripped.rfind("}")
+    if start != -1 and end > start:
+        return stripped[start : end + 1]
+    return raw
 
 
 def llm_augment(log: SessionLog, proposer: AssertionProposer) -> SessionLog:
