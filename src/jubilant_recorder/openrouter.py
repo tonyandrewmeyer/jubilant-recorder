@@ -15,10 +15,14 @@ from typing import Any
 
 BASE_URL = "https://openrouter.ai/api/v1"
 
-# Matches the model this project used directly via the Anthropic API before
-# the OpenRouter migration, so the switch changes transport, not output
-# quality. Override with OPENROUTER_MODEL or --ai-model.
-DEFAULT_MODEL = "anthropic/claude-sonnet-4.6"
+# The current Sonnet. The OpenRouter migration initially kept
+# claude-sonnet-4.6, to change transport without changing output quality,
+# but sonnet-5 is both newer and cheaper ($2/$10 per MTok against $3/$15),
+# so there is nothing to trade off. Pinned rather than
+# anthropic/claude-sonnet-latest: an --ai run is meant to be reproducible,
+# and a floating alias would change the output from under a recorded
+# session. Override with OPENROUTER_MODEL or --ai-model.
+DEFAULT_MODEL = "anthropic/claude-sonnet-5"
 
 
 def resolve_model(explicit: str | None) -> str:
