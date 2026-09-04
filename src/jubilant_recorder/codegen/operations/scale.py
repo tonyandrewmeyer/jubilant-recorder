@@ -2,7 +2,7 @@
 
 jubilant 1.10 has no ``Juju.scale()`` method — only ``add_unit()`` (relative:
 "add N more units") and ``remove_unit()``. There is no absolute "set to N"
-primitive at all. See CLI-CORPUS.md F1/F2.
+primitive at all.
 
 The "scale" op is shared by two sources that don't have a common jubilant
 primitive: ``Application.AddUnits`` (relative) and
@@ -12,12 +12,11 @@ disambiguates them:
 * ``"relative"`` (default, for events recorded before this field existed —
   ``AddUnits`` is the more common source) → ``juju.add_unit(app,
   num_units=units, to=..., attach_storage=...)``. ``to``/``attach_storage``
-  are optional — see CLI-CORPUS.md §11's follow-on note. Both the CLI/shim
+  are optional. Both the CLI/shim
   translation path (``cli_translate._classify_add_unit``) and the RPC path
   (``correlate._extract_args`` for ``Application.AddUnits``) populate these
   as the same comma-joined string shape, so this emitter renders identical
-  output regardless of which source observed the operation — see
-  STEP7-RPC-ADDUNITS-PLACEMENT-RESULTS.md.
+  output regardless of which source observed the operation.
 * ``"absolute"`` → jubilant has no client method for "set scale to N", so
   this falls to ``juju.cli("scale-application", ...)``, the same
   escape-hatch pattern already used by ``set_charm``, ``expose``, and the

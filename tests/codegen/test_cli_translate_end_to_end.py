@@ -1,8 +1,7 @@
-"""Step 7 end-to-end: shim-recorded `juju <subcommand>` events through
-`generate()` — confirms real integration (not just the pure classifier),
-and covers CLI-CORPUS.md §7's golden-output regression scope: existing
-shim-`shell` behaviour must be unchanged for anything that stays bucket 2/3,
-and mixed bucket-1/bucket-2 sessions must dispatch per-event.
+"""End-to-end: shim-recorded `juju <subcommand>` events through
+`generate()` — confirms real integration (not just the pure classifier).
+Existing shim-`shell` behaviour must be unchanged for anything that stays
+bucket 2/3, and mixed bucket-1/bucket-2 sessions must dispatch per-event.
 """
 
 from __future__ import annotations
@@ -41,7 +40,7 @@ def test_bucket1_config_set_argv_emits_real_call() -> None:
 
 
 def test_bucket1_add_unit_emits_add_unit_not_broken_scale() -> None:
-    """F1 regression: a translated add-unit must not resurrect `juju.scale()`."""
+    """Regression: a translated add-unit must not resurrect `juju.scale()`."""
     src = generate(_wrap([_shim_event(1, ["add-unit", "my-charm", "-n", "2"])]))
     assert "juju.add_unit('my-charm', num_units=2)" in src
     assert "juju.scale(" not in src
@@ -59,8 +58,7 @@ def test_bucket1_run_single_unit() -> None:
 
 def test_bucket2_excepted_flag_still_renders_shell_comment() -> None:
     """deploy --attach-storage has no representable kwarg — stays the
-    existing `# shell:` rendering, unchanged by step 7 (§7 golden-output
-    regression scope)."""
+    existing `# shell:` rendering, unchanged by this bucket-1 translation."""
     src = generate(_wrap([_shim_event(1, ["deploy", "my-charm", "--attach-storage", "foo/0"])]))
     assert "# shell: juju deploy my-charm --attach-storage foo/0" in src
     assert "juju.deploy(" not in src
@@ -78,10 +76,11 @@ def test_bucket3_unhandled_subcommand_still_renders_shell_comment() -> None:
 
 
 def test_add_secret_never_translated_stays_shell_comment() -> None:
-    """F5: PATH shim has no redaction — add-secret argv must never become a
+    """PATH shim has no redaction — add-secret argv must never become a
     typed `juju.add_secret(...)` call. It still renders as the existing
-    `# shell:` comment (which — pre-existing F5 gap, unchanged here — does
-    carry the plaintext argv; that gap is the shim's, not step 7's, to fix).
+    `# shell:` comment (which — a pre-existing gap, unchanged here — does
+    carry the plaintext argv; that gap is the shim's, not this translation's,
+    to fix).
     """
     src = generate(_wrap([_shim_event(1, ["add-secret", "my-secret", "token=hunter2"])]))
     assert "# shell: juju add-secret my-secret token=hunter2" in src
@@ -90,7 +89,7 @@ def test_add_secret_never_translated_stays_shell_comment() -> None:
 
 def test_mixed_session_dispatches_per_event() -> None:
     """One bucket-1 event and one bucket-3 event in the same log — dispatch
-    is per-event, not per-session (§7)."""
+    is per-event, not per-session."""
     events = [
         _shim_event(1, ["deploy", "my-charm", "--channel", "edge"]),
         _shim_event(2, ["ssh", "my-charm/0", "ls"]),
@@ -102,7 +101,7 @@ def test_mixed_session_dispatches_per_event() -> None:
 
 def test_shell_context_python_wrapper_path_untouched() -> None:
     """`shell_context` (JTR_PYTHON_ACTIVE double-recording guard) must never
-    be fed into the bucket-1 dispatch — it's narration, not a step (§7)."""
+    be fed into the bucket-1 dispatch — it's narration, not a step."""
     event = _shim_event(1, ["deploy", "my-charm"])
     event["op"] = "shell_context"
     event["result"] = {"exit_code": 0, "stdout": None, "stderr": None, "stdout_truncated": False}
@@ -112,7 +111,7 @@ def test_shell_context_python_wrapper_path_untouched() -> None:
 
 
 def test_wait_for_idle_never_captured_from_shim() -> None:
-    """§7: there is no `juju` subcommand for wait_for_idle — the classifier
+    """There is no `juju` subcommand for wait_for_idle — the classifier
     must never invent a match (27, not 28, of the ops are argv-reachable)."""
     from jubilant_recorder.codegen import cli_translate
 

@@ -73,7 +73,7 @@ def generate(
         # use `op: "shell"` but without a shim source; those must still fall
         # through to fallback so they render as `# TODO: manual step`.
         if op == "shell" and (event.get("args") or {}).get("source") == "shim":
-            # Step 7 (CLI-CORPUS.md): bucket-1 argv is translated into the
+            # Bucket-1 argv is translated into the
             # matching typed op below instead of a raw `# shell:` comment.
             # Anything not a clean bucket-1 match keeps today's rendering.
             translated = cli_translate.classify(event)
@@ -96,7 +96,7 @@ def generate(
             body_lines.append(f"{pad}# step: {pending_tag}")
             pending_tag = None
 
-        # Step 10: operations codegen can't honestly represent (failed ops,
+        # Operations codegen can't honestly represent (failed ops,
         # error-state models, mixed multi-unit statuses) get a skip/TODO
         # marker instead of an assertion — and never crash codegen.
         finding = unrepresentable.classify(event)

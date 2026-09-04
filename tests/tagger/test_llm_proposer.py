@@ -1,4 +1,4 @@
-"""Tests for the LLM-augmented tagger pass (PLAN.md §(B)(3)).
+"""Tests for the LLM-augmented tagger pass.
 
 All tests use stub seams — no real LLM calls are made. The AnthropicProposer
 path is covered via a minimal mock that returns pre-canned JSON, exercising

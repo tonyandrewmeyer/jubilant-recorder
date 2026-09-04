@@ -1,6 +1,6 @@
 """Redaction of sensitive values from telemetry payloads.
 
-Applied at adapter time per SCHEMA.md §Redaction.  Replaces matched
+Applied at adapter time.  Replaces matched
 substrings with <redacted:<class>> sentinels and never strips surrounding
 context, so downstream consumers still see that e.g. a curl ran — just
 not the credential it carried.

@@ -63,11 +63,10 @@ EMITTERS = {
     "create_offer": create_offer.emit,
     "consume": consume.emit,
     # "list_offers", "remove_offer", "get_consume_details", "remove_saas" are
-    # correlator-classified bucket-1 (CMR-FACADE-RECON.md), and jubilant 1.10
-    # still has no dedicated client method for any of them — but each is
-    # emitted via `juju.cli(...)`, jubilant's public escape hatch
-    # (`jubilant/_juju.py:527`; already used by jubilant's own `bootstrap()`).
-    # See LIBJUJU-CORPUS-AUDIT-2026-07-20.md §5. If jubilant later grows
+    # correlator-classified bucket-1, and jubilant 1.10 still has no
+    # dedicated client method for any of them — but each is emitted via
+    # `juju.cli(...)`, jubilant's public escape hatch (`jubilant/_juju.py:527`;
+    # already used by jubilant's own `bootstrap()`). If jubilant later grows
     # typed client methods for these, swap the `cli()` calls for them here.
     "list_offers": list_offers.emit,
     "remove_offer": remove_offer.emit,
@@ -78,8 +77,7 @@ EMITTERS = {
     "find_offers": find_offers.emit,
     # "set_charm", "expose", "unexpose", "set_constraints", "merge_bindings",
     # "set_relations_suspended", "config_unset", "update_application_base"
-    # are the 8 `Application.*` bucket-2 → bucket-1 promotions from
-    # LIBJUJU-CORPUS-AUDIT-2026-07-20.md §5 "Natural extension" — same
+    # are the 8 `Application.*` bucket-2 → bucket-1 promotions — same
     # shape as the CMR ops above (no jubilant client method, but a direct
     # `juju` CLI subcommand), so each is emitted via `juju.cli(...)` too,
     # rather than falling through to the bucket-2 shell/TODO stub.

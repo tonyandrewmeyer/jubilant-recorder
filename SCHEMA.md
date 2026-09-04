@@ -1,6 +1,6 @@
 # Session Log — JSON schema
 
-*Work-breakdown item #2. Defines the contract before the recorder is written.*
+*Defines the contract before the recorder is written.*
 *Designed: 2026-05-30.*
 
 The session log is a single JSON file written by layer (A) (the recorder) and
@@ -196,7 +196,7 @@ Same args shape as `integrate`; empty result.
 | `app` | args | string | Application name. |
 | `units` | args | integer | Unit delta (`mode: "relative"`) or target count (`mode: "absolute"`). |
 | `mode` | args | `"relative"` \| `"absolute"` | `"relative"` (`Application.AddUnits`, `juju add-unit`) emits `Juju.add_unit(app, num_units=units)`. `"absolute"` (`Application.ScaleApplications`, K8s-only `juju scale-application`) has no jubilant client method, so it emits `juju.cli("scale-application", app, str(units))`. Missing/absent defaults to `"relative"` for events recorded before this field existed. |
-| `to` | args | string, optional | `mode: "relative"` only. Placement directive(s) from `juju add-unit --to`, forwarded verbatim (comma-joined string, matching jubilant's own `add_unit(to=...)` handling) to `Juju.add_unit(app, num_units=units, to=to)`. Set by both the CLI/shim translation path (`cli_translate._classify_add_unit`, from the raw `--to` argv string) and the RPC path (`correlate._extract_args` for `Application.AddUnits`, reconstructed from the wire's `placement` list of `{"scope", "directive"}` dicts — see STEP7-RPC-ADDUNITS-PLACEMENT-RESULTS.md) — both produce the same comma-joined string shape, so the emitter's output is identical regardless of source. Ignored (never present) when `mode: "absolute"`, since `scale-application` has no `--to` flag. |
+| `to` | args | string, optional | `mode: "relative"` only. Placement directive(s) from `juju add-unit --to`, forwarded verbatim (comma-joined string, matching jubilant's own `add_unit(to=...)` handling) to `Juju.add_unit(app, num_units=units, to=to)`. Set by both the CLI/shim translation path (`cli_translate._classify_add_unit`, from the raw `--to` argv string) and the RPC path (`correlate._extract_args` for `Application.AddUnits`, reconstructed from the wire's `placement` list of `{"scope", "directive"}` dicts) — both produce the same comma-joined string shape, so the emitter's output is identical regardless of source. Ignored (never present) when `mode: "absolute"`, since `scale-application` has no `--to` flag. |
 | `attach_storage` | args | string, optional | `mode: "relative"` only. From `juju add-unit --attach-storage`, forwarded verbatim to `Juju.add_unit(app, num_units=units, attach_storage=attach_storage)`. Set by both the CLI/shim translation path and the RPC path (reconstructed from the wire's `attach-storage` list of `storage-<id>` tags) — same shape from either source. |
 
 ### `run`
@@ -332,13 +332,13 @@ Stub shape (default, no `--include-shell`):
 ## Model snapshot (lightweight)
 
 `model_snapshot_before` and `model_snapshot_after` carry a **strict subset**
-of the full `ModelSnapshot` defined in `[[explain-my-model]]/SCHEMA.md`.
+of a fuller model-snapshot shape used for full model introspection.
 
-The subset carries exactly what the assertion engine (B) needs: unit statuses,
+The subset carries exactly what the assertion engine needs: unit statuses,
 workload messages, agent statuses, and relation membership. Full relation
 databags and machine/provider details are excluded from session-log snapshots —
 they are too large (a realistic model produces ~10–30 KB of databags) and are
-credential-bearing (PLAN.md Open Q#5).
+credential-bearing.
 
 ### Shape
 
@@ -391,33 +391,34 @@ credential-bearing (PLAN.md Open Q#5).
 | `relations` | array | ✓ | List of relation membership objects. Empty array `[]` if no relations exist. |
 | `relations[i].endpoints` | array of string (length 2) | ✓ | `["<app>:<endpoint>", "<app>:<endpoint>"]`. For peer relations both strings reference the same app. Always exactly two elements. |
 
-### Alignment with `explain-my-model/SCHEMA.md`
+### Derived from `juju status --format json`
 
-The recorder takes the `explain-my-model` extractor as a dependency for
-snapshot calls. The lightweight snapshot is produced by calling the extractor
-and projecting it down:
+The lightweight snapshot is produced by calling `juju status --format json`
+and projecting jubilant's own parsed `Status` object down to just what the
+assertion engine needs:
 
-| Full `ModelSnapshot` field | Session snapshot | Notes |
+| `jubilant.Status` field | Session snapshot | Notes |
 |---|---|---|
-| `applications[i].name` | `apps.<name>` (key) | Same. |
-| `applications[i].units[j].name` | `apps.<name>.units.<unit>` (key) | Same. |
-| `applications[i].units[j].workload_status.current` | `workload_status` | Scalar, not the full `{current, message, since}` object. |
-| `applications[i].units[j].workload_status.message` | `workload_message` | Promoted to top-level unit field. |
-| `applications[i].units[j].agent_status.current` | `agent_status` | Scalar. |
-| `relations[i].endpoint_a` + `relations[i].endpoint_b` | `relations[i].endpoints[0]` + `[1]` | Two-element array instead of named fields. |
+| `apps[name]` (key) | `apps.<name>` (key) | Same. |
+| `apps[name].units[unit]` (key) | `apps.<name>.units.<unit>` (key) | Same. |
+| `apps[name].units[unit].workload_status.current` | `workload_status` | Scalar, not the full `StatusInfo` object. |
+| `apps[name].units[unit].workload_status.message` | `workload_message` | Promoted to top-level unit field. |
+| `apps[name].units[unit].juju_status.current` | `agent_status` | Scalar. |
+| `apps[name].relations` (local endpoint → related apps) | `relations[i].endpoints` | Deduplicated pairs, each rendered as a two-element `["<app>:<endpoint>", ...]` array instead of named fields. |
 
 **Intentionally omitted** from the session snapshot:
 
-- `applications[i].charm` (name, channel, revision, base) — not needed for
-  assertion inference; too volatile between test runs.
-- `applications[i].config` — full config values are in the `config_get` op
-  result, not the snapshot. Avoids duplicating credential-bearing config.
-- `applications[i].units[j].workload_status.since` / `agent_status.since` —
-  timestamps are non-deterministic and would cause spurious delta detections.
-- `machines` — not needed for the v1 assertion rule set.
-- `relations[i].id` / `relations[i].interface` — membership (which endpoints
-  are related) is sufficient for assertion inference; interface name is a
-  charm-metadata concern, not a model-state concern.
+- `apps[name].charm_name` / `charm_channel` / `charm_rev` / `base` — not
+  needed for assertion inference; too volatile between test runs.
+- Full application config — config values are captured in the `config_get`
+  op result instead, not the snapshot. Avoids duplicating credential-bearing
+  config.
+- `StatusInfo.since` on workload/agent status — timestamps are
+  non-deterministic and would cause spurious delta detections.
+- `Status.machines` — not needed for the v1 assertion rule set.
+- Relation interface names — membership (which endpoints are related) is
+  sufficient for assertion inference; interface name is a charm-metadata
+  concern, not a model-state concern.
 
 ---
 
@@ -560,7 +561,7 @@ UTF-8, no BOM.
 
 **Pretty-printed JSON with stable key ordering** (`indent=2`, `sort_keys=True`
 in Python terms). This is a deliberate design decision, inspired by syrupy's
-Amber format (§5 of PRIOR-ART.md):
+Amber format:
 
 - `git diff session.json` produces human-readable, line-oriented output. A
   single changed field appears as a two-line diff (old/new), not an unintelligible
@@ -580,8 +581,8 @@ development artefacts, not shipped to production.
 The session log is written as a complete document at `stop`/`run` completion,
 not streamed line-by-line. This is simpler than JSONL (no partial-read
 complexity in consumers) and consistent with the use case (post-hoc codegen,
-not real-time streaming). Compare with `charm-runtime-monitor`'s `events.jsonl`
-which uses JSONL because the analyser needs incremental ingestion.
+not real-time streaming), unlike tools that need incremental ingestion and so
+stream events as JSONL instead.
 
 If the recorder process is killed mid-session before `stop` is called, any
 partial log is written to `session-<id>.partial.json` alongside the final file
@@ -609,8 +610,9 @@ field.
 The `model_snapshot_before`/`after` objects carry their own `schema_version`
 (currently `1`). This is **independent** from the session-level version:
 
-- The snapshot format can evolve (e.g. when `explain-my-model`'s extractor
-  adds new fields) without bumping the session schema version.
+- The snapshot format can evolve (e.g. when the projection from
+  `jubilant.Status` adds new fields) without bumping the session schema
+  version.
 - Conversely, the session envelope can be restructured without touching the
   snapshot subset format.
 - Consumers that only care about snapshot content (e.g. a standalone snapshot
@@ -627,14 +629,14 @@ The `model_snapshot_before`/`after` objects carry their own `schema_version`
 
 ## Coupling points
 
-### `explain-my-model/SCHEMA.md` — `ModelSnapshot`
+### `juju status --format json` — snapshot source
 
-The lightweight snapshot (§"Model snapshot") is a strict projection of the full
-`ModelSnapshot`. The recorder imports the `explain-my-model` extractor at
-runtime to produce `juju status` snapshots; the projection step is applied
-immediately after extraction, before the event is written.
+The lightweight snapshot (§"Model snapshot") is a strict projection of
+jubilant's own parsed `Status` object. The recorder calls `juju status
+--format json` at runtime to produce this status; the projection step is
+applied immediately after parsing, before the event is written.
 
-Any new field that layer (B) needs from the full `ModelSnapshot` must be
+Any new field that layer (B) needs from `Status` must be
 explicitly added to the lightweight subset schema and bumps the snapshot-level
 `schema_version`. Fields omitted from the lightweight subset (charm version,
 machine info, config, relation databags) must not appear in session log
@@ -949,11 +951,10 @@ checkpoint.
 
 | Alternative | Reason rejected |
 |---|---|
-| JSONL (one event per line) | (B) and (C) need random access to the full session for sequence analysis (e.g. inferring `wait_for_idle` placement). A single document is simpler for both consumers. JSONL is appropriate for `charm-runtime-monitor`'s streaming telemetry; session logs are bounded and complete before (B) runs. |
+| JSONL (one event per line) | (B) and (C) need random access to the full session for sequence analysis (e.g. inferring `wait_for_idle` placement). A single document is simpler for both consumers. JSONL is the right shape for streaming telemetry that needs incremental ingestion; session logs are bounded and complete before (B) runs. |
 | Minified JSON | Makes `git diff session.json` useless. Session logs are debugging artefacts; diff-friendliness matters more than bytes. |
 | Separate before/after snapshot files | Adds directory management complexity for no benefit. Keeping everything in one file means one artefact to move, share, or archive. |
-| Embedding the full `ModelSnapshot` | Full snapshots include relation databags and machine tables. Each snapshot is ~10–30 KB for a realistic model; capturing before+after for 20 operations = ~1 MB of credential-bearing data per session. The lightweight subset is sufficient for (B)'s rule set. |
-| Reusing `explain-my-model`'s snapshot format verbatim | The full `ModelSnapshot` uses semver `schema_version` strings and includes fields not needed by the assertion engine (charm metadata, machine info, agent version detail, config). A strict subset is cleaner and keeps the session log size manageable. The alignment is explicit in the field mapping table above. |
+| Embedding jubilant's full `Status` object verbatim | Full `juju status` output includes relation databags and machine tables. Each snapshot is ~10–30 KB for a realistic model; capturing before+after for 20 operations = ~1 MB of credential-bearing data per session. The lightweight subset is sufficient for (B)'s rule set, and keeps the session log size manageable. The projection is explicit in the field mapping table above. |
 | VCR.py cassette format | VCR cassettes are request/response pairs with no concept of model state, assertions, or gestures. The session log needs all three. The vocabulary (cassette ≈ session log, record modes) is worth borrowing; the format is not. |
 
 ---
@@ -988,10 +989,10 @@ checkpoint.
    point.
 
 5. **Credential redaction in `config_get` results.** `config_get` result values
-   may include secrets. Apply the same redaction rules as
-   `[[explain-my-model]]/SCHEMA.md` §"Redaction" (`*password*`, `*token*`,
-   `*secret*`, `*key*`, `*credential*`, `*cert*`). Redaction is applied at
-   write time; the sentinel format is `"<redacted:<pattern>>"`.
+   may include secrets. Apply redaction rules matching keys such as
+   `*password*`, `*token*`, `*secret*`, `*key*`, `*credential*`, `*cert*`.
+   Redaction is applied at write time; the sentinel format is
+   `"<redacted:<pattern>>"`.
 
 6. **Session log path when using `jubilant-record run`**. The wrapping mode
    must write the final log atomically (write to `<id>.tmp`, then rename to
@@ -1000,30 +1001,28 @@ checkpoint.
 
 ---
 
-## Plan deltas
+## Design notes
 
-*Changes implied by schema work that PLAN.md does not yet reflect.*
+*Schema decisions worth recording, beyond the base event shape above.*
 
-1. **`gesture` is a first-class event field.** PLAN.md §(B) discusses explicit
-   gestures as a layer-(B) concept. The schema promotes them to a layer-(A)
-   field so the recorder captures user intent at the source. Layer (B) reads
-   gestures from the event and emits the corresponding assertion tag.
+1. **`gesture` is a first-class event field.** Gestures capture user intent
+   at the recording layer itself, so the schema promotes them to a top-level
+   event field. The tagging layer reads gestures from the event and emits
+   the corresponding assertion tag.
 
 2. **`op: "checkpoint"` is needed.** Gesture calls happen between jubilant
    operations. The schema requires a synthetic `op` value for them so they fit
-   the event envelope (seq, ts, snapshots). PLAN.md does not mention this op
-   in the taxonomy.
+   the event envelope (seq, ts, snapshots).
 
-3. **`shell` op with `captured` flag.** PLAN.md Open Q#4 describes the
-   `--include-shell` flag as capturing subprocess calls. The schema formalises
-   this as a first-class op with a `captured: false` stub shape so codegen
-   always has a record of non-jubilant activity, even when output wasn't
-   captured.
+3. **`shell` op with `captured` flag.** The `--include-shell` flag captures
+   subprocess calls. The schema formalises this as a first-class op with a
+   `captured: false` stub shape so codegen always has a record of
+   non-jubilant activity, even when output wasn't captured.
 
-4. **Snapshot-level `schema_version` is independent.** PLAN.md speaks of the
-   session log's schema version but does not address the snapshot sub-object
-   version. Keeping them independent (as formalised here) means snapshot format
-   evolution does not force a session-level version bump.
+4. **Snapshot-level `schema_version` is independent.** Keeping the snapshot
+   sub-object's version independent of the session log's own schema version
+   means snapshot format evolution does not force a session-level version
+   bump.
 
 ---
 

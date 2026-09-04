@@ -1,6 +1,6 @@
 """LLM-augmented assertion proposer for the tagger pipeline.
 
-PLAN.md §(B)(3): when --ai is set, send the session log to an LLM and ask
+When --ai is set, send the session log to an LLM and ask
 "what was the user verifying at each step?" Output slots into the existing
 tagged-event format alongside the deterministic delta rules. Assertions
 proposed by the LLM carry source="llm" to distinguish them from

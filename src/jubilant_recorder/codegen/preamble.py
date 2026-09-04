@@ -1,11 +1,11 @@
 """Module-level imports and the `jubilant.temp_model()` wrapper.
 
 WHY `jubilant.temp_model()` (over hand-rolled add_model / destroy_model in
-fixtures): PLAN.md §(C) requires the generated test to follow the jubilant
+fixtures): the generated test should follow the jubilant
 idiom, and the documented idiom is the `temp_model` context manager —
 model creation, teardown, and exception safety in a single block.
 
-WHY the non-empty-model comment (PLAN.md open question 3): `temp_model()`
+WHY the non-empty-model comment: `temp_model()`
 always gives the test a fresh, empty model. If the recording that produced
 this test actually started from a model that already had applications
 deployed, the generated test silently inherits an assumption — "this state

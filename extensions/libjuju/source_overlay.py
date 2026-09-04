@@ -1,7 +1,7 @@
-"""Source-aware overlay — Step 4 of the libjuju extension sketch.
+"""Source-aware overlay for the libjuju extension.
 
 **Decorative only, gated behind ``--source-aware <path>``.** The recording
-alone (``RecordingLibjuju`` + ``correlate.py``, Step 3) must always be enough
+alone (``RecordingLibjuju`` + ``correlate.py``) must always be enough
 to produce a correct, if blandly-named, jubilant test — nothing here may
 become load-bearing. This module's entire job is: given the path to the
 libjuju test file that was actually run, AST-walk it for call sites that
@@ -12,7 +12,7 @@ purely to pick nicer variable names and carry source comments through.
 Passing no overlay (or a source file with no correlatable call sites)
 produces exactly the same output as not using this module at all.
 
-What this recovers, per PLAN.md's "Awareness of the existing test" section:
+What this recovers:
 
 * The test function's own name, so the generated test isn't stuck at the
   generic ``test_recorded_session``.
@@ -24,8 +24,7 @@ What this recovers, per PLAN.md's "Awareness of the existing test" section:
   comment line immediately above) — carried through verbatim above the
   matching generated line.
 
-What it deliberately does not attempt (stated plainly rather than oversold,
-matching this project's own convention — see STOP-THE-DRIFT.md):
+What it deliberately does not attempt (stated plainly rather than oversold):
 
 * **No execution-order guarantee beyond straight-line, sequential code.**
   Call sites are ordered by source position (line, then column) and matched
@@ -34,12 +33,12 @@ matching this project's own convention — see STOP-THE-DRIFT.md):
   libjuju through a helper function defined elsewhere in the file will not
   align cleanly — the mismatched call sites simply produce no annotation
   (silently skipped), never a wrong one. This is the same "decorative, not
-  load-bearing" contract PLAN.md asks for: a missed match degrades naming,
+  load-bearing" contract described above: a missed match degrades naming,
   it never corrupts the recorded operation sequence.
 * **No fixture wiring.** The test function's own parameter names are not
   otherwise used (a future pass could map them to jubilant fixture
-  suggestions per PLAN.md, but that is speculative beyond what step 4 asks
-  for and is left for a later session rather than half-built here).
+  suggestions, but that is speculative beyond this module's current scope
+  and is left for a later session rather than half-built here).
 * **Only a fixed method-name → op vocabulary is recognised**
   (``_METHOD_TO_OP`` below), mirroring the same buckets as
   ``correlate.py``'s ``_BUCKET1_MAP``. A call to a method not in this table

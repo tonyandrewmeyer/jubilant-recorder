@@ -15,7 +15,7 @@ direct ``model.deploy()`` calls.
 
 ----
 
-**Request-ID finding (resolves PLAN.md open question "Async correlation"):**
+**Request-ID finding (how async correlation is resolved):**
 
 ``Connection.rpc()`` assigns a monotonically-increasing integer request-id to
 every outgoing JSON-RPC message. It stamps this id on the ``msg`` dict in-place
