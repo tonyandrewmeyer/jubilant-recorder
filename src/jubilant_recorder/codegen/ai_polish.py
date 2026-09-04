@@ -141,6 +141,12 @@ def polish(code: str, session_log: SessionLog, *, polisher: Polisher | None = No
         return code
     if not behaviour_preserved(code, polished):
         return code
+    if not assertions_preserved(code, polished):
+        warnings.warn(
+            "LLM polish changed the test's assertions — using deterministic output",
+            stacklevel=2,
+        )
+        return code
     return polished
 
 
@@ -152,6 +158,31 @@ def behaviour_preserved(original: str, polished: str) -> bool:
     call must appear the same number of times, in the same order.
     """
     return _behaviour_calls(original) == _behaviour_calls(polished)
+
+
+def assertions_preserved(original: str, polished: str) -> bool:
+    """Return true when both sources make exactly the same assertions.
+
+    The polish prompt says in as many words that assert statements must not
+    be changed, but nothing checked it, and `behaviour_preserved` only looks
+    at juju calls. A live run against OpenRouter rewrote
+    ``for _u in ...units.values(): assert _u...`` into
+    ``assert ...units['ubuntu/1']...`` - which hardcodes the unit number
+    recorded at capture time, so the generated test raises `KeyError` in the
+    fresh `temp_model` it opens. Assertions are the load-bearing part of a
+    generated test; a polisher that rewrites them is not polishing.
+    """
+    return _assertions(original) == _assertions(polished)
+
+
+def _assertions(code: str) -> list[str]:
+    """Every assert in `code`, normalised so formatting alone is not a change."""
+    tree = ast.parse(code)
+    return [
+        ast.dump(node.test, annotate_fields=False)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assert)
+    ]
 
 
 def _behaviour_calls(code: str) -> list[str]:

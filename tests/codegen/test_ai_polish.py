@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
 
+import pytest
+
 from jubilant_recorder import codegen, tagger
 from jubilant_recorder.codegen import ai_polish
 from jubilant_recorder.codegen.ai_polish import LLMPolisher, Polisher, StubPolisher, polish
@@ -180,3 +182,58 @@ def test_llm_polisher_empty_response_returns_original() -> None:
     result = polisher.polish(deterministic, log)
     # empty choices → returns the original code unchanged (polish() will keep it)
     assert result == deterministic
+
+
+class _AssertRewritingPolisher:
+    """Stands in for the live model, which rewrote assertions despite the prompt."""
+
+    def __init__(self, replacement: str) -> None:
+        self._replacement = replacement
+
+    def polish(self, code: str, session_log) -> str:
+        return self._replacement
+
+
+_ORIGINAL = """import jubilant
+
+
+def test_recorded_session():
+    with jubilant.temp_model() as juju:
+        juju.deploy('ubuntu')
+        for _u in juju.status().apps['ubuntu'].units.values():
+            assert _u.workload_status.current == 'active'
+"""
+
+_REWRITTEN = """import jubilant
+
+
+def test_recorded_session():
+    with jubilant.temp_model() as juju:
+        juju.deploy('ubuntu')
+        assert juju.status().apps['ubuntu'].units['ubuntu/1'].workload_status.current == 'active'
+"""
+
+_RENAMED_ONLY = """import jubilant
+
+
+def test_deploys_ubuntu():
+    with jubilant.temp_model() as juju:
+        juju.deploy('ubuntu')
+        for _u in juju.status().apps['ubuntu'].units.values():
+            assert _u.workload_status.current == 'active'
+"""
+
+
+def test_polish_rejects_rewritten_assertions():
+    polisher = _AssertRewritingPolisher(_REWRITTEN)
+
+    with pytest.warns(UserWarning, match="changed the test's assertions"):
+        result = polish(_ORIGINAL, {}, polisher=polisher)
+
+    assert result == _ORIGINAL
+
+
+def test_polish_keeps_a_rename_that_leaves_assertions_alone():
+    polisher = _AssertRewritingPolisher(_RENAMED_ONLY)
+
+    assert polish(_ORIGINAL, {}, polisher=polisher) == _RENAMED_ONLY
