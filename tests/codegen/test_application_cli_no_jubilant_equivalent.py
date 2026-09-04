@@ -1,8 +1,7 @@
 """
 `set_charm`, `expose`, `unexpose`, `set_constraints`, `merge_bindings`,
 `set_relations_suspended`, `config_unset`, and `update_application_base` are
-the 8 `Application.*` bucket-2 → bucket-1 promotions from
-`the corpus audit` §5 "Natural extension". jubilant 1.10
+the 8 `Application.*` bucket-2 → bucket-1 promotions. jubilant 1.10
 has no dedicated client method for any of them, but each has an
 ``EMITTERS`` entry that renders a ``juju.cli(...)`` call — see
 ``operations/__init__.py``. They must not fall through to the

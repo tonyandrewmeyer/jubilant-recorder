@@ -8,7 +8,7 @@ from typing import Any
 def emit(event: dict[str, Any], indent: int) -> str:
     """Emit a `juju.consume(...)` call.
 
-    ``offer_url`` (per the CMR facade notes §2.2) is the resolved/canonicalized
+    ``offer_url`` is the resolved/canonicalized
     URL the two-hop ``Model.consume()`` call produces — it's passed straight
     through as jubilant's ``model_and_app`` positional arg rather than split
     into owner/model/app parts, since jubilant's ``consume()`` concatenates

@@ -1,11 +1,10 @@
 """Optional, flag-gated AI polish pass over deterministic codegen output.
 
-the plan §(C) describes an LLM pass that improves *readability* of the
+This module implements an LLM pass that improves *readability* of the
 generated test — a meaningful test name, per-step docstrings, collapsing
 noisy repeated `wait_for_idle` polls — without touching *correctness*.
-the plan §3 (assertion inference) and the work breakdown both stress that
-this layer is "optional but low-risk: it only affects readability, not
-correctness", and must be gated behind `--ai`, never on by default.
+This layer is optional but low-risk: it only affects readability, not
+correctness, and must be gated behind `--ai`, never on by default.
 
 This module provides:
 

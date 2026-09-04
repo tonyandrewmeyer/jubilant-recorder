@@ -1,8 +1,8 @@
-# libjuju → jubilant extension (step 1 PoC)
+# libjuju → jubilant extension (proof of concept)
 
 Records a libjuju-driven test session and emits session-log events in the same
-SCHEMA.md format that `RecordingJuju` produces — so the existing tagger (B)
-and codegen (C) pipeline is reused unchanged.
+SCHEMA.md format that `RecordingJuju` produces — so the existing tagger
+and codegen pipeline is reused unchanged.
 
 ## Architecture
 
@@ -28,7 +28,7 @@ and codegen (C) pipeline is reused unchanged.
           (pairs each RPC with its delta burst via time-window)
                     │
                     ▼
-          SCHEMA.md events  ──→  tagger (B) ──→ codegen (C)
+          SCHEMA.md events  ──→  tagger ──→ codegen
 ```
 
 ## Key finding: request-ID availability
@@ -105,7 +105,7 @@ PYTHONPATH=. uv run --with pytest --no-project python -m pytest extensions/libju
 PYTHONPATH=src:. uv run --with pytest,jubilant --no-project python -m pytest tests/ extensions/libjuju/tests/ -q
 ```
 
-## Open questions (from the plan)
+## Open questions
 
 - **Async correlation:** resolved — request-IDs available on outgoing RPCs but
   NOT on delta payloads; time-window heuristic is the correct approach.

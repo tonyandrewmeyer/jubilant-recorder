@@ -1,6 +1,6 @@
-"""the plan step 9 — session 2: deploy + integrate.
+"""Two-charm live session (session 2): deploy + integrate.
 
-Two-charm session for the recorder. Drives RecordingJuju against the
+Drives RecordingJuju against the
 same LXD model as step 3, but with a *related* second app (the `nrpe`
 subordinate, which attaches to `ubuntu:juju-info`).
 
@@ -15,8 +15,7 @@ Run from the repo root:
 
     uv run --with jubilant python step9_session2_live.py
 
-Captures a log next to this file; STEP9.md or a future step-9 writeup
-will commit it as a fixture.
+Captures a log next to this file.
 """
 
 from __future__ import annotations

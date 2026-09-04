@@ -1,9 +1,9 @@
-"""the plan step 10 — deliberate-failure live session.
+"""Deliberate-failure live session.
 
 The real-world k8s session (`step9_real_world_k8s.jsonl`) accidentally
-exercised step-10's `wait_for_idle` failure path because containerd
-was corrupt. This script exercises step-10's other failure paths
-deliberately and against a fresh model:
+exercised the `wait_for_idle` failure path (see `unrepresentable.py`)
+because containerd was corrupt. This script exercises the other
+failure paths deliberately and against a fresh model:
 
   * juju.deploy with a charm name that does not exist on Charmhub
     (jubilant raises CLIError — the recorder captures result.error

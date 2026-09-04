@@ -1,7 +1,7 @@
-"""Bucket-1 argv translation — the CLI corpus notes §4.
+"""Bucket-1 argv translation.
 
 Every mapping here is a pure function of (subcommand, argv) -> args dict, so
-these are fixture tests with no live juju needed, per the CLI corpus notes §6.
+these are fixture tests with no live juju needed.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ def _c(*argv: str) -> tuple[str, dict] | None:
     return cli_translate.classify_argv(list(argv))
 
 
-# --- deploy — §4.1 ---
+# --- deploy ---
 
 
 def test_deploy_minimal() -> None:
@@ -88,7 +88,7 @@ def test_deploy_no_charm_is_bucket2() -> None:
     assert _c("deploy") is None
 
 
-# --- config / config_get / config_unset — §4.2 ---
+# --- config / config_get / config_unset ---
 
 
 def test_config_set() -> None:
@@ -126,7 +126,7 @@ def test_config_model_flag_is_bucket2() -> None:
     assert _c("config", "-m", "othermodel", "my-charm", "log-level=debug") is None
 
 
-# --- refresh -> set_charm — §4.3 ---
+# --- refresh -> set_charm ---
 
 
 def test_refresh_switch_channel_force() -> None:
@@ -158,7 +158,7 @@ def test_refresh_storage_todo_still_bucket1() -> None:
     assert args["storage_constraints"] == ["pgdata=1GB"]
 
 
-# --- remove-application — §4.4 ---
+# --- remove-application ---
 
 
 def test_remove_application_single() -> None:
@@ -173,7 +173,7 @@ def test_remove_application_force_is_bucket2() -> None:
     assert _c("remove-application", "my-charm", "--force") is None
 
 
-# --- integrate/relate, remove-relation — §4.5 ---
+# --- integrate/relate, remove-relation ---
 
 
 def test_integrate() -> None:
@@ -205,7 +205,7 @@ def test_remove_relation() -> None:
     )
 
 
-# --- run — §4.6 ---
+# --- run ---
 
 
 def test_run_single_unit_no_params() -> None:
@@ -251,7 +251,7 @@ def test_run_params_file_is_bucket2() -> None:
 
 
 def test_run_params_file_mixed_with_inline_override_is_bucket2() -> None:
-    """the CLI corpus notes §4.6: file + inline-override mix can't resolve without file content.
+    """File + inline-override mix can't resolve without file content.
 
     ``--params`` is simply absent from ``_classify_run``'s recognized flag set, so any
     invocation carrying it — whether the file is the only params source or inline
@@ -344,7 +344,7 @@ def test_scale_application_force_is_bucket2() -> None:
     assert _c("scale-application", "my-charm", "5", "--force") is None
 
 
-# --- secrets — §4.7 ---
+# --- secrets ---
 
 
 def test_remove_secret() -> None:
@@ -390,7 +390,7 @@ def test_update_secret_not_translated() -> None:
     assert _c("update-secret", "my-secret", "token=hunter2") is None
 
 
-# --- CMR — §4.8 ---
+# --- CMR ---
 
 
 def test_offer() -> None:
@@ -465,7 +465,7 @@ def test_remove_saas_multi_is_bucket2() -> None:
     assert _c("remove-saas", "a", "b") is None
 
 
-# --- expose / unexpose — §4.9 ---
+# --- expose / unexpose ---
 
 
 def test_expose_bare() -> None:
@@ -487,7 +487,7 @@ def test_unexpose_endpoints() -> None:
     )
 
 
-# --- set-constraints — §4.10 ---
+# --- set-constraints ---
 
 
 def test_set_constraints() -> None:
@@ -497,7 +497,7 @@ def test_set_constraints() -> None:
     )
 
 
-# --- bind -> merge_bindings — §4.11 ---
+# --- bind -> merge_bindings ---
 
 
 def test_bind_endpoints_only() -> None:
@@ -519,7 +519,7 @@ def test_bind_force_todo_still_bucket1() -> None:
     assert args["force"] is True
 
 
-# --- suspend-relation / resume-relation — §4.12 ---
+# --- suspend-relation / resume-relation ---
 
 
 def test_suspend_relation() -> None:

@@ -1,5 +1,4 @@
-"""the plan open question 3: warn when the recording did not start from an
-empty model.
+"""Warn when the recording did not start from an empty model.
 
 `jubilant.temp_model()` always hands the generated test a fresh, empty
 model. If the recorded session actually started against a model that

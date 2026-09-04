@@ -1,6 +1,6 @@
 """Delta-based assertion tagger.
 
-Conservative bias is the rule here: SCHEMA.md §B documents that an
+Conservative bias is the rule here: an
 over-permissive tagger (one that emits assertions when the user wasn't
 really checking) is more expensive than an under-permissive one, because
 a missing assertion is obvious to the test author whereas a wrong

@@ -2,8 +2,7 @@
 emit the identical jubilant call whether it was observed by the CLI/shim tap or the
 RPC tap.
 
-Closes the gap tracked in the design notes's "still leaves open" list —
-before this, only the CLI/shim path populated `to`/`attach_storage` in the `scale`
+Before this, only the CLI/shim path populated `to`/`attach_storage` in the `scale`
 op's args, so the same underlying `juju add-unit ... --to ... --attach-storage ...`
 invocation produced different generated code depending on which tap recorded it. A
 placement-sensitive test recorded via the RPC tap alone would silently lose its unit

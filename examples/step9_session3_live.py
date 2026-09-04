@@ -1,7 +1,8 @@
-"""the plan step 9 — session 3: deploy + integrate + action + config.
+"""Live session (session 3): deploy + integrate + action + config.
 
-The full step-9 scope. Drives RecordingJuju against an LXD model and
-covers every op the assertion tagger + codegen pipeline knows about:
+The fullest live session in this set. Drives RecordingJuju against an
+LXD model and covers every op the assertion tagger + codegen pipeline
+knows about:
 
     deploy(postgresql)
     deploy(data-integrator, config={database-name=...})

@@ -599,7 +599,7 @@ class TestStorageTagConversion:
 
 class TestPlacementConversion:
     """Inverse of Juju's ``ParsePlacement`` (core/instance/placement.go), confirmed
-    against upstream source — see the design notes."""
+    against upstream source."""
 
     def test_machine_scope_is_bare_directive(self):
         assert _placement_to_cli_str({"scope": "#", "directive": "0"}) == "0"
@@ -623,8 +623,7 @@ class TestPlacementConversion:
 class TestScaleCorrelation:
     """RPC-sourced ``Application.AddUnits`` must carry `to`/`attach_storage` the
     same as the CLI/shim translation path, so `scale.py`'s emitter produces
-    identical output regardless of source (see the design notes's
-    "still leaves open" list in the staging tree, closed by this session)."""
+    identical output regardless of source."""
 
     def test_no_placement_or_storage(self):
         args = _extract_args(
@@ -1345,13 +1344,12 @@ class TestSecretsCorrelation:
 
 
 # ---------------------------------------------------------------------------
-# Test: cross-model (CMR) facades — bucket-1/2 promotions per
-# the CMR facade notes (2026-07-09 recon).
+# Test: cross-model (CMR) facades — bucket-1/2 promotions.
 # ---------------------------------------------------------------------------
 
 
 class TestCrossModelClassification:
-    """Direct ``_classify`` checks for every row in the CMR facade notes §1."""
+    """Direct ``_classify`` checks for every cross-model (CMR) facade."""
 
     def test_create_offer_classifies_bucket1(self):
         assert _classify("ApplicationOffers", "Offer") == ("1", "create_offer")
@@ -1377,7 +1375,7 @@ class TestCrossModelClassification:
     def test_find_application_offers_classifies_bucket1(self):
         """Promoted 2026-08-18, following ``ListApplicationOffers``' precedent.
 
-        No client method calls this RPC (recon §2.3), which is the same
+        No client method calls this RPC, which is the same
         condition ``list_offers`` was promoted under — a read with unmappable
         filters, emitted via ``juju.cli()`` with the filters dropped.
         """
@@ -1387,7 +1385,7 @@ class TestCrossModelClassification:
         )
 
     def test_consume_offer_misnomer_does_not_resolve(self):
-        """There is no ``Model.consume_offer``; only ``Model.consume`` (recon §2.2).
+        """There is no ``Model.consume_offer``; only ``Model.consume``.
 
         A wire call literally named ``ConsumeOffer`` was never real, and must
         never be added to ``_BUCKET1_MAP`` — it should fall through to the
@@ -1567,7 +1565,6 @@ class TestCrossModelCorrelation:
 
 # ---------------------------------------------------------------------------
 # Test: Application.* bucket-2 → bucket-1 promotion
-# (the corpus audit §5 "Natural extension")
 # ---------------------------------------------------------------------------
 
 

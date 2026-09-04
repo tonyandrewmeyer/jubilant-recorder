@@ -1,6 +1,6 @@
-"""Step 10 (fixture branch): codegen marks ops it can't represent.
+"""Codegen marks ops it can't represent.
 
-The regression bar (the plan step 10) is: codegen MUST NOT crash on failed
+The regression bar is: codegen MUST NOT crash on failed
 operations, partial deploys, or multi-unit applications with mixed
 statuses. Each generated file must be syntactically valid Python and carry
 a skip/TODO marker for the unrepresentable step. Representable ops in the

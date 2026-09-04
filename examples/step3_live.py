@@ -1,9 +1,6 @@
-"""the plan step 3 live-run script.
+"""Live-run script driving `RecordingJuju` against a real LXD juju model.
 
-Drives `RecordingJuju` against a real LXD juju model:
-
-  * `juju add-model jtr-step3` is assumed to exist already (see the plan
-    step 3 prereqs).
+  * `juju add-model jtr-step3` is assumed to exist already.
   * the test deploys `charm-ubuntu`, waits for active, then reads status.
   * the session log lands at `step3_session.jsonl` next to this script.
 
@@ -11,8 +8,7 @@ Run from the repo root:
 
     uv run --extra dev python step3_live.py
 
-The script's output is the path of the captured log plus a brief
-summary; the log itself is what step 3 is about — see STEP3.md.
+The script's output is the path of the captured log plus a brief summary.
 """
 
 from __future__ import annotations
@@ -36,14 +32,14 @@ def main() -> int:
         juju.deploy("ubuntu", app=APP, base="ubuntu@24.04")
         juju.wait(lambda status: jubilant_active(status, APP), timeout=900)
         # Inject an explicit gesture so codegen emits a real assertion
-        # instead of the `# TODO: manual step` fallback (PLAN step 5).
+        # instead of the `# TODO: manual step` fallback.
         gestures.assert_status(app=APP, unit=f"{APP}/0", status="active")
         print("  ubuntu deployed + asserted active via gesture", file=sys.stderr)
 
     # Quick summary so the script doubles as a smoke test.
     # The on-disk format is a single pretty-printed JSON object, not JSONL —
-    # the plan step 2 §"stable key ordering". Don't be fooled by the `.jsonl`
-    # filename extension.
+    # see SCHEMA.md's "stable key ordering" note. Don't be fooled by the
+    # `.jsonl` filename extension.
     log = json.loads(LOG_PATH.read_text())
     events = log["events"]
     print(f"\n=== recorded {len(events)} events ===")

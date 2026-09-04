@@ -6,9 +6,9 @@ Implemented 2026-06-28. Three commits on the jubilant-recorder repo.
 
 | Step | SHA | Message |
 |---|---|---|
-| Step 1 | `373f4b9` | `feat(jtr): shell-hook PATH shim (extension Step 1)` |
-| Step 3 | `c296d2d` | `feat(jtr): shell-hook CLI commands (extension Step 3)` |
-| Step 4 | `b5f8c59` | `feat(jtr): schema delta + codegen context pass (extension Step 4)` |
+| Step 1 | `90d50b1` | `feat(jtr): shell-hook PATH shim (extension Step 1)` |
+| Step 3 | `393219d` | `feat(jtr): shell-hook CLI commands (extension Step 3)` |
+| Step 4 | `aa7a7a7` | `feat(jtr): schema delta + codegen context pass (extension Step 4)` |
 
 ## What was implemented
 

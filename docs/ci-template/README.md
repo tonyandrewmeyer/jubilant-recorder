@@ -1,12 +1,8 @@
 # CI workflow template
 
-These files are intended to live at `.github/workflows/` in the standalone
-`jubilant-recorder` repo after the lift. They are kept under `docs/ci-template/`
-in the staging tree because the staging repo
-(`the staging repo`) forbids real workflows under `.github/`.
-
-When lifting the project to its own repo, move these into `.github/workflows/`
-verbatim.
+These files are templates for `.github/workflows/` that have not been
+activated yet — only `lint.yaml` currently runs there. Promote them by
+moving them into `.github/workflows/` verbatim when ready.
 
 | File | Purpose |
 |---|---|
