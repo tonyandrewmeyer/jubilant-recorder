@@ -8,11 +8,11 @@ under `tests/fixtures/` as regression fixtures.
 
 | Script | Scenario | Fixture |
 |---|---|---|
-| `step3_live.py` | charm-ubuntu deploy + status (smallest end-to-end) | `step3_live_charm_ubuntu.jsonl` |
-| `step9_session2_live.py` | postgresql + data-integrator deploy + integrate | `step9_session2_postgres_data_integrator.jsonl` |
-| `step9_session3_live.py` | session 2 + config change + run-action | `step9_session3_postgres_data_integrator_full.jsonl` |
-| `step9_real_world_k8s_live.py` | data-integrator on Canonical Kubernetes (wait timeout case) | `step9_real_world_k8s_data_integrator.jsonl` |
-| `step10_failure_live.py` | deliberate CLIError injection (deploy nonexistent charm, bad integrate) | `step10_deliberate_failures.jsonl` |
+| `deploy_ubuntu_live.py` | charm-ubuntu deploy + status (smallest end-to-end) | `deploy_ubuntu.jsonl` |
+| `postgresql_integrate_live.py` | postgresql + data-integrator deploy + integrate | `postgresql_integrate.jsonl` |
+| `postgresql_config_action_live.py` | as above, plus a config change and a run-action | `postgresql_config_action.jsonl` |
+| `k8s_wait_timeout_live.py` | data-integrator on Canonical Kubernetes (wait timeout case) | `k8s_wait_timeout.jsonl` |
+| `deliberate_failures_live.py` | deliberate CLIError injection (deploy nonexistent charm, bad integrate) | `deliberate_failures.jsonl` |
 
 Each script expects an existing Juju controller and model. They are *not*
 unit tests; they are reference invocations of the recording API.
