@@ -140,7 +140,7 @@ def test_unparsable_file_returns_empty_overlay(tmp_path: Path) -> None:
 
 
 def test_no_test_function_falls_back_to_module_scope(tmp_path: Path) -> None:
-    """A driver script (like step3_live.py) with no test_* function still
+    """A driver script (like deploy_ubuntu_live.py) with no test_* function still
     yields call sites — just no test-name hint."""
     path = _write(
         tmp_path,

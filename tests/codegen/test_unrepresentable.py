@@ -19,7 +19,7 @@ import pytest
 from jubilant_recorder import codegen, tagger
 from jubilant_recorder.codegen import unrepresentable
 
-FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "step10"
+FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "unrepresentable"
 
 
 def _load(name: str) -> dict[str, Any]:

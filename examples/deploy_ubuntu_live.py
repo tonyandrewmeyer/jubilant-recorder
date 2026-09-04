@@ -1,12 +1,12 @@
 """Live-run script driving `RecordingJuju` against a real LXD juju model.
 
-  * `juju add-model jtr-step3` is assumed to exist already.
+  * `juju add-model jtr-examples` is assumed to exist already.
   * the test deploys `charm-ubuntu`, waits for active, then reads status.
-  * the session log lands at `step3_session.jsonl` next to this script.
+  * the session log lands at `deploy_ubuntu.jsonl` next to this script.
 
 Run from the repo root:
 
-    uv run --extra dev python step3_live.py
+    uv run --extra dev python deploy_ubuntu_live.py
 
 The script's output is the path of the captured log plus a brief summary.
 """
@@ -20,8 +20,8 @@ from pathlib import Path
 from jubilant_recorder import gestures
 from jubilant_recorder.recording_juju import RecordingJuju
 
-LOG_PATH = Path(__file__).parent / "step3_session.jsonl"
-MODEL = "jtr-step3"
+LOG_PATH = Path(__file__).parent / "deploy_ubuntu.jsonl"
+MODEL = "jtr-examples"
 APP = "ubuntu"
 
 
