@@ -111,5 +111,5 @@ PYTHONPATH=src:. uv run --with pytest,jubilant --no-project python -m pytest tes
   NOT on delta payloads; time-window heuristic is the correct approach.
 - **AllWatcher hook point:** resolved — intercepting `Connection.rpc` is
   sufficient; no per-model observer registration needed.
-- **Worth-it threshold:** see `STEP2-STARTER.md` for the bucket-distribution
+- **Worth-it threshold:** see `CALL-SITE-CORPUS.md` for the bucket-distribution
   evidence from 5 sampled operator tests.

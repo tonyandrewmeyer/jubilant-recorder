@@ -1,6 +1,6 @@
 """Deliberate-failure live session.
 
-The real-world k8s session (`step9_real_world_k8s.jsonl`) accidentally
+The real-world k8s session (`k8s_wait_timeout.jsonl`) accidentally
 exercised the `wait_for_idle` failure path (see `unrepresentable.py`)
 because containerd was corrupt. This script exercises the other
 failure paths deliberately and against a fresh model:
@@ -19,7 +19,7 @@ surviving deploy + assertion should remain as real test steps.
 
 Run from the repo root:
 
-    uv run --with jubilant python step10_failure_live.py
+    uv run --with jubilant python deliberate_failures_live.py
 """
 
 from __future__ import annotations
@@ -33,8 +33,8 @@ import jubilant
 from jubilant_recorder import gestures
 from jubilant_recorder.recording_juju import RecordingJuju
 
-LOG_PATH = Path(__file__).parent / "step10_failure.jsonl"
-MODEL = "jtr-step3"
+LOG_PATH = Path(__file__).parent / "deliberate_failures.jsonl"
+MODEL = "jtr-examples"
 
 
 def main() -> int:

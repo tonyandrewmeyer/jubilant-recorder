@@ -16,10 +16,10 @@ client.
 
 Run from the repo root on hcts-control:
 
-    uv run --with jubilant python step9_real_world_k8s_live.py
+    uv run --with jubilant python k8s_wait_timeout_live.py
 
 Captures a log next to this file; the matching fixture lands at
-`tests/fixtures/step9_real_world_k8s_data_integrator.jsonl`.
+`tests/fixtures/k8s_wait_timeout.jsonl`.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ from pathlib import Path
 from jubilant_recorder import gestures
 from jubilant_recorder.recording_juju import RecordingJuju
 
-LOG_PATH = Path(__file__).parent / "step9_real_world_k8s.jsonl"
+LOG_PATH = Path(__file__).parent / "k8s_wait_timeout.jsonl"
 MODEL = "control"
 DB_APP = "postgresql-k8s"
 CLIENT_APP = "data-integrator"

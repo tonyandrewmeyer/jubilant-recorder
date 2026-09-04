@@ -1,4 +1,4 @@
-"""Live session (session 3): deploy + integrate + action + config.
+"""Live session: deploy + integrate + action + config.
 
 The fullest live session in this set. Drives RecordingJuju against an
 LXD model and covers every op the assertion tagger + codegen pipeline
@@ -15,10 +15,10 @@ knows about:
 
 Run from the repo root:
 
-    uv run --with jubilant python step9_session3_live.py
+    uv run --with jubilant python postgresql_config_action_live.py
 
 Captures a log next to this file; the matching fixture commits as
-`tests/fixtures/step9_session3_postgres_data_integrator_full.jsonl`.
+`tests/fixtures/postgresql_config_action.jsonl`.
 
 Cold-start budget for postgresql + data-integrator is ~17 minutes from
 fresh LXD containers; bumped wait timeout to 1800 s accordingly.
@@ -33,8 +33,8 @@ from pathlib import Path
 from jubilant_recorder import gestures
 from jubilant_recorder.recording_juju import RecordingJuju
 
-LOG_PATH = Path(__file__).parent / "step9_session3.jsonl"
-MODEL = "jtr-step3"
+LOG_PATH = Path(__file__).parent / "postgresql_config_action.jsonl"
+MODEL = "jtr-examples"
 DB_APP = "postgresql"
 CLIENT_APP = "data-integrator"
 
@@ -47,7 +47,7 @@ def main() -> int:
         juju.deploy(
             CLIENT_APP,
             channel="latest/stable",
-            config={"database-name": "step9_session3_db"},
+            config={"database-name": "config_action_db"},
         )
         juju.integrate(DB_APP, CLIENT_APP)
         juju.wait(

@@ -1,4 +1,4 @@
-"""Two-charm live session (session 2): deploy + integrate.
+"""Two-charm live session: deploy + integrate.
 
 Drives RecordingJuju against the
 same LXD model as step 3, but with a *related* second app (the `nrpe`
@@ -13,7 +13,7 @@ subordinate, which attaches to `ubuntu:juju-info`).
 
 Run from the repo root:
 
-    uv run --with jubilant python step9_session2_live.py
+    uv run --with jubilant python postgresql_integrate_live.py
 
 Captures a log next to this file.
 """
@@ -27,8 +27,8 @@ from pathlib import Path
 from jubilant_recorder import gestures
 from jubilant_recorder.recording_juju import RecordingJuju
 
-LOG_PATH = Path(__file__).parent / "step9_session2.jsonl"
-MODEL = "jtr-step3"
+LOG_PATH = Path(__file__).parent / "postgresql_integrate.jsonl"
+MODEL = "jtr-examples"
 DB_APP = "postgresql"
 CLIENT_APP = "data-integrator"
 
@@ -41,7 +41,7 @@ def main() -> int:
         juju.deploy(
             CLIENT_APP,
             channel="latest/stable",
-            config={"database-name": "step9_session2_db"},
+            config={"database-name": "integrate_db"},
         )
         juju.integrate(DB_APP, CLIENT_APP)
         juju.wait(
