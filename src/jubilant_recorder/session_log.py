@@ -7,13 +7,13 @@ import json
 import subprocess
 import uuid
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import jubilant
 
 if TYPE_CHECKING:
     from collections.abc import Generator
-    from pathlib import Path
 
     from jubilant_recorder.events import EventEnvelope
 
@@ -25,8 +25,12 @@ def _format_ts(dt: datetime) -> str:
 class SessionLog:
     """A recorded session: its events, metadata and tags."""
 
-    def __init__(self, log_path: Path, model: str = "") -> None:
-        self._log_path = log_path
+    def __init__(self, log_path: Path | str, model: str = "") -> None:
+        # The README's gesture-API example passes a plain string, and so will
+        # anyone following it. Coerce here rather than at every call site:
+        # close() writes through Path.write_text, so a str would only fail at
+        # the very end of a session, after the work was already done.
+        self._log_path = Path(log_path)
         self._model = model
         self._session_id = str(uuid.uuid4())
         self._recorded_at: str | None = None
