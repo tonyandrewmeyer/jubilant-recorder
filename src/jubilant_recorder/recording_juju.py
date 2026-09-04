@@ -488,7 +488,7 @@ class RecordingJuju(jubilant.Juju):
 
     @classmethod
     @contextlib.contextmanager
-    def start(cls, log_path: Path, **kwargs: Any) -> Generator[RecordingJuju, None, None]:
+    def start(cls, log_path: Path | str, **kwargs: Any) -> Generator[RecordingJuju, None, None]:
         from jubilant_recorder.gestures import _active_session
 
         model = kwargs.get("model", "") or ""
