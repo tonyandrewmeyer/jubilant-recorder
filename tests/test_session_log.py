@@ -111,3 +111,17 @@ class TestContextManagerClosesOnException:
         doc = json.loads(log_path.read_text())
         assert doc["schema_version"] == 1
         assert len(doc["events"]) == 1
+
+
+def test_open_accepts_a_string_path(tmp_path):
+    """The README's gesture-API example passes a str, so str has to work.
+
+    Regression: close() wrote through Path.write_text, so a str path raised
+    AttributeError at the end of a session, after the recording was done.
+    """
+    log_path = tmp_path / "session.json"
+
+    with SessionLog.open(str(log_path)) as log:
+        assert log is not None
+
+    assert log_path.is_file()
