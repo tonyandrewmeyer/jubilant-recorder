@@ -1,0 +1,49 @@
+name: Bug report
+description: Something the recorder or the generated test got wrong.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For anything security-related, please follow
+        [SECURITY.md](../blob/main/SECURITY.md) instead of opening an issue.
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Recording mode
+      options:
+        - Scripted (RecordingJuju)
+        - Shell capture (jtr)
+        - libjuju
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you expect, and what did you get instead?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: The commands you ran, and the recording script if there was one.
+    validations:
+      required: true
+  - type: textarea
+    id: session-log
+    attributes:
+      label: Session log
+      description: |
+        The relevant part of the session log, if you can share it. **Read it
+        first** — logs can contain action results and relation data.
+      render: json
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Output of `jubilant-recorder --version` (or the commit), `juju version`, and your Python version.
+    validations:
+      required: true

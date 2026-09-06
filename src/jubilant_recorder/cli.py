@@ -17,7 +17,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from jubilant_recorder import codegen, openrouter, quiet_window, tagger
+from jubilant_recorder import __version__, codegen, openrouter, quiet_window, tagger
 from jubilant_recorder.codegen.ai_polish import LLMPolisher, Polisher, StubPolisher
 from jubilant_recorder.session_log import SessionLog
 from jubilant_recorder.tagger.llm import AssertionProposer, LLMProposer, StubProposer
@@ -207,6 +207,7 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="jubilant-recorder",
         description="Record a jubilant session and generate a pytest integration test.",
     )
+    parser.add_argument("--version", action="version", version=f"jubilant-recorder {__version__}")
     sub = parser.add_subparsers(dest="subcommand", required=True)
 
     p_start = sub.add_parser("start", help="Begin a recording session.")
