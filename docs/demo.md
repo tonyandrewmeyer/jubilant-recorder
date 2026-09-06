@@ -194,9 +194,25 @@ def test_recorded_session():
 
 ## 5. The shell hook
 
-There is a third mode that records plain `juju` commands typed at a prompt, via a PATH shim plus bash-preexec hooks. It cannot be demonstrated from a script: bash-preexec fires from the DEBUG trap and PROMPT_COMMAND, which only run on a prompt cycle, so anything driven non-interactively records zero events whether the hook works or not.
+There is a third mode that records plain `juju` commands typed at a prompt. It has two lanes: a PATH shim records `juju` itself, and bash-preexec hooks record context commands around it (`kubectl`, `lxc`, `charmcraft`, `curl`). `juju` is the first entry in `_BASENAME_DENYLIST`, so the hook lane drops it deliberately rather than double-recording what the shim already has.
 
-Run `scripts/verify-shell-hook.sh` in a real terminal before demonstrating this one.
+`showboat verify` cannot cover this section. The hook lane fires from the DEBUG trap and `PROMPT_COMMAND`, which only run on a prompt cycle, so anything driven non-interactively records zero events whether the hook works or not — indistinguishable from it being broken. `scripts/verify-shell-hook.sh` is the substitute: it prints the commands to type by hand and then checks the resulting log.
+
+**Verified 2026-09-06**, by a person at a real prompt on `concierge-lxd-4`:
+
+```text
+3 events, 2 shell events
+   [shim] juju status -m charmscope-self-signed-certificates
+   [shim] juju models
+PASS: juju commands recorded, recording is live.
+```
+
+Both `juju` invocations recorded through the shim with the right argv; the `echo` correctly absent, since it is in neither `_BASENAME_DENYLIST` nor `_CONTEXT_ALLOWLIST` and the hook lane drops anything outside the allowlist.
+
+Two limits on that result, both worth knowing before this mode goes on stage:
+
+- **It verifies the shim lane, not the hook lane.** The shim is pure PATH resolution and does not need a prompt cycle, so this run says nothing about whether `preexec`/`precmd` fire — no context command was typed. If the demo shows `kubectl` or `charmcraft` being recorded alongside `juju`, add one to the sequence and re-run the check first.
+- **`jtr shim install` is a required step**, and is in the script's printed sequence. `jtr shell-init` puts `~/.local/share/jtr/shims` on PATH but does not create it. Skip it and `juju` resolves to the real binary: every command works perfectly and the log holds nothing but a `session_end`, which reads exactly like the bash-preexec registration bug and is not it.
 
 ## Rehearsing
 
