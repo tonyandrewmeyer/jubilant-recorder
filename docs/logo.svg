@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 260" width="760" height="260" role="img" aria-label="jubilant-recorder: a VHS cassette whose tape reels are related juju charms">
+  <title>jubilant-recorder</title>
+  <defs>
+    <linearGradient id="shell" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3a3a44"/>
+      <stop offset="100%" stop-color="#23232a"/>
+    </linearGradient>
+    <linearGradient id="window" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#11131a"/>
+      <stop offset="100%" stop-color="#1b1e28"/>
+    </linearGradient>
+    <style>
+      .wm { font-family: "DejaVu Sans", "Helvetica Neue", Helvetica, Arial, sans-serif; font-weight: 700; }
+      .mono { font-family: "DejaVu Sans Mono", "SFMono-Regular", Consolas, monospace; }
+      @keyframes blink { 0%, 45% { opacity: 1 } 55%, 100% { opacity: .15 } }
+      .rec { animation: blink 1.6s steps(1, end) infinite; }
+      @media (prefers-reduced-motion: reduce) { .rec { animation: none } }
+    </style>
+  </defs>
+
+  <!-- cassette shell -->
+  <rect x="16" y="16" width="728" height="228" rx="18" fill="url(#shell)" stroke="#0f1116" stroke-width="2"/>
+  <rect x="30" y="30" width="700" height="200" rx="12" fill="none" stroke="#4a4a58" stroke-width="1.5" opacity=".8"/>
+
+  <!-- tape window -->
+  <rect x="60" y="62" width="420" height="136" rx="10" fill="url(#window)" stroke="#585868" stroke-width="2"/>
+
+  <!-- the tape: a relation between two charms -->
+  <path d="M148 130 C 210 82, 330 82, 392 130" fill="none" stroke="#E95420" stroke-width="7" stroke-linecap="round" opacity=".95"/>
+  <path d="M148 130 C 210 178, 330 178, 392 130" fill="none" stroke="#772953" stroke-width="7" stroke-linecap="round" opacity=".95"/>
+
+  <!-- relation endpoint, mid-tape -->
+  <rect x="258" y="118" width="24" height="24" rx="5" fill="#1b1e28" stroke="#E95420" stroke-width="3" transform="rotate(45 270 130)"/>
+
+  <!-- left reel: a charm, mostly unspooled -->
+  <circle cx="148" cy="130" r="46" fill="#15171f" stroke="#E95420" stroke-width="4"/>
+  <circle cx="148" cy="130" r="18" fill="#23232a" stroke="#E95420" stroke-width="3"/>
+  <g stroke="#E95420" stroke-width="3" stroke-linecap="round" opacity=".9">
+    <path d="M148 112 L148 100"/><path d="M148 148 L148 160"/>
+    <path d="M130 130 L118 130"/><path d="M166 130 L178 130"/>
+  </g>
+
+  <!-- right reel: a charm, mostly spooled -->
+  <circle cx="392" cy="130" r="46" fill="#15171f" stroke="#772953" stroke-width="4"/>
+  <circle cx="392" cy="130" r="30" fill="#1d1a22" stroke="#772953" stroke-width="2" opacity=".9"/>
+  <circle cx="392" cy="130" r="18" fill="#23232a" stroke="#772953" stroke-width="3"/>
+  <g stroke="#772953" stroke-width="3" stroke-linecap="round" opacity=".9">
+    <path d="M392 112 L392 100"/><path d="M392 148 L392 160"/>
+    <path d="M374 130 L362 130"/><path d="M410 130 L422 130"/>
+  </g>
+
+  <!-- label strip -->
+  <rect x="512" y="62" width="204" height="136" rx="8" fill="#f3efe6" stroke="#cfc6b4" stroke-width="2"/>
+  <line x1="512" y1="96" x2="716" y2="96" stroke="#d9d0be" stroke-width="2"/>
+  <text class="wm" x="528" y="88" font-size="17" fill="#23232a">jubilant</text>
+  <text class="wm" x="528" y="126" font-size="26" fill="#E95420">recorder</text>
+  <text class="mono" x="528" y="152" font-size="11.5" fill="#6b6459">juju session &#8594; pytest</text>
+  <text class="mono" x="528" y="176" font-size="10.5" fill="#8a8175">SP &#183; 120 min</text>
+  <text class="mono" x="528" y="191" font-size="10.5" fill="#8a8175">do the thing, save the test</text>
+
+  <!-- REC -->
+  <g class="rec">
+    <circle cx="676" cy="44" r="9" fill="#d2333a"/>
+    <text class="mono" x="620" y="49" font-size="14" fill="#d2333a" font-weight="700">REC</text>
+  </g>
+</svg>

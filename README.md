@@ -1,5 +1,7 @@
 # jubilant-recorder
 
+<img src="docs/logo.svg" alt="jubilant-recorder: a VHS cassette whose two tape reels are juju charms, related by the tape itself, REC light on" width="620">
+
 Record a live jubilant session and replay it as a pytest integration test.
 
 `jubilant-recorder` wraps `jubilant.Juju`, captures every CLI call plus a
