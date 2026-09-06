@@ -637,6 +637,16 @@ def cmd_shim_install(args: argparse.Namespace) -> int:
     shim_source = Path(juju_shim.__file__).read_text()
     shim_source = shim_source.replace("__REAL_JUJU__", str(real_juju))
 
+    # The shim is installed as an executable named `juju` and found via PATH,
+    # so it needs an interpreter line: without one the kernel hands it to sh,
+    # every line is a shell syntax error, and `juju` stops working entirely
+    # for the duration of the session. `sys.executable` rather than
+    # `/usr/bin/env python3` because that is the interpreter the shim was
+    # installed with, and it is the one known to exist here. The shim itself
+    # imports only stdlib, so it does not need jtr's own environment.
+    if not shim_source.startswith("#!"):
+        shim_source = f"#!{sys.executable}\n" + shim_source
+
     target_dir.mkdir(parents=True, exist_ok=True)
     shim_path = target_dir / "juju"
     shim_path.write_text(shim_source)
