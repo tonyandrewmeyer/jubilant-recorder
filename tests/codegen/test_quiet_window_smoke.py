@@ -1,6 +1,6 @@
 """Smoke test: ``quiet_window.synthesize()`` output round-trips through codegen.
 
-Mirrors ``extensions/libjuju/tests/test_codegen_smoke.py::
+Mirrors ``tests/libjuju/test_codegen_smoke.py::
 test_codegen_renders_synthesised_wait_for_idle`` — that test proves the libjuju
 extension's synthesised events render unmodified through the existing codegen
 pipeline; this proves the same for the core recorder's quiet-window synthesis.

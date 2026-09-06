@@ -24,9 +24,9 @@ import asyncio
 import json
 from typing import TYPE_CHECKING, Any
 
-from extensions.libjuju.recording import RecordingLibjuju
-from extensions.libjuju.tap import LibjujuTap
 from jubilant_recorder.codegen import generate
+from jubilant_recorder.extensions.libjuju.recording import RecordingLibjuju
+from jubilant_recorder.extensions.libjuju.tap import LibjujuTap
 
 if TYPE_CHECKING:
     from pathlib import Path

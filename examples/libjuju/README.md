@@ -18,7 +18,7 @@ works against a live juju controller.
 cd /path/to/jubilant-recorder
 juju add-model jtr-live-example
 PYTHONPATH=src:. uv run --with juju --with jubilant python \
-    extensions/libjuju/examples/live/record.py /tmp/session.json jtr-live-example
+    examples/libjuju/record.py /tmp/session.json jtr-live-example
 
 PYTHONPATH=src uv run --with jubilant python -m jubilant_recorder.cli \
     generate /tmp/session.json --out /tmp/generated_test.py --name test_ubuntu_deploy
@@ -29,7 +29,7 @@ uv run --with pytest --with jubilant python -m pytest /tmp/generated_test.py -v
 
 The generated test replays cleanly against a fresh model in ~90 s.
 
-## Live findings (fixed in this commit)
+## Why this example looks the way it does
 
 Five real bugs surfaced by the first live run — none was exercised by the
 unit-test corpus because the fake `Connection` never emitted them:
@@ -66,7 +66,7 @@ unit-test corpus because the fake `Connection` never emitted them:
    dropping the `base.channel` fallback and letting the CLI default when
    the caller never pinned a charm channel.
 
-## Known follow-ups (not addressed in this commit)
+## Known limitations
 
 - `config_get` (bucket-1) still renders as `# TODO: manual step` in the
   generated test — the codegen op-emitter table is missing a

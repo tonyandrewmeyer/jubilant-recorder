@@ -1,4 +1,4 @@
-# libjuju → jubilant extension (proof of concept)
+# Recording libjuju-driven sessions
 
 Records a libjuju-driven test session and emits session-log events in the same
 SCHEMA.md format that `RecordingJuju` produces — so the existing tagger
@@ -95,21 +95,28 @@ asyncio.run(record_session())
 
 ## Running the tests
 
-No live juju controller is required.
+No live Juju controller is required.
 
 ```bash
-# Extension tests only
-PYTHONPATH=. uv run --with pytest --no-project python -m pytest extensions/libjuju/tests/ -v
-
-# Extension + existing recorder tests
-PYTHONPATH=src:. uv run --with pytest,jubilant --no-project python -m pytest tests/ extensions/libjuju/tests/ -q
+uv run pytest tests/libjuju/       # this extension only
+uv run pytest                      # everything
 ```
 
-## Open questions
+## Design notes
 
-- **Async correlation:** resolved — request-IDs available on outgoing RPCs but
-  NOT on delta payloads; time-window heuristic is the correct approach.
-- **AllWatcher hook point:** resolved — intercepting `Connection.rpc` is
-  sufficient; no per-model observer registration needed.
-- **Worth-it threshold:** see `CALL-SITE-CORPUS.md` for the bucket-distribution
-  evidence from 5 sampled operator tests.
+Two questions shaped the implementation, both settled:
+
+- **Correlating deltas with calls.** Request IDs are available on outgoing
+  RPCs but not on delta payloads, so there is nothing to join on. The
+  time-window heuristic in `correlate.py` is the correct approach rather
+  than a workaround.
+- **Where to hook.** Intercepting `Connection.rpc` is sufficient; no
+  per-model observer registration is needed.
+
+## Install
+
+The extension needs python-libjuju, which is not a base dependency:
+
+```bash
+pip install 'jubilant-recorder[libjuju]'
+```

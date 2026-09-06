@@ -178,7 +178,7 @@ warning: LLM polish changed the test's assertions — using deterministic output
 The same pipeline works for libjuju-driven tests. A tap on `Connection.rpc()` records the RPCs and the AllWatcher deltas, correlates them, and emits the same session-log schema - so the tagger and codegen are reused unchanged. This session log was captured from a live libjuju run:
 
 ```bash
-python3 -c "import json; d=json.load(open('extensions/libjuju/examples/live/session.json')); print(len(d['events']), 'events'); print([e['op'] for e in d['events']])"
+python3 -c "import json; d=json.load(open('examples/libjuju/session.json')); print(len(d['events']), 'events'); print([e['op'] for e in d['events']])"
 ```
 
 ```output
@@ -187,7 +187,7 @@ python3 -c "import json; d=json.load(open('extensions/libjuju/examples/live/sess
 ```
 
 ```bash
-uv run jubilant-recorder generate extensions/libjuju/examples/live/session.json --out /tmp/libjuju_test.py >/dev/null && head -14 /tmp/libjuju_test.py
+uv run jubilant-recorder generate examples/libjuju/session.json --out /tmp/libjuju_test.py >/dev/null && head -14 /tmp/libjuju_test.py
 ```
 
 ```output

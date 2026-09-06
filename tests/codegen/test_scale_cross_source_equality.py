@@ -16,10 +16,9 @@ renders through `repr()` to different, non-equivalent jubilant calls.
 
 from __future__ import annotations
 
-from extensions.libjuju.correlate import _extract_args
-
 from jubilant_recorder.codegen import cli_translate
 from jubilant_recorder.codegen.operations import scale
+from jubilant_recorder.extensions.libjuju.correlate import _extract_args
 
 
 def test_single_placement_and_attach_storage_emit_identically():

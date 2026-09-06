@@ -34,7 +34,7 @@ def generate(
     """Generate the full jubilant test source for a recorded session.
 
     ``overlay`` is an optional, purely decorative annotation map keyed by
-    event ``seq`` (see ``extensions/libjuju/source_overlay.py``): an entry's
+    event ``seq`` (see ``src/jubilant_recorder/extensions/libjuju/source_overlay.py``): an entry's
     ``"comment"`` is rendered as a ``#`` line immediately above that event's
     block, and its ``"var_name"`` overrides the auto-generated result
     variable name for ``run``/``config_get`` events. Omitting ``overlay``

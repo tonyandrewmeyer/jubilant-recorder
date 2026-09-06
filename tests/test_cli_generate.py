@@ -41,7 +41,7 @@ def test_generate_includes_recorded_operations(tmp_path: Path) -> None:
 def test_generate_source_aware_picks_up_test_name_var_name_and_comment(
     tmp_path: Path,
 ) -> None:
-    """`--source-aware` is decorative (extensions/libjuju/source_overlay.py):
+    """`--source-aware` is decorative (src/jubilant_recorder/extensions/libjuju/source_overlay.py):
     it must not be required for correct output, but when given a matching
     source file it should improve the test name, the `run` result variable
     name, and carry the adjacent comment through."""

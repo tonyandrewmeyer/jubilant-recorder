@@ -1,4 +1,4 @@
-"""Tests for the source-aware overlay (extensions/libjuju/source_overlay.py).
+"""Tests for the source-aware overlay (src/jubilant_recorder/extensions/libjuju/source_overlay.py).
 
 Covers: AST extraction of call sites (test name, variable name, adjacent
 comment), the sequential event-alignment two-pointer walk, and the
@@ -13,8 +13,8 @@ import ast
 import textwrap
 from typing import TYPE_CHECKING
 
-from extensions.libjuju.source_overlay import align_events, extract_call_sites
 from jubilant_recorder.codegen import generate
+from jubilant_recorder.extensions.libjuju.source_overlay import align_events, extract_call_sites
 
 if TYPE_CHECKING:
     from pathlib import Path

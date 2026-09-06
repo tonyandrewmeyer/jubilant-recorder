@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import asyncio
 
-from extensions.libjuju.tap import LibjujuTap
+from jubilant_recorder.extensions.libjuju.tap import LibjujuTap
 
 # ---------------------------------------------------------------------------
 # Fake Connection class + helper factories
