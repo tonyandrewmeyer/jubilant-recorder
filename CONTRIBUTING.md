@@ -23,7 +23,7 @@ uv run pytest
 ```
 
 Pre-commit runs the first three. CI runs all four, on Python 3.11 through
-3.13, and checks that the built wheel imports.
+3.14, and checks that the built wheel imports.
 
 ## Tests
 
