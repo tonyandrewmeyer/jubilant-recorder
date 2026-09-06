@@ -83,7 +83,7 @@ def test_installed_shim_actually_runs_and_records(tmp_path: Path) -> None:
     env.pop("JTR_PAUSED", None)
     env.pop("JTR_PYTHON_ACTIVE", None)
 
-    proc = subprocess.run(  # noqa: S603
+    proc = subprocess.run(
         [str(target / "juju"), "status", "-m", "somemodel"],
         env=env,
         capture_output=True,
@@ -110,6 +110,8 @@ def test_installed_shim_is_a_passthrough_with_no_session(tmp_path: Path) -> None
     for key in ("JTR_SESSION", "JTR_PAUSED", "JTR_PYTHON_ACTIVE"):
         env.pop(key, None)
 
-    proc = subprocess.run([str(target / "juju"), "status"], env=env, capture_output=True, text=True)  # noqa: S603
+    proc = subprocess.run(
+        [str(target / "juju"), "status"], env=env, capture_output=True, text=True
+    )
     assert proc.returncode == 0, f"shim did not run: {proc.stderr!r}"
     assert not log.exists() or log.read_text().strip() == ""

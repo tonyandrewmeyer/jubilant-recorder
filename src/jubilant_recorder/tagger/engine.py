@@ -40,6 +40,20 @@ def _identity(tag_dict: dict[str, Any]) -> tuple[Any, ...]:
     return (kind, *(tag_dict.get(f) for f in fields))
 
 
+def _coverage(tag_dict: dict[str, Any]) -> tuple[Any, ...] | None:
+    """Return a coarser key for what a tag *claims*, ignoring how it is scoped.
+
+    Only ``unit_status`` needs this. The delta rule is app-scoped, because a
+    recorded unit name does not survive into a fresh model; a gesture may name
+    a unit, because the author chose to. Those two make the same claim about
+    the same app and status, so identity alone would let both through and the
+    generated test would assert it twice.
+    """
+    if tag_dict.get("kind") != "unit_status":
+        return None
+    return ("unit_status", tag_dict.get("app"), tag_dict.get("expected"))
+
+
 def tag(log: SessionLog, *, proposer: AssertionProposer | None = None) -> SessionLog:
     """Return the session log with assertion tags added."""
     out = copy.deepcopy(log)
@@ -49,6 +63,11 @@ def tag(log: SessionLog, *, proposer: AssertionProposer | None = None) -> Sessio
         if "assertions" not in event or event["assertions"] is None:
             event["assertions"] = []
         existing = {_identity(a) for a in event["assertions"] if isinstance(a, dict)}
+        covered = {
+            key
+            for a in event["assertions"]
+            if isinstance(a, dict) and (key := _coverage(a)) is not None
+        }
         for rule in _RULES:
             for produced in rule.evaluate(events, index):
                 if not isinstance(produced, AssertionTag):
@@ -57,8 +76,13 @@ def tag(log: SessionLog, *, proposer: AssertionProposer | None = None) -> Sessio
                 ident = _identity(tag_dict)
                 if ident in existing:
                     continue
+                claim = _coverage(tag_dict)
+                if claim is not None and claim in covered:
+                    continue
                 event["assertions"].append(tag_dict)
                 existing.add(ident)
+                if claim is not None:
+                    covered.add(claim)
 
     if proposer is not None:
         from jubilant_recorder.tagger.llm import llm_augment

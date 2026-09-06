@@ -37,6 +37,15 @@ def _emit_unit_status(tag: dict[str, Any], pad: str) -> str:
     unit = tag.get("unit")
     expected = tag["expected"]
     if unit is None:
+        if tag.get("scope") == "any":
+            # Only some units reached the status; asserting it of all of them
+            # would be a stronger claim than the recording supports.
+            return (
+                f"{pad}assert any(\n"
+                f"{pad}    _u.workload_status.current == {expected!r}\n"
+                f"{pad}    for _u in juju.status().apps[{app!r}].units.values()\n"
+                f"{pad})"
+            )
         loop_body = (
             f"{pad}for _u in juju.status().apps[{app!r}].units.values():\n"
             f"{pad}    assert _u.workload_status.current == {expected!r}"
