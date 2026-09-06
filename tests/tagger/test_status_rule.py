@@ -10,8 +10,9 @@ def test_unit_status_tag_fires_when_workload_settles_to_active(status_session):
     assert assertion == {
         "kind": "unit_status",
         "app": "my-charm",
-        "unit": "my-charm/0",
+        "unit": None,
         "expected": "active",
+        "scope": "all",
         "strict": False,
         "source": "delta",
     }
@@ -67,9 +68,94 @@ def test_unit_status_tag_fires_on_blocked_status():
         {
             "kind": "unit_status",
             "app": "my-charm",
-            "unit": "my-charm/0",
+            "unit": None,
             "expected": "blocked",
+            "scope": "all",
             "strict": False,
             "source": "delta",
         }
     ]
+
+
+def test_unit_status_tag_is_app_scoped_not_pinned_to_the_recorded_unit():
+    """The recorded unit name is an artefact of the recording, not of the replay.
+
+    A session where the unit happened to be `my-charm/1` -- because an earlier
+    attempt took `/0` -- generated `units['my-charm/1']`, which raises KeyError
+    in the fresh `temp_model()` the generated test opens.
+    """
+    from .conftest import make_event, make_log, make_snapshot, make_unit
+
+    before = make_snapshot(
+        apps={"my-charm": {"units": {"my-charm/1": make_unit(workload_status="waiting")}}},
+    )
+    after = make_snapshot(
+        apps={"my-charm": {"units": {"my-charm/1": make_unit(workload_status="active")}}},
+    )
+    log = make_log([make_event(1, "deploy", before=before, after=after)])
+    [event] = tag(log)["events"]
+    [assertion] = [a for a in event["assertions"] if a["kind"] == "unit_status"]
+    assert assertion["unit"] is None
+    assert "my-charm/1" not in repr(assertion)
+
+
+def test_partial_settle_is_scoped_any_rather_than_all():
+    """Only some units reached the status, so `all` would over-claim."""
+    from .conftest import make_event, make_log, make_snapshot, make_unit
+
+    before = make_snapshot(
+        apps={
+            "my-charm": {
+                "units": {
+                    "my-charm/0": make_unit(workload_status="waiting"),
+                    "my-charm/1": make_unit(workload_status="waiting"),
+                },
+            },
+        },
+    )
+    after = make_snapshot(
+        apps={
+            "my-charm": {
+                "units": {
+                    "my-charm/0": make_unit(workload_status="active"),
+                    "my-charm/1": make_unit(workload_status="waiting"),
+                },
+            },
+        },
+    )
+    log = make_log([make_event(1, "deploy", before=before, after=after)])
+    [event] = tag(log)["events"]
+    [assertion] = [a for a in event["assertions"] if a["kind"] == "unit_status"]
+    assert assertion["scope"] == "any"
+    assert assertion["unit"] is None
+
+
+def test_one_tag_per_status_not_one_per_unit():
+    """Two units settling together are one claim about the app, not two."""
+    from .conftest import make_event, make_log, make_snapshot, make_unit
+
+    before = make_snapshot(
+        apps={
+            "my-charm": {
+                "units": {
+                    "my-charm/0": make_unit(workload_status="waiting"),
+                    "my-charm/1": make_unit(workload_status="waiting"),
+                },
+            },
+        },
+    )
+    after = make_snapshot(
+        apps={
+            "my-charm": {
+                "units": {
+                    "my-charm/0": make_unit(workload_status="active"),
+                    "my-charm/1": make_unit(workload_status="active"),
+                },
+            },
+        },
+    )
+    log = make_log([make_event(1, "deploy", before=before, after=after)])
+    [event] = tag(log)["events"]
+    tags = [a for a in event["assertions"] if a["kind"] == "unit_status"]
+    assert len(tags) == 1
+    assert tags[0]["scope"] == "all"

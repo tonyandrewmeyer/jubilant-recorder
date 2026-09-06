@@ -109,10 +109,16 @@ def test_codegen_renders_synthesised_wait_for_idle() -> None:
     # The status tagger's existing per-event rule (before != after on the
     # synthesised event) picks up the settle automatically — no changes
     # needed to tagger/rules/status.py for this.
+    # App-scoped, not pinned to the recorded unit name: the generated test opens
+    # a fresh temp_model() where the unit number need not match the recording.
     assert (
-        "assert juju.status().apps['my-charm']"
-        ".units['my-charm/0'].workload_status.current == 'active'"
+        "        for _u in juju.status().apps['my-charm'].units.values():\n"
+        "            assert _u.workload_status.current == 'active'"
     ) in src, src
+    # ...and not pinned to the recorded unit. `my-charm/0` still appears as the
+    # juju.run target, which the author named; it must not appear as a status
+    # subscript, which the recording only happened to produce.
+    assert ".units['my-charm/0']" not in src, src
 
     # Ops appear in order: deploy, then the wait, then run.
     deploy_idx = src.find("juju.deploy(")

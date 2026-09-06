@@ -100,7 +100,11 @@ def test_recorded_session():
         # checkpoint: reconfigured
 ```
 
-Two things worth pointing at. The `for _u in ...units.values()` loop came from an `assert_status` gesture, and works in any model. The line above it, with the unit name in brackets, came from the automatic tagger and hardcodes whichever unit number happened to be recorded - so the generated test raises `KeyError` in the fresh `temp_model` it opens for itself. That is a real bug rather than a demo artefact, and it is the honest answer to "does that test pass?": not yet.
+> **The `output` block above predates the tagger fix and must be re-recorded.** It was captured when the automatic tagger emitted `units['ubuntu/1']`, pinning whichever unit number the recording happened to produce; the generated test then raised `KeyError` in the fresh `temp_model` it opens for itself. The tagger is now app-scoped, so that line renders as a `for _u in ...units.values()` loop — or disappears, where an `assert_status` gesture already made the same claim about the same app and status. Run `showboat exec` on this document before rehearsing; the block will differ, and that is the fix landing rather than a regression.
+
+The `for _u in ...units.values()` loop came from an `assert_status` gesture, and works in any model. The tagger now emits the same shape for what it infers: a recorded unit name is an artefact of the recording, not a fact about the replay, so it never reaches the generated test. Where only some of an app's units reached a status, the tagger emits `any(...)` rather than the loop, so it does not claim more than the recording saw.
+
+"Does that test pass?" is now a fair question to invite rather than one to deflect.
 
 ## 3. --ai
 
