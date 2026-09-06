@@ -24,6 +24,16 @@ if [ -z "$MODEL" ]; then
     exit 64
 fi
 
+# --check must not touch the log it is about to read. Everything from here to
+# the end of the instructions block is setup for a *fresh* run, and running it
+# on the check pass deleted the evidence and then reported it missing.
+if [ "${3:-}" = "--check" ] || [ "${MODEL}" = "--check" ]; then
+    CHECK_ONLY=1
+else
+    CHECK_ONLY=0
+fi
+
+if [ "$CHECK_ONLY" = "0" ]; then
 if [ ! -f ~/bash-preexec.sh ]; then
     echo "fetching bash-preexec…"
     curl -fsSL https://raw.githubusercontent.com/rcaloras/bash-preexec/master/bash-preexec.sh \
@@ -63,8 +73,9 @@ cheerful "session started" message. SHELL-HOOK-IMPL-STATUS.md's table says
 'prints export JTR_SESSION=…', which invites exactly that mistake.
 
 INSTRUCTIONS
+fi
 
-if [ "${3:-}" = "--check" ] || [ "${MODEL}" = "--check" ]; then
+if [ "$CHECK_ONLY" = "1" ]; then
     echo "--- checking ${LOG} ---"
     if [ ! -f "$LOG" ]; then
         echo "FAIL: no log at ${LOG}. jtr start did not take effect."
