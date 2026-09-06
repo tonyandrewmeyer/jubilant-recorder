@@ -32,4 +32,4 @@ the model is fresh.
 The shell hook. It cannot be captured this way - bash-preexec fires from the
 DEBUG trap and `PROMPT_COMMAND`, neither of which runs without a prompt cycle,
 so a scripted run records zero events whether the hook works or not. Use
-`scripts/verify-shell-hook.sh` in a real terminal instead.
+`tests/manual/verify-shell-hook.sh` in a real terminal instead.
