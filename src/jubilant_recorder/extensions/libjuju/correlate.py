@@ -1,8 +1,8 @@
-"""RPC → delta-burst association and SCHEMA.md event emission.
+"""RPC → delta-burst association and docs/schema.md event emission.
 
 ``correlate()`` takes the two streams captured by ``LibjujuTap`` — a list of
 RPC records and a list of AllWatcher delta records — and produces a list of
-``EventEnvelope``-shaped dicts in the jubilant-recorder SCHEMA.md format.
+``EventEnvelope``-shaped dicts in the jubilant-recorder docs/schema.md format.
 
 Correlation strategy
 --------------------
@@ -21,7 +21,7 @@ clock skew), the delta is attributed to the chronologically closest RPC within
 the window.  If no RPC is within range, the delta is recorded as an orphan on
 the synthetic ``_libjuju_orphan`` event at the end.
 
-Facade → op taxonomy (SCHEMA.md §"Op taxonomy")
+Facade → op taxonomy (docs/schema.md §"Op taxonomy")
 ------------------------------------------------
 Three buckets:
 
@@ -274,7 +274,7 @@ class _ModelState:
                     self._relations.append(pair)
 
     def snapshot(self, captured_at: str) -> dict[str, Any]:
-        """Build a SCHEMA.md-shaped model snapshot from current state."""
+        """Build a docs/schema.md-shaped model snapshot from current state."""
         apps: dict[str, Any] = {}
         for unit_name, info in self._units.items():
             app = info["app"]
@@ -374,7 +374,7 @@ def _placement_to_cli_str(placement: dict[str, Any]) -> str:
 
 
 def _extract_args(facade: str, method: str, params: dict[str, Any]) -> dict[str, Any]:
-    """Map libjuju RPC params to the SCHEMA.md args dict for a bucket-1 op."""
+    """Map libjuju RPC params to the docs/schema.md args dict for a bucket-1 op."""
     key = (facade, method)
 
     if key == ("Application", "Deploy"):
@@ -764,7 +764,7 @@ def correlate(
     window_seconds: float = 2.0,
     idle_threshold_seconds: float | None = None,
 ) -> list[dict[str, Any]]:
-    """Pair RPCs with their delta bursts; emit SCHEMA.md-shaped events.
+    """Pair RPCs with their delta bursts; emit docs/schema.md-shaped events.
 
     Parameters
     ----------
@@ -785,7 +785,7 @@ def correlate(
 
     Returns
     -------
-    list of event dicts in SCHEMA.md EventEnvelope shape, with ``seq``
+    list of event dicts in docs/schema.md EventEnvelope shape, with ``seq``
     starting at 1.
     """
     if idle_threshold_seconds is None:

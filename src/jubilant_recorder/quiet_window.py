@@ -5,7 +5,7 @@ this for the libjuju-tap path, using the gap between the last AllWatcher delta
 and the next user RPC as its quiet-window signal. The core recorder
 (``RecordingJuju``) has no delta stream, so it needs a different signal built from
 what it does have: the ``model_snapshot_before``/``model_snapshot_after`` pair every
-recorded event already carries (see SCHEMA.md). A "quiet window" here is a gap
+recorded event already carries (see docs/schema.md). A "quiet window" here is a gap
 between two adjacent recorded events where the earlier event leaves some unit in a
 transitional workload status (anything outside ``tagger.rules.status``'s
 ``_STABLE_STATUSES``) and the next event's own pre-op snapshot shows that same unit

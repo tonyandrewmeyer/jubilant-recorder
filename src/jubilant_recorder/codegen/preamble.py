@@ -11,7 +11,7 @@ this test actually started from a model that already had applications
 deployed, the generated test silently inherits an assumption — "this state
 already exists" — that `temp_model()` does not honour, and the test will
 fail for a reason the file itself never explains. Detecting this only takes
-the first recorded event's `model_snapshot_before` (SCHEMA.md is the source
+the first recorded event's `model_snapshot_before` (docs/schema.md is the source
 of truth for its shape), so codegen surfaces it as a comment rather than
 leaving it as a silent trap. When the first snapshot is empty — the common
 case, and what every existing fixture records — nothing is emitted and

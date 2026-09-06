@@ -1,7 +1,8 @@
-# Session Log — JSON schema
+# Session log — JSON schema
 
-*Defines the contract before the recorder is written.*
-*Designed: 2026-05-30.*
+The reference for the session-log format that every recording mode writes and
+that the tagger and codegen consume. This is a public contract: changing an
+event shape means bumping `schema_version` and updating codegen in lock-step.
 
 The session log is a single JSON file written by layer (A) (the recorder) and
 consumed by layers (B) (assertion inference) and (C) (codegen). It is the
@@ -31,7 +32,7 @@ tested, and iterated on against saved logs without running a live Juju model.
 |---|---|---|---|
 | `schema_version` | integer | ✓ | Format version for this file. `1` for this spec. Consumers MUST fail fast if the value is unknown. |
 | `session_id` | string (UUIDv7) | ✓ | Unique per recording session. UUIDv7 (time-ordered) so sessions sort chronologically in directory listings. Used as the default filename stem: `session-<session_id>.json`. |
-| `recorded_at` | string (RFC 3339 UTC) | ✓ | Timestamp when the session log was finalised and written (i.e. when `jubilant-record stop` completed or the `run` wrapper exited). |
+| `recorded_at` | string (RFC 3339 UTC) | ✓ | Timestamp when the session log was finalised and written (i.e. when `jubilant-recorder stop` completed or the `run` wrapper exited). |
 | `juju_version` | string | ✓ | Output of `juju version` at session start. Needed so codegen can emit version-appropriate API calls and so readers can contextualise behaviour differences. |
 | `jubilant_version` | string | ✓ | Version of the jubilant package in use. The recorder wraps jubilant; API surface and return-value shapes vary by release. |
 | `model` | string | ✓ | Juju model name the session operated against. Recorded for the generated test's fixture docstring and to provide context when `model_snapshot` fields reference apps by name. |
@@ -280,7 +281,7 @@ for the generated test.
 ### `shell`
 
 Records non-jubilant shell commands the user ran during the session. Captured
-only when `jubilant-record` is started with `--include-shell`; otherwise the
+only when `jubilant-recorder` is started with `--include-shell`; otherwise the
 event is recorded as a stub with `captured: false`.
 
 ```json
@@ -959,12 +960,16 @@ checkpoint.
 
 ---
 
-## Open questions (for recorder implementers)
+## Decisions
+
+These were open when the format was designed. All are settled by the
+implementation; they are recorded here because the reasoning is still the
+reason the format looks like this.
 
 1. **Snapshot timing — before vs. at-call.** `model_snapshot_before` is taken
    immediately before invoking `_cli()`. For long-running operations like
    `deploy` the model starts changing before the call returns. This is
-   acceptable for v1; the before/after pair captures pre-call and post-return
+   acceptable; the before/after pair captures pre-call and post-return
    state, which is what layer (B) needs for delta inference. A future `--verbose`
    mode could capture snapshots during polling.
 
@@ -978,8 +983,8 @@ checkpoint.
 3. **Failed ops.** If `_cli()` raises (e.g. `CLIError` on a failed deploy),
    the event is still recorded with `model_snapshot_after: null` and a
    `result.error` field carrying the error message. Codegen emits a
-   `pytest.skip` or `# TODO: failed op` comment for these. Exact shape of
-   `result.error` is a step-(3) concern; reserve the key name now.
+   `pytest.skip` or `# TODO: failed op` comment for these. `result.error`
+   carries the message as a string.
 
 4. **Gesture injection point.** Gesture calls (`recorder.assert_status()` etc.)
    happen between jubilant operations, not inside them. The recorder should emit
@@ -994,7 +999,7 @@ checkpoint.
    Redaction is applied at write time; the sentinel format is
    `"<redacted:<pattern>>"`.
 
-6. **Session log path when using `jubilant-record run`**. The wrapping mode
+6. **Session log path when using `jubilant-recorder run`**. The wrapping mode
    must write the final log atomically (write to `<id>.tmp`, then rename to
    `session-<id>.json`) so that a consumer polling the directory never reads a
    partial file.
@@ -1026,7 +1031,7 @@ checkpoint.
 
 ---
 
-## Schema addendum — shell-hook ops (extension Step 1–4)
+## Shell-hook ops
 
 *Added 2026-06-28. Additive change; session `schema_version` stays at `1`.*
 

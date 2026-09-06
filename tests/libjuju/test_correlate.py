@@ -2,7 +2,7 @@
 Correlate tests — fixture-driven, no live Juju controller required.
 
 Strategy: build synthetic RPC + delta records by hand (the same shape
-``LibjujuTap`` produces), call ``correlate()``, and assert the SCHEMA.md-
+``LibjujuTap`` produces), call ``correlate()``, and assert the docs/schema.md-
 shaped events are correct.
 
 Timestamp convention used in these tests:
@@ -942,7 +942,7 @@ class TestWaitForIdleSynthesis:
         assert seqs == list(range(1, len(events) + 1))
 
     def test_wait_for_idle_args_shape(self):
-        """synthesised wait_for_idle has apps=null, timeout=null per SCHEMA.md."""
+        """synthesised wait_for_idle has apps=null, timeout=null per docs/schema.md."""
         events = correlate(
             _synthesis_rpcs(),
             [_active_unit_delta(_UNIT_DELTA_TS)],

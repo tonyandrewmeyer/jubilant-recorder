@@ -2,7 +2,15 @@
 
 <img src="docs/logo.svg" alt="jubilant-recorder: a VHS cassette whose two tape reels are juju charms, related by the tape itself, REC light on" width="620">
 
+[![CI](https://github.com/tonyandrewmeyer/jubilant-recorder/actions/workflows/ci.yaml/badge.svg)](https://github.com/tonyandrewmeyer/jubilant-recorder/actions/workflows/ci.yaml)
+[![Licence: Apache-2.0](https://img.shields.io/badge/licence-Apache--2.0-blue.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+
 Record a live jubilant session and replay it as a pytest integration test.
+
+> **Status: alpha.** The generated tests are useful today, but the session-log
+> schema and the gesture API may still change between releases. This is a
+> personal project, not an official Canonical product.
 
 `jubilant-recorder` wraps `jubilant.Juju`, captures every CLI call plus a
 lightweight model snapshot before and after, and turns the resulting session
@@ -10,13 +18,69 @@ log into an idiomatic pytest test file. The intent is to collapse integration
 test authoring from "an hour of careful translation" to "do the thing, save
 the test."
 
+## What it does
+
+You drive a deployment once, by hand or in a script. It writes the test.
+
+Record:
+
+```python
+from jubilant_recorder import RecordingJuju, assert_status, checkpoint
+
+with RecordingJuju.start("session.json", model="my-model") as juju:
+    juju.deploy("ubuntu", channel="stable")
+    juju.wait(jubilant.all_active)
+    assert_status("ubuntu", "active")
+    checkpoint("deployed")
+```
+
+Generate:
+
+```bash
+jubilant-recorder generate session.json --out test_demo.py
+```
+
+Get:
+
+```python
+import jubilant
+
+
+def test_recorded_session():
+    with jubilant.temp_model() as juju:
+        juju.deploy("ubuntu", channel="stable")
+        assert len(juju.status().apps["ubuntu"].units) == 1
+        juju.wait(jubilant.all_active, timeout=900)
+        for _u in juju.status().apps["ubuntu"].units.values():
+            assert _u.workload_status.current == "active"
+        # checkpoint: deployed
+```
+
+The [full walkthrough](docs/demo.md) shows all three recording modes end to end.
+
 ## Install
 
 ```bash
 uv add jubilant-recorder            # or: pip install jubilant-recorder
 ```
 
-Requires Python 3.11+ and `jubilant>=1.0`.
+Requires Python 3.11+ and `jubilant>=1.0`. To record libjuju-driven sessions
+as well, install the extra:
+
+```bash
+uv add 'jubilant-recorder[libjuju]'
+```
+
+## Three ways to record
+
+| Mode | Use it when | Docs |
+|---|---|---|
+| **Scripted** — wrap `jubilant.Juju` in `RecordingJuju` | you are writing the deployment in Python anyway | below |
+| **Shell capture** — `jtr`, a PATH shim plus a shell hook | you are working at a real prompt, typing `juju` commands | [docs/shell-hook.md](docs/shell-hook.md) |
+| **libjuju** — a tap on `Connection.rpc` | you have an existing libjuju suite to migrate | [docs/libjuju.md](docs/libjuju.md) |
+
+All three produce the same session-log format, so the tagger and codegen are
+shared. The schema is documented in [docs/schema.md](docs/schema.md).
 
 ## Gesture API
 
@@ -66,6 +130,20 @@ The `jubilant-recorder` command provides four subcommands:
 
 `jubilant-recorder run` exports `JUBILANT_RECORDER_SESSION_LOG` into the
 child process environment so user scripts can locate the active log.
+
+## Session logs and secrets
+
+A session log records the arguments and results of every operation, which
+means it can capture whatever your charms hand back — action results,
+relation data, and in shell-capture mode the command lines you typed.
+
+The recorder redacts as it writes: values under keys like `password`,
+`token`, `secret` and `credential`, bearer tokens, and credentials embedded
+in URLs of any scheme are replaced with a `<redacted:…>` marker. In
+shell-capture mode you can add your own patterns with `jtr redact PATTERN`.
+
+Redaction is a safety net, not a guarantee. **Read a session log before you
+commit it or attach it to a bug report.**
 
 ## LLM features (`--ai`)
 
@@ -123,21 +201,35 @@ only one connection pool is established per `generate`/`run` call.
 ## Repo layout
 
 ```
-src/jubilant_recorder/   the package
-tests/                   unit suite + fixture session logs
-examples/                live recording scripts used during development
-docs/ci-template/        GHA workflows for the standalone repo
+src/jubilant_recorder/              the package
+  codegen/                          session log -> pytest source
+  tagger/                           assertion inference
+  shim/                             the `juju` PATH shim
+  extensions/libjuju/               the libjuju recording front-end
+tests/                              unit suite + fixture session logs
+tests/e2e/                          end-to-end tests, need a real controller
+examples/                           live recording scripts
+docs/                               schema, demo, and per-mode guides
 ```
 
 ## Development
 
 ```bash
-uv sync --extra dev
+uv sync --extra dev --extra libjuju
 uv run pytest
 uv run ruff check
 uv run pyright
 ```
 
+The unit suite needs no Juju controller. The end-to-end tests do, and are
+deselected unless you ask for them:
+
+```bash
+uv run pytest tests/e2e --e2e
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Licence
 
-Apache-2.0. See [`LICENSE`](LICENSE).
+Apache-2.0. See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).

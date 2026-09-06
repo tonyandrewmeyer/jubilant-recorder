@@ -1,7 +1,7 @@
 # Recording libjuju-driven sessions
 
 Records a libjuju-driven test session and emits session-log events in the same
-SCHEMA.md format that `RecordingJuju` produces — so the existing tagger
+docs/schema.md format that `RecordingJuju` produces — so the existing tagger
 and codegen pipeline is reused unchanged.
 
 ## Architecture
@@ -28,7 +28,7 @@ and codegen pipeline is reused unchanged.
           (pairs each RPC with its delta burst via time-window)
                     │
                     ▼
-          SCHEMA.md events  ──→  tagger ──→ codegen
+          docs/schema.md events  ──→  tagger ──→ codegen
 ```
 
 ## Key finding: request-ID availability
@@ -64,7 +64,7 @@ Three buckets (see correlate.py for the full map):
 
 | Bucket | Condition | Event shape |
 |---|---|---|
-| 1 — clean | `Application.Deploy`, `AddRelation`, `DestroyRelation`, `SetConfigs`, `Get/GetConfig`, `AddUnits`, `ScaleApplications`, `DestroyApplication`; `Action.Enqueue/EnqueueOperation`; `Client.Status` | Full SCHEMA.md event with op name from taxonomy |
+| 1 — clean | `Application.Deploy`, `AddRelation`, `DestroyRelation`, `SetConfigs`, `Get/GetConfig`, `AddUnits`, `ScaleApplications`, `DestroyApplication`; `Action.Enqueue/EnqueueOperation`; `Client.Status` | Full docs/schema.md event with op name from taxonomy |
 | 2 — lossy | `Application.SetCharm`, `Expose`, `Unexpose`, `SetConstraints`, `MergeBindings`, etc. | `op: "shell"` with `note: "libjuju <Facade>.<Method>"` (the existing codegen `# TODO` fallback) |
 | 3 — no mapping | Everything else | `op: "_todo"` with `note: "# TODO: manual step — libjuju <Facade>.<Method>"` and raw params attached |
 

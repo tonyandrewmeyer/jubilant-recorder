@@ -59,7 +59,7 @@ def generate(
         # translate — drop the event entirely. Scoped to the `_libjuju*`
         # prefix specifically, not a bare `_`: bucket-3's `_todo` op also
         # starts with an underscore but must still surface as a manual-step
-        # TODO (see SCHEMA.md "Diagnostic-only ops").
+        # TODO (see docs/schema.md "Diagnostic-only ops").
         if op.startswith("_libjuju"):
             continue
 

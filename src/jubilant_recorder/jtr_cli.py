@@ -759,52 +759,54 @@ def main() -> None:
     p_shell_install.add_argument("--no-path-shim", action="store_true", dest="no_path_shim")
 
     # start
-    p_start = sub.add_parser("start")
+    p_start = sub.add_parser("start", help="Start a recording session.")
     p_start.add_argument("name", nargs="?")
     p_start.add_argument("--output")
     p_start.add_argument("--shared", action="store_true")
 
     # stop
-    p_stop = sub.add_parser("stop")
+    p_stop = sub.add_parser("stop", help="Stop the active session and finalise its log.")
     p_stop.add_argument("--auto", action="store_true")
 
     # pause
-    sub.add_parser("pause")
+    sub.add_parser("pause", help="Stop recording without ending the session.")
 
     # resume
-    sub.add_parser("resume")
+    sub.add_parser("resume", help="Resume recording after `jtr pause`.")
 
     # status
-    p_status = sub.add_parser("status")
+    p_status = sub.add_parser("status", help="Show the active session, if any.")
     p_status.add_argument("--json", action="store_true")
 
     # tail
-    p_tail = sub.add_parser("tail")
+    p_tail = sub.add_parser("tail", help="Follow the session log until it ends.")
     p_tail.add_argument("--json", action="store_true")
     p_tail.add_argument("--jubilant-only", action="store_true")
     p_tail.add_argument("--context-only", action="store_true")
 
     # note
-    p_note = sub.add_parser("note")
+    p_note = sub.add_parser("note", help="Record a free-text note in the session log.")
     p_note.add_argument("text")
 
     # tag
-    p_tag = sub.add_parser("tag")
+    p_tag = sub.add_parser("tag", help="Mark the next operation as the start of a step.")
     p_tag.add_argument("label")
 
     # attach
-    p_attach = sub.add_parser("attach")
+    p_attach = sub.add_parser("attach", help="Attach this shell to a shared session.")
     p_attach.add_argument("session_id", nargs="?")
 
     # include / exclude / redact
-    p_include = sub.add_parser("include")
+    p_include = sub.add_parser("include", help="Also record commands matching PATTERN.")
     p_include.add_argument("pattern")
-    p_exclude = sub.add_parser("exclude")
+    p_exclude = sub.add_parser("exclude", help="Never record commands matching PATTERN.")
     p_exclude.add_argument("pattern")
-    p_redact = sub.add_parser("redact")
+    p_redact = sub.add_parser("redact", help="Redact PATTERN from recorded command lines.")
     p_redact.add_argument("pattern")
 
     # _hook_event (internal)
+    # No help=: argparse then omits it from the subcommand list. Passing
+    # help=SUPPRESS renders a literal "==SUPPRESS==" line instead.
     p_hook = sub.add_parser("_hook_event")
     p_hook.add_argument("--session", required=True)
     p_hook.add_argument("--cmd", required=True)
