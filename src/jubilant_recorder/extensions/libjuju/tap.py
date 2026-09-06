@@ -39,7 +39,7 @@ with the delta burst that followed it.
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     import types
@@ -229,6 +229,6 @@ class LibjujuTap:
         exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: types.TracebackType | None,
-    ) -> bool:
+    ) -> Literal[False]:
         self._patched_on.rpc = self._original_rpc  # type: ignore[method-assign]
         return False  # do not suppress exceptions

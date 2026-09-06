@@ -13,6 +13,18 @@ def _c(*argv: str) -> tuple[str, dict] | None:
     return cli_translate.classify_argv(list(argv))
 
 
+def _ok(*argv: str) -> tuple[str, dict]:
+    """``_c``, for argv that must classify.
+
+    Unpacking ``_c(...)`` directly hides the failure: an unrecognised argv
+    returns None and surfaces as a TypeError about iteration rather than
+    naming the argv that was not understood.
+    """
+    result = _c(*argv)
+    assert result is not None, f"argv did not classify: {argv}"
+    return result
+
+
 # --- deploy ---
 
 
@@ -21,7 +33,7 @@ def test_deploy_minimal() -> None:
 
 
 def test_deploy_full() -> None:
-    op, args = _c(
+    op, args = _ok(
         "deploy",
         "my-charm",
         "myapp",
@@ -64,7 +76,7 @@ def test_deploy_full() -> None:
 
 
 def test_deploy_config_last_wins() -> None:
-    _, args = _c("deploy", "c", "--config", "a=1", "--config", "a=2")
+    _, args = _ok("deploy", "c", "--config", "a=1", "--config", "a=2")
     assert args["config"] == {"a": "2"}
 
 
@@ -92,7 +104,7 @@ def test_deploy_no_charm_is_bucket2() -> None:
 
 
 def test_config_set() -> None:
-    op, args = _c("config", "my-charm", "log-level=debug", "debug=true")
+    op, args = _ok("config", "my-charm", "log-level=debug", "debug=true")
     assert op == "config"
     assert args == {"app": "my-charm", "values": {"log-level": "debug", "debug": "true"}}
 
@@ -109,7 +121,7 @@ def test_config_get_one_key() -> None:
 
 
 def test_config_unset() -> None:
-    op, args = _c("config", "my-charm", "--reset", "log-level,debug")
+    op, args = _ok("config", "my-charm", "--reset", "log-level,debug")
     assert op == "config_unset"
     assert args == {"app": "my-charm", "options": ["log-level", "debug"]}
 
@@ -130,7 +142,9 @@ def test_config_model_flag_is_bucket2() -> None:
 
 
 def test_refresh_switch_channel_force() -> None:
-    op, args = _c("refresh", "my-charm", "--switch", "ch:my-charm", "--channel", "edge", "--force")
+    op, args = _ok(
+        "refresh", "my-charm", "--switch", "ch:my-charm", "--channel", "edge", "--force"
+    )
     assert op == "set_charm"
     assert args == {
         "app": "my-charm",
@@ -153,7 +167,7 @@ def test_refresh_revision_is_bucket2() -> None:
 
 
 def test_refresh_storage_todo_still_bucket1() -> None:
-    op, args = _c("refresh", "my-charm", "--storage", "pgdata=1GB")
+    op, args = _ok("refresh", "my-charm", "--storage", "pgdata=1GB")
     assert op == "set_charm"
     assert args["storage_constraints"] == ["pgdata=1GB"]
 
@@ -223,18 +237,18 @@ def test_run_leader() -> None:
 
 
 def test_run_typed_params() -> None:
-    op, args = _c("run", "my-charm/0", "backup", "time=1000", "verbose=true", "label=foo")
+    op, args = _ok("run", "my-charm/0", "backup", "time=1000", "verbose=true", "label=foo")
     assert op == "run"
     assert args["params"] == {"time": 1000, "verbose": True, "label": "foo"}
 
 
 def test_run_string_args_keeps_raw_strings() -> None:
-    _op, args = _c("run", "my-charm/0", "backup", "--string-args", "time=1000")
+    _op, args = _ok("run", "my-charm/0", "backup", "--string-args", "time=1000")
     assert args["params"] == {"time": "1000"}
 
 
 def test_run_dotted_params() -> None:
-    _op, args = _c("run", "my-charm/0", "backup", "opts.retries=3")
+    _op, args = _ok("run", "my-charm/0", "backup", "opts.retries=3")
     assert args["params"] == {"opts": {"retries": 3}}
 
 
@@ -445,7 +459,7 @@ def test_remove_offer_single() -> None:
 
 
 def test_remove_offer_multi_and_force() -> None:
-    op, args = _c("remove-offer", "--force", "offer1", "offer2")
+    op, args = _ok("remove-offer", "--force", "offer1", "offer2")
     assert op == "remove_offer"
     assert args == {"offer_urls": ["offer1", "offer2"], "force": True}
 
@@ -508,13 +522,13 @@ def test_bind_endpoints_only() -> None:
 
 
 def test_bind_default_space_and_endpoint() -> None:
-    op, args = _c("bind", "my-charm", "default-space", "db=space1")
+    op, args = _ok("bind", "my-charm", "default-space", "db=space1")
     assert op == "merge_bindings"
     assert args == {"app": "my-charm", "bindings": {"": "default-space", "db": "space1"}}
 
 
 def test_bind_force_todo_still_bucket1() -> None:
-    op, args = _c("bind", "my-charm", "db=space1", "--force")
+    op, args = _ok("bind", "my-charm", "db=space1", "--force")
     assert op == "merge_bindings"
     assert args["force"] is True
 
@@ -530,7 +544,7 @@ def test_suspend_relation() -> None:
 
 
 def test_suspend_relation_message() -> None:
-    _op, args = _c("suspend-relation", "123", "--message", "maintenance")
+    _op, args = _ok("suspend-relation", "123", "--message", "maintenance")
     assert args == {"relation_ids": ["123"], "suspended": True, "message": "maintenance"}
 
 

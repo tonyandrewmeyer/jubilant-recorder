@@ -147,7 +147,7 @@ def _line_comments(source: str) -> dict[int, str]:
                 text = tok.string.lstrip("#").strip()
                 if text:
                     comments[tok.start[0]] = text
-    except (tokenize.TokenizeError, SyntaxError, IndentationError):
+    except (tokenize.TokenError, SyntaxError, IndentationError):
         # Best-effort: a file that fails to tokenize (e.g. a syntax error
         # introduced after the recorded run) yields no comments rather than
         # raising — this module is decorative, never load-bearing.

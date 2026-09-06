@@ -35,7 +35,7 @@ libjuju = [
 ]
 dev = [
     "pytest>=8",
-    "ruff>=0.16.0",
+    "ruff==0.16.0",
     "pyright>=1.1",
 ]
 

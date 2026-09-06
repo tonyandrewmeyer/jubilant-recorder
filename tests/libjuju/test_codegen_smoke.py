@@ -37,7 +37,8 @@ if TYPE_CHECKING:
 
 
 class FakeConnection:
-    rpc = None
+    # Any, not a callable type: tests swap this for stubs with varying shapes.
+    rpc: Any = None
 
 
 def _make_stub(responses: list[dict[str, Any]]):

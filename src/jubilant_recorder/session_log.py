@@ -98,7 +98,7 @@ class SessionLog:
 
     @classmethod
     @contextlib.contextmanager
-    def open(cls, log_path: Path, model: str = "") -> Generator[SessionLog, None, None]:
+    def open(cls, log_path: Path | str, model: str = "") -> Generator[SessionLog, None, None]:
         instance = cls(log_path, model=model)
         try:
             yield instance

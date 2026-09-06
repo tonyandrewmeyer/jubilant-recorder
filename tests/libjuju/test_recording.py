@@ -34,7 +34,8 @@ if TYPE_CHECKING:
 class FakeConnection:
     """Minimal stand-in for ``juju.client.connection.Connection``."""
 
-    rpc = None  # replaced per-test
+    # Any, not a callable type: tests swap this for stubs with varying shapes.
+    rpc: Any = None  # replaced per-test
 
 
 def _make_stub(responses: list[dict[str, Any]]):

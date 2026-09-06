@@ -28,7 +28,8 @@ uv run pyright
 uv run pytest
 ```
 
-Pre-commit runs format + lint + pyright; CI runs the full set.
+Pre-commit runs format + lint + pyright; CI runs those plus the tests on
+every supported Python, and checks the built wheel.
 
 ## Conventions
 
