@@ -148,7 +148,7 @@
   ],
   "jubilant_version": "1.10.0",
   "juju_version": "4.0.11-genericlinux-amd64",
-  "model": "jtr-step3",
+  "model": "jtr-demo",
   "recorded_at": "2026-06-13T12:50:12.448Z",
   "schema_version": 1,
   "session_id": "cde58dc4-1d1d-462a-b079-e3927d8c338c"

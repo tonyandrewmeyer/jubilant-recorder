@@ -12,7 +12,7 @@ import jubilant
 from jubilant.statustypes import Status
 
 from jubilant_recorder.events import EventEnvelope
-from jubilant_recorder.redaction import redact_config_dict, redact_string
+from jubilant_recorder.redaction import redact_config_dict, redact_payload, redact_string
 from jubilant_recorder.session_log import SessionLog, _format_ts
 
 if TYPE_CHECKING:
@@ -113,12 +113,16 @@ class RecordingJuju(jubilant.Juju):
     ) -> None:
         duration_ms = (end_ts - start_ts).total_seconds() * 1000
         redacted_args = _redact_args(args_dict)
+        # Results matter at least as much as args: `juju run` action output and
+        # relation data are where charms hand back generated passwords and
+        # connection strings. redact_payload walks the whole nested structure.
+        redacted_result, _ = redact_payload(result_dict)
         event = EventEnvelope(
             seq=self._session_log.next_seq(),
             op=op,
             ts=_format_ts(start_ts),
             args=redacted_args,
-            result=result_dict,
+            result=redacted_result,
             model_snapshot_before=snap_before,
             model_snapshot_after=snap_after,
             assertions=[],

@@ -35,11 +35,11 @@
               }
             }
           },
-          "hcts-frontend": {
+          "web-frontend": {
             "units": {
-              "hcts-frontend/0": {
+              "web-frontend/0": {
                 "agent_status": "lost",
-                "workload_message": "agent lost, see 'juju show-status-log hcts-frontend/0'",
+                "workload_message": "agent lost, see 'juju show-status-log web-frontend/0'",
                 "workload_status": "unknown"
               }
             }
@@ -53,18 +53,18 @@
               }
             }
           },
-          "temporal-admin-k8s": {
+          "scheduler-admin-k8s": {
             "units": {
-              "temporal-admin-k8s/0": {
+              "scheduler-admin-k8s/0": {
                 "agent_status": "idle",
                 "workload_message": "",
                 "workload_status": "active"
               }
             }
           },
-          "temporal-k8s": {
+          "scheduler-k8s": {
             "units": {
-              "temporal-k8s/0": {
+              "scheduler-k8s/0": {
                 "agent_status": "idle",
                 "workload_message": "",
                 "workload_status": "active"
@@ -82,14 +82,14 @@
           },
           {
             "endpoints": [
-              "hcts-frontend:temporal-host-info",
-              "temporal-k8s:temporal-host-info"
+              "web-frontend:host-info",
+              "scheduler-k8s:host-info"
             ]
           },
           {
             "endpoints": [
               "postgresql-k8s:database",
-              "temporal-k8s:db"
+              "scheduler-k8s:db"
             ]
           },
           {
@@ -112,38 +112,38 @@
           },
           {
             "endpoints": [
-              "temporal-admin-k8s:admin",
-              "temporal-k8s:admin"
+              "scheduler-admin-k8s:admin",
+              "scheduler-k8s:admin"
             ]
           },
           {
             "endpoints": [
-              "temporal-admin-k8s:peer",
-              "temporal-admin-k8s:peer"
+              "scheduler-admin-k8s:peer",
+              "scheduler-admin-k8s:peer"
             ]
           },
           {
             "endpoints": [
-              "temporal-admin-k8s:temporal-host-info",
-              "temporal-k8s:admin"
+              "scheduler-admin-k8s:host-info",
+              "scheduler-k8s:admin"
             ]
           },
           {
             "endpoints": [
-              "temporal-k8s:peer",
-              "temporal-k8s:peer"
+              "scheduler-k8s:peer",
+              "scheduler-k8s:peer"
             ]
           },
           {
             "endpoints": [
-              "temporal-admin-k8s:admin",
-              "temporal-k8s:temporal-host-info"
+              "scheduler-admin-k8s:admin",
+              "scheduler-k8s:host-info"
             ]
           },
           {
             "endpoints": [
               "postgresql-k8s:database",
-              "temporal-k8s:visibility"
+              "scheduler-k8s:visibility"
             ]
           }
         ],
@@ -151,11 +151,11 @@
       },
       "model_snapshot_before": {
         "apps": {
-          "hcts-frontend": {
+          "web-frontend": {
             "units": {
-              "hcts-frontend/0": {
+              "web-frontend/0": {
                 "agent_status": "lost",
-                "workload_message": "agent lost, see 'juju show-status-log hcts-frontend/0'",
+                "workload_message": "agent lost, see 'juju show-status-log web-frontend/0'",
                 "workload_status": "unknown"
               }
             }
@@ -169,18 +169,18 @@
               }
             }
           },
-          "temporal-admin-k8s": {
+          "scheduler-admin-k8s": {
             "units": {
-              "temporal-admin-k8s/0": {
+              "scheduler-admin-k8s/0": {
                 "agent_status": "idle",
                 "workload_message": "",
                 "workload_status": "active"
               }
             }
           },
-          "temporal-k8s": {
+          "scheduler-k8s": {
             "units": {
-              "temporal-k8s/0": {
+              "scheduler-k8s/0": {
                 "agent_status": "idle",
                 "workload_message": "",
                 "workload_status": "active"
@@ -192,14 +192,14 @@
         "relations": [
           {
             "endpoints": [
-              "hcts-frontend:temporal-host-info",
-              "temporal-k8s:temporal-host-info"
+              "web-frontend:host-info",
+              "scheduler-k8s:host-info"
             ]
           },
           {
             "endpoints": [
               "postgresql-k8s:database",
-              "temporal-k8s:db"
+              "scheduler-k8s:db"
             ]
           },
           {
@@ -222,38 +222,38 @@
           },
           {
             "endpoints": [
-              "temporal-admin-k8s:admin",
-              "temporal-k8s:admin"
+              "scheduler-admin-k8s:admin",
+              "scheduler-k8s:admin"
             ]
           },
           {
             "endpoints": [
-              "temporal-admin-k8s:peer",
-              "temporal-admin-k8s:peer"
+              "scheduler-admin-k8s:peer",
+              "scheduler-admin-k8s:peer"
             ]
           },
           {
             "endpoints": [
-              "temporal-admin-k8s:temporal-host-info",
-              "temporal-k8s:admin"
+              "scheduler-admin-k8s:host-info",
+              "scheduler-k8s:admin"
             ]
           },
           {
             "endpoints": [
-              "temporal-k8s:peer",
-              "temporal-k8s:peer"
+              "scheduler-k8s:peer",
+              "scheduler-k8s:peer"
             ]
           },
           {
             "endpoints": [
-              "temporal-admin-k8s:admin",
-              "temporal-k8s:temporal-host-info"
+              "scheduler-admin-k8s:admin",
+              "scheduler-k8s:host-info"
             ]
           },
           {
             "endpoints": [
               "postgresql-k8s:database",
-              "temporal-k8s:visibility"
+              "scheduler-k8s:visibility"
             ]
           }
         ],
@@ -285,11 +285,11 @@
               }
             }
           },
-          "hcts-frontend": {
+          "web-frontend": {
             "units": {
-              "hcts-frontend/0": {
+              "web-frontend/0": {
                 "agent_status": "lost",
-                "workload_message": "agent lost, see 'juju show-status-log hcts-frontend/0'",
+                "workload_message": "agent lost, see 'juju show-status-log web-frontend/0'",
                 "workload_status": "unknown"
               }
             }
@@ -303,18 +303,18 @@
               }
             }
           },
-          "temporal-admin-k8s": {
+          "scheduler-admin-k8s": {
             "units": {
-              "temporal-admin-k8s/0": {
+              "scheduler-admin-k8s/0": {
                 "agent_status": "idle",
                 "workload_message": "",
                 "workload_status": "active"
               }
             }
           },
-          "temporal-k8s": {
+          "scheduler-k8s": {
             "units": {
-              "temporal-k8s/0": {
+              "scheduler-k8s/0": {
                 "agent_status": "idle",
                 "workload_message": "",
                 "workload_status": "active"
@@ -338,14 +338,14 @@
           },
           {
             "endpoints": [
-              "hcts-frontend:temporal-host-info",
-              "temporal-k8s:temporal-host-info"
+              "web-frontend:host-info",
+              "scheduler-k8s:host-info"
             ]
           },
           {
             "endpoints": [
               "postgresql-k8s:database",
-              "temporal-k8s:db"
+              "scheduler-k8s:db"
             ]
           },
           {
@@ -368,38 +368,38 @@
           },
           {
             "endpoints": [
-              "temporal-admin-k8s:admin",
-              "temporal-k8s:admin"
+              "scheduler-admin-k8s:admin",
+              "scheduler-k8s:admin"
             ]
           },
           {
             "endpoints": [
-              "temporal-admin-k8s:peer",
-              "temporal-admin-k8s:peer"
+              "scheduler-admin-k8s:peer",
+              "scheduler-admin-k8s:peer"
             ]
           },
           {
             "endpoints": [
-              "temporal-admin-k8s:temporal-host-info",
-              "temporal-k8s:admin"
+              "scheduler-admin-k8s:host-info",
+              "scheduler-k8s:admin"
             ]
           },
           {
             "endpoints": [
-              "temporal-k8s:peer",
-              "temporal-k8s:peer"
+              "scheduler-k8s:peer",
+              "scheduler-k8s:peer"
             ]
           },
           {
             "endpoints": [
-              "temporal-admin-k8s:admin",
-              "temporal-k8s:temporal-host-info"
+              "scheduler-admin-k8s:admin",
+              "scheduler-k8s:host-info"
             ]
           },
           {
             "endpoints": [
               "postgresql-k8s:database",
-              "temporal-k8s:visibility"
+              "scheduler-k8s:visibility"
             ]
           }
         ],
@@ -416,11 +416,11 @@
               }
             }
           },
-          "hcts-frontend": {
+          "web-frontend": {
             "units": {
-              "hcts-frontend/0": {
+              "web-frontend/0": {
                 "agent_status": "lost",
-                "workload_message": "agent lost, see 'juju show-status-log hcts-frontend/0'",
+                "workload_message": "agent lost, see 'juju show-status-log web-frontend/0'",
                 "workload_status": "unknown"
               }
             }
@@ -434,18 +434,18 @@
               }
             }
           },
-          "temporal-admin-k8s": {
+          "scheduler-admin-k8s": {
             "units": {
-              "temporal-admin-k8s/0": {
+              "scheduler-admin-k8s/0": {
                 "agent_status": "idle",
                 "workload_message": "",
                 "workload_status": "active"
               }
             }
           },
-          "temporal-k8s": {
+          "scheduler-k8s": {
             "units": {
-              "temporal-k8s/0": {
+              "scheduler-k8s/0": {
                 "agent_status": "idle",
                 "workload_message": "",
                 "workload_status": "active"
@@ -463,14 +463,14 @@
           },
           {
             "endpoints": [
-              "hcts-frontend:temporal-host-info",
-              "temporal-k8s:temporal-host-info"
+              "web-frontend:host-info",
+              "scheduler-k8s:host-info"
             ]
           },
           {
             "endpoints": [
               "postgresql-k8s:database",
-              "temporal-k8s:db"
+              "scheduler-k8s:db"
             ]
           },
           {
@@ -493,38 +493,38 @@
           },
           {
             "endpoints": [
-              "temporal-admin-k8s:admin",
-              "temporal-k8s:admin"
+              "scheduler-admin-k8s:admin",
+              "scheduler-k8s:admin"
             ]
           },
           {
             "endpoints": [
-              "temporal-admin-k8s:peer",
-              "temporal-admin-k8s:peer"
+              "scheduler-admin-k8s:peer",
+              "scheduler-admin-k8s:peer"
             ]
           },
           {
             "endpoints": [
-              "temporal-admin-k8s:temporal-host-info",
-              "temporal-k8s:admin"
+              "scheduler-admin-k8s:host-info",
+              "scheduler-k8s:admin"
             ]
           },
           {
             "endpoints": [
-              "temporal-k8s:peer",
-              "temporal-k8s:peer"
+              "scheduler-k8s:peer",
+              "scheduler-k8s:peer"
             ]
           },
           {
             "endpoints": [
-              "temporal-admin-k8s:admin",
-              "temporal-k8s:temporal-host-info"
+              "scheduler-admin-k8s:admin",
+              "scheduler-k8s:host-info"
             ]
           },
           {
             "endpoints": [
               "postgresql-k8s:database",
-              "temporal-k8s:visibility"
+              "scheduler-k8s:visibility"
             ]
           }
         ],
@@ -554,11 +554,11 @@
               }
             }
           },
-          "hcts-frontend": {
+          "web-frontend": {
             "units": {
-              "hcts-frontend/0": {
+              "web-frontend/0": {
                 "agent_status": "lost",
-                "workload_message": "agent lost, see 'juju show-status-log hcts-frontend/0'",
+                "workload_message": "agent lost, see 'juju show-status-log web-frontend/0'",
                 "workload_status": "unknown"
               }
             }
@@ -572,18 +572,18 @@
               }
             }
           },
-          "temporal-admin-k8s": {
+          "scheduler-admin-k8s": {
             "units": {
-              "temporal-admin-k8s/0": {
+              "scheduler-admin-k8s/0": {
                 "agent_status": "idle",
                 "workload_message": "",
                 "workload_status": "active"
               }
             }
           },
-          "temporal-k8s": {
+          "scheduler-k8s": {
             "units": {
-              "temporal-k8s/0": {
+              "scheduler-k8s/0": {
                 "agent_status": "idle",
                 "workload_message": "",
                 "workload_status": "active"
@@ -607,14 +607,14 @@
           },
           {
             "endpoints": [
-              "hcts-frontend:temporal-host-info",
-              "temporal-k8s:temporal-host-info"
+              "web-frontend:host-info",
+              "scheduler-k8s:host-info"
             ]
           },
           {
             "endpoints": [
               "postgresql-k8s:database",
-              "temporal-k8s:db"
+              "scheduler-k8s:db"
             ]
           },
           {
@@ -637,38 +637,38 @@
           },
           {
             "endpoints": [
-              "temporal-admin-k8s:admin",
-              "temporal-k8s:admin"
+              "scheduler-admin-k8s:admin",
+              "scheduler-k8s:admin"
             ]
           },
           {
             "endpoints": [
-              "temporal-admin-k8s:peer",
-              "temporal-admin-k8s:peer"
+              "scheduler-admin-k8s:peer",
+              "scheduler-admin-k8s:peer"
             ]
           },
           {
             "endpoints": [
-              "temporal-admin-k8s:temporal-host-info",
-              "temporal-k8s:admin"
+              "scheduler-admin-k8s:host-info",
+              "scheduler-k8s:admin"
             ]
           },
           {
             "endpoints": [
-              "temporal-k8s:peer",
-              "temporal-k8s:peer"
+              "scheduler-k8s:peer",
+              "scheduler-k8s:peer"
             ]
           },
           {
             "endpoints": [
-              "temporal-admin-k8s:admin",
-              "temporal-k8s:temporal-host-info"
+              "scheduler-admin-k8s:admin",
+              "scheduler-k8s:host-info"
             ]
           },
           {
             "endpoints": [
               "postgresql-k8s:database",
-              "temporal-k8s:visibility"
+              "scheduler-k8s:visibility"
             ]
           }
         ],
@@ -685,11 +685,11 @@
               }
             }
           },
-          "hcts-frontend": {
+          "web-frontend": {
             "units": {
-              "hcts-frontend/0": {
+              "web-frontend/0": {
                 "agent_status": "lost",
-                "workload_message": "agent lost, see 'juju show-status-log hcts-frontend/0'",
+                "workload_message": "agent lost, see 'juju show-status-log web-frontend/0'",
                 "workload_status": "unknown"
               }
             }
@@ -703,18 +703,18 @@
               }
             }
           },
-          "temporal-admin-k8s": {
+          "scheduler-admin-k8s": {
             "units": {
-              "temporal-admin-k8s/0": {
+              "scheduler-admin-k8s/0": {
                 "agent_status": "idle",
                 "workload_message": "",
                 "workload_status": "active"
               }
             }
           },
-          "temporal-k8s": {
+          "scheduler-k8s": {
             "units": {
-              "temporal-k8s/0": {
+              "scheduler-k8s/0": {
                 "agent_status": "idle",
                 "workload_message": "",
                 "workload_status": "active"
@@ -738,14 +738,14 @@
           },
           {
             "endpoints": [
-              "hcts-frontend:temporal-host-info",
-              "temporal-k8s:temporal-host-info"
+              "web-frontend:host-info",
+              "scheduler-k8s:host-info"
             ]
           },
           {
             "endpoints": [
               "postgresql-k8s:database",
-              "temporal-k8s:db"
+              "scheduler-k8s:db"
             ]
           },
           {
@@ -768,38 +768,38 @@
           },
           {
             "endpoints": [
-              "temporal-admin-k8s:admin",
-              "temporal-k8s:admin"
+              "scheduler-admin-k8s:admin",
+              "scheduler-k8s:admin"
             ]
           },
           {
             "endpoints": [
-              "temporal-admin-k8s:peer",
-              "temporal-admin-k8s:peer"
+              "scheduler-admin-k8s:peer",
+              "scheduler-admin-k8s:peer"
             ]
           },
           {
             "endpoints": [
-              "temporal-admin-k8s:temporal-host-info",
-              "temporal-k8s:admin"
+              "scheduler-admin-k8s:host-info",
+              "scheduler-k8s:admin"
             ]
           },
           {
             "endpoints": [
-              "temporal-k8s:peer",
-              "temporal-k8s:peer"
+              "scheduler-k8s:peer",
+              "scheduler-k8s:peer"
             ]
           },
           {
             "endpoints": [
-              "temporal-admin-k8s:admin",
-              "temporal-k8s:temporal-host-info"
+              "scheduler-admin-k8s:admin",
+              "scheduler-k8s:host-info"
             ]
           },
           {
             "endpoints": [
               "postgresql-k8s:database",
-              "temporal-k8s:visibility"
+              "scheduler-k8s:visibility"
             ]
           }
         ],
@@ -807,7 +807,7 @@
       },
       "op": "wait_for_idle",
       "result": {
-        "error": "wait timed out after 900s\nStatus(\n  model=ModelStatus(\n    name='control',\n    type='caas',\n    controller='concierge-k8s',\n    cloud='k8s',\n    version='3.6.23',\n    model_status=StatusInfo(current='available', since='13 Jun 2026 17:08:20+12:00'),\n  ),\n  machines={},\n  apps={\n    'data-integrator': AppStatus(\n      charm='data-integrator',\n      charm_origin='charmhub',\n      charm_name='data-integrator',\n      charm_rev=418,\n      exposed=False,\n      base=FormattedBase(name='ubuntu', channel='24.04'),\n      charm_channel='latest/edge',\n      scale=1,\n      provider_id='6c62008a-04be-4593-8be3-728595e21af5',\n      address='10.152.183.190',\n      app_status=StatusInfo(current='waiting', message='installing agent', since='14 Jun 2026 10:24:30+12:00'),\n      relations={\n        'data-integrator-peers': [\n          AppStatusRelation(related_app='data-integrator', interface='data-integrator-peers', scope='global'),\n        ],\n        'postgresql': [\n          AppStatusRelation(related_app='postgresql-k8s', interface='postgresql_client', scope='global'),\n        ],\n      },\n      units={\n        'data-integrator/0': UnitStatus(\n          workload_status=StatusInfo(current='waiting', message='installing agent'),\n          juju_status=StatusInfo(current='allocating', since='14 Jun 2026 10:24:30+12:00'),\n        ),\n      },\n      endpoint_bindings={\n        '': 'alpha',\n        'cassandra': 'alpha',\n        'data-integrator-peers': 'alpha',\n        'etcd': 'alpha',\n        'kafka': 'alpha',\n        'kyuubi': 'alpha',\n        'mongodb': 'alpha',\n        'mongos': 'alpha',\n        'mysql': 'alpha',\n        'opensearch': 'alpha',\n        'postgresql': 'alpha',\n        'valkey': 'alpha',\n        'zookeeper': 'alpha',\n      },\n    ),\n    'hcts-frontend': AppStatus(\n      charm='local:hcts-frontend-6',\n      charm_origin='local',\n      charm_name='hcts-frontend',\n      charm_rev=6,\n      exposed=False,\n      base=FormattedBase(name='ubuntu', channel='24.04'),\n      scale=1,\n      provider_id='4457a019-62ab-414b-97ca-2eaf5642ec61',\n      address='10.152.183.23',\n      app_status=StatusInfo(current='blocked', message='waiting for temporal-host-info relation', since='13 Jun 2026 23:14:16+12:00'),\n      relations={\n        'temporal-host-info': [\n          AppStatusRelation(related_app='temporal-k8s', interface='temporal-host-info', scope='global'),\n        ],\n      },\n      units={\n        'hcts-frontend/0': UnitStatus(\n          workload_status=StatusInfo(current='unknown', message=\"agent lost, see 'juju show-status-log hcts-frontend/0'\", since='13 Jun 2026 23:14:16+12:00'),\n          juju_status=StatusInfo(current='lost', message='agent is not communicating with the server', since='13 Jun 2026 23:14:21+12:00', version='3.6.23'),\n          upgrading_from='local:hcts-frontend-5',\n          provider_id='hcts-frontend-0',\n        ),\n      },\n      endpoint_bindings={'': 'alpha', 'temporal-host-info': 'alpha'},\n    ),\n    'postgresql-k8s': AppStatus(\n      charm='postgresql-k8s',\n      charm_origin='charmhub',\n      charm_name='postgresql-k8s',\n      charm_rev=774,\n      exposed=False,\n      base=FormattedBase(name='ubuntu', channel='22.04'),\n      charm_channel='14/stable',\n      scale=1,\n      provider_id='03ac87ba-ccb6-4484-9549-8f0b3483707d',\n      address='10.152.183.58',\n      app_status=StatusInfo(current='active', since='13 Jun 2026 17:14:07+12:00'),\n      relations={\n        'database': [\n          AppStatusRelation(related_app='data-integrator', interface='postgresql_client', scope='global'),\n          AppStatusRelation(related_app='temporal-k8s', interface='postgresql_client', scope='global'),\n        ],\n        'database-peers': [\n          AppStatusRelation(related_app='postgresql-k8s', interface='postgresql_peers', scope='global'),\n        ],\n        'restart': [\n          AppStatusRelation(related_app='postgresql-k8s', interface='rolling_op', scope='global'),\n        ],\n        'upgrade': [\n          AppStatusRelation(related_app='postgresql-k8s', interface='upgrade', scope='global'),\n        ],\n      },\n      units={\n        'postgresql-k8s/0': UnitStatus(\n          workload_status=StatusInfo(current='active', message='Primary', since='13 Jun 2026 21:02:17+12:00'),\n          juju_status=StatusInfo(current='idle', since='14 Jun 2026 10:39:28+12:00', version='3.6.23'),\n          leader=True,\n          address='10.1.0.56',\n          provider_id='postgresql-k8s-0',\n        ),\n      },\n      version='14.20',\n      endpoint_bindings={\n        '': 'alpha',\n        'certificates': 'alpha',\n        'database': 'alpha',\n        'database-peers': 'alpha',\n        'db': 'alpha',\n        'db-admin': 'alpha',\n        'grafana-dashboard': 'alpha',\n        'ldap': 'alpha',\n        'logging': 'alpha',\n        'metrics-endpoint': 'alpha',\n        'receive-ca-cert': 'alpha',\n        'replication': 'alpha',\n        'replication-offer': 'alpha',\n        'restart': 'alpha',\n        's3-parameters': 'alpha',\n        'tracing': 'alpha',\n        'upgrade': 'alpha',\n      },\n    ),\n    'temporal-admin-k8s': AppStatus(\n      charm='temporal-admin-k8s',\n      charm_origin='charmhub',\n      charm_name='temporal-admin-k8s',\n      charm_rev=28,\n      exposed=False,\n      base=FormattedBase(name='ubuntu', channel='24.04'),\n      charm_channel='1.23/stable',\n      scale=1,\n      provider_id='8f6b005b-6c2f-4310-a876-a9647ec08151',\n      address='10.152.183.36',\n      app_status=StatusInfo(current='active', since='13 Jun 2026 17:19:14+12:00'),\n      relations={\n        'admin': [\n          AppStatusRelation(related_app='temporal-k8s', interface='temporal', scope='global'),\n        ],\n        'peer': [\n          AppStatusRelation(related_app='temporal-admin-k8s', interface='temporal-admin', scope='global'),\n        ],\n        'temporal-host-info': [\n          AppStatusRelation(related_app='temporal-k8s', interface='temporal-host-info', scope='global'),\n        ],\n      },\n      units={\n        'temporal-admin-k8s/0': UnitStatus(\n          workload_status=StatusInfo(current='active', since='13 Jun 2026 17:19:14+12:00'),\n          juju_status=StatusInfo(current='idle', since='13 Jun 2026 21:02:16+12:00', version='3.6.23'),\n          leader=True,\n          address='10.1.0.155',\n          provider_id='temporal-admin-k8s-0',\n        ),\n      },\n      version='1.23.1',\n      endpoint_bindings={'': 'alpha', 'admin': 'alpha', 'peer': 'alpha', 'temporal-host-info': 'alpha'},\n    ),\n    'temporal-k8s': AppStatus(\n      charm='temporal-k8s',\n      charm_origin='charmhub',\n      charm_name='temporal-k8s',\n      charm_rev=68,\n      exposed=False,\n      base=FormattedBase(name='ubuntu', channel='24.04'),\n      charm_channel='1.23/stable',\n      scale=1,\n      provider_id='4564ea31-4b5c-4ec8-8543-40288266ed9e',\n      address='10.152.183.35',\n      app_status=StatusInfo(current='active', since='13 Jun 2026 21:06:14+12:00'),\n      relations={\n        'admin': [\n          AppStatusRelation(related_app='temporal-admin-k8s', interface='temporal', scope='global'),\n        ],\n        'db': [\n          AppStatusRelation(related_app='postgresql-k8s', interface='postgresql_client', scope='global'),\n        ],\n        'peer': [\n          AppStatusRelation(related_app='temporal-k8s', interface='temporal', scope='global'),\n        ],\n        'temporal-host-info': [\n          AppStatusRelation(related_app='hcts-frontend', interface='temporal-host-info', scope='global'),\n          AppStatusRelation(related_app='temporal-admin-k8s', interface='temporal-host-info', scope='global'),\n        ],\n        'visibility': [\n          AppStatusRelation(related_app='postgresql-k8s', interface='postgresql_client', scope='global'),\n        ],\n      },\n      units={\n        'temporal-k8s/0': UnitStatus(\n          workload_status=StatusInfo(current='active', since='13 Jun 2026 21:06:14+12:00'),\n          juju_status=StatusInfo(current='idle', since='13 Jun 2026 23:14:18+12:00', version='3.6.23'),\n          leader=True,\n          address='10.1.0.158',\n          provider_id='temporal-k8s-0',\n        ),\n      },\n      version='1.23.1',\n      endpoint_bindings={\n        '': 'alpha',\n        'admin': 'alpha',\n        'db': 'alpha',\n        'frontend-certificates': 'alpha',\n        'grafana-dashboard': 'alpha',\n        'log-proxy': 'alpha',\n        'logging': 'alpha',\n        'metrics-endpoint': 'alpha',\n        'nginx-route': 'alpha',\n        'openfga': 'alpha',\n        'peer': 'alpha',\n        's3-parameters': 'alpha',\n        'temporal-host-info': 'alpha',\n        'ui': 'alpha',\n        'visibility': 'alpha',\n      },\n    ),\n  },\n  storage=CombinedStorage(\n    storage={\n      'pgdata/0': StorageInfo(\n        kind='filesystem',\n        status=EntityStatus(current='attached', since='13 Jun 2026 18:09:49+12:00'),\n        persistent=False,\n        life='alive',\n        attachments=StorageAttachments(\n          units={\n            'postgresql-k8s/0': UnitStorageAttachment(life='alive'),\n          },\n        ),\n      ),\n    },\n    filesystems={\n      '0': FilesystemInfo(\n        size=1024,\n        provider_id='d02f371d-0ea7-4bb1-a25e-02291f927f99',\n        volume='0',\n        storage='pgdata/0',\n        attachments=FilesystemAttachments(\n          containers={\n            'postgresql-k8s/0': FilesystemAttachment(mount_point='/var/lib/postgresql/data', read_only=False, life='alive'),\n          },\n          units={\n            'postgresql-k8s/0': UnitStorageAttachment(life='alive'),\n          },\n        ),\n        pool='kubernetes',\n        life='alive',\n        status=EntityStatus(current='attached', since='13 Jun 2026 18:09:49+12:00'),\n      ),\n    },\n    volumes={\n      '0': VolumeInfo(\n        size=1024,\n        persistent=True,\n        provider_id='pvc-d02f371d-0ea7-4bb1-a25e-02291f927f99',\n        storage='pgdata/0',\n        attachments=VolumeAttachments(\n          containers={\n            'postgresql-k8s/0': VolumeAttachment(read_only=False, life='alive'),\n          },\n          units={\n            'postgresql-k8s/0': UnitStorageAttachment(life='alive'),\n          },\n        ),\n        pool='kubernetes',\n        life='alive',\n        status=EntityStatus(current='attached', since='13 Jun 2026 17:08:52+12:00'),\n      ),\n    },\n  ),\n  controller=ControllerStatus(timestamp='10:39:30+12:00'),\n)",
+        "error": "wait timed out after 900s\nStatus(\n  model=ModelStatus(\n    name='jtr-demo',\n    type='caas',\n    controller='k8s-controller',\n    cloud='k8s',\n    version='3.6.23',\n    model_status=StatusInfo(current='available', since='13 Jun 2026 17:08:20+12:00'),\n  ),\n  machines={},\n  apps={\n    'data-integrator': AppStatus(\n      charm='data-integrator',\n      charm_origin='charmhub',\n      charm_name='data-integrator',\n      charm_rev=418,\n      exposed=False,\n      base=FormattedBase(name='ubuntu', channel='24.04'),\n      charm_channel='latest/edge',\n      scale=1,\n      provider_id='6c62008a-04be-4593-8be3-728595e21af5',\n      address='10.152.183.190',\n      app_status=StatusInfo(current='waiting', message='installing agent', since='14 Jun 2026 10:24:30+12:00'),\n      relations={\n        'data-integrator-peers': [\n          AppStatusRelation(related_app='data-integrator', interface='data-integrator-peers', scope='global'),\n        ],\n        'postgresql': [\n          AppStatusRelation(related_app='postgresql-k8s', interface='postgresql_client', scope='global'),\n        ],\n      },\n      units={\n        'data-integrator/0': UnitStatus(\n          workload_status=StatusInfo(current='waiting', message='installing agent'),\n          juju_status=StatusInfo(current='allocating', since='14 Jun 2026 10:24:30+12:00'),\n        ),\n      },\n      endpoint_bindings={\n        '': 'alpha',\n        'cassandra': 'alpha',\n        'data-integrator-peers': 'alpha',\n        'etcd': 'alpha',\n        'kafka': 'alpha',\n        'kyuubi': 'alpha',\n        'mongodb': 'alpha',\n        'mongos': 'alpha',\n        'mysql': 'alpha',\n        'opensearch': 'alpha',\n        'postgresql': 'alpha',\n        'valkey': 'alpha',\n        'zookeeper': 'alpha',\n      },\n    ),\n    'web-frontend': AppStatus(\n      charm='local:web-frontend-6',\n      charm_origin='local',\n      charm_name='web-frontend',\n      charm_rev=6,\n      exposed=False,\n      base=FormattedBase(name='ubuntu', channel='24.04'),\n      scale=1,\n      provider_id='4457a019-62ab-414b-97ca-2eaf5642ec61',\n      address='10.152.183.23',\n      app_status=StatusInfo(current='blocked', message='waiting for host-info relation', since='13 Jun 2026 23:14:16+12:00'),\n      relations={\n        'host-info': [\n          AppStatusRelation(related_app='scheduler-k8s', interface='host-info', scope='global'),\n        ],\n      },\n      units={\n        'web-frontend/0': UnitStatus(\n          workload_status=StatusInfo(current='unknown', message=\"agent lost, see 'juju show-status-log web-frontend/0'\", since='13 Jun 2026 23:14:16+12:00'),\n          juju_status=StatusInfo(current='lost', message='agent is not communicating with the server', since='13 Jun 2026 23:14:21+12:00', version='3.6.23'),\n          upgrading_from='local:web-frontend-5',\n          provider_id='web-frontend-0',\n        ),\n      },\n      endpoint_bindings={'': 'alpha', 'host-info': 'alpha'},\n    ),\n    'postgresql-k8s': AppStatus(\n      charm='postgresql-k8s',\n      charm_origin='charmhub',\n      charm_name='postgresql-k8s',\n      charm_rev=774,\n      exposed=False,\n      base=FormattedBase(name='ubuntu', channel='22.04'),\n      charm_channel='14/stable',\n      scale=1,\n      provider_id='03ac87ba-ccb6-4484-9549-8f0b3483707d',\n      address='10.152.183.58',\n      app_status=StatusInfo(current='active', since='13 Jun 2026 17:14:07+12:00'),\n      relations={\n        'database': [\n          AppStatusRelation(related_app='data-integrator', interface='postgresql_client', scope='global'),\n          AppStatusRelation(related_app='scheduler-k8s', interface='postgresql_client', scope='global'),\n        ],\n        'database-peers': [\n          AppStatusRelation(related_app='postgresql-k8s', interface='postgresql_peers', scope='global'),\n        ],\n        'restart': [\n          AppStatusRelation(related_app='postgresql-k8s', interface='rolling_op', scope='global'),\n        ],\n        'upgrade': [\n          AppStatusRelation(related_app='postgresql-k8s', interface='upgrade', scope='global'),\n        ],\n      },\n      units={\n        'postgresql-k8s/0': UnitStatus(\n          workload_status=StatusInfo(current='active', message='Primary', since='13 Jun 2026 21:02:17+12:00'),\n          juju_status=StatusInfo(current='idle', since='14 Jun 2026 10:39:28+12:00', version='3.6.23'),\n          leader=True,\n          address='10.1.0.56',\n          provider_id='postgresql-k8s-0',\n        ),\n      },\n      version='14.20',\n      endpoint_bindings={\n        '': 'alpha',\n        'certificates': 'alpha',\n        'database': 'alpha',\n        'database-peers': 'alpha',\n        'db': 'alpha',\n        'db-admin': 'alpha',\n        'grafana-dashboard': 'alpha',\n        'ldap': 'alpha',\n        'logging': 'alpha',\n        'metrics-endpoint': 'alpha',\n        'receive-ca-cert': 'alpha',\n        'replication': 'alpha',\n        'replication-offer': 'alpha',\n        'restart': 'alpha',\n        's3-parameters': 'alpha',\n        'tracing': 'alpha',\n        'upgrade': 'alpha',\n      },\n    ),\n    'scheduler-admin-k8s': AppStatus(\n      charm='scheduler-admin-k8s',\n      charm_origin='charmhub',\n      charm_name='scheduler-admin-k8s',\n      charm_rev=28,\n      exposed=False,\n      base=FormattedBase(name='ubuntu', channel='24.04'),\n      charm_channel='1.23/stable',\n      scale=1,\n      provider_id='8f6b005b-6c2f-4310-a876-a9647ec08151',\n      address='10.152.183.36',\n      app_status=StatusInfo(current='active', since='13 Jun 2026 17:19:14+12:00'),\n      relations={\n        'admin': [\n          AppStatusRelation(related_app='scheduler-k8s', interface='scheduler', scope='global'),\n        ],\n        'peer': [\n          AppStatusRelation(related_app='scheduler-admin-k8s', interface='scheduler-admin', scope='global'),\n        ],\n        'host-info': [\n          AppStatusRelation(related_app='scheduler-k8s', interface='host-info', scope='global'),\n        ],\n      },\n      units={\n        'scheduler-admin-k8s/0': UnitStatus(\n          workload_status=StatusInfo(current='active', since='13 Jun 2026 17:19:14+12:00'),\n          juju_status=StatusInfo(current='idle', since='13 Jun 2026 21:02:16+12:00', version='3.6.23'),\n          leader=True,\n          address='10.1.0.155',\n          provider_id='scheduler-admin-k8s-0',\n        ),\n      },\n      version='1.23.1',\n      endpoint_bindings={'': 'alpha', 'admin': 'alpha', 'peer': 'alpha', 'host-info': 'alpha'},\n    ),\n    'scheduler-k8s': AppStatus(\n      charm='scheduler-k8s',\n      charm_origin='charmhub',\n      charm_name='scheduler-k8s',\n      charm_rev=68,\n      exposed=False,\n      base=FormattedBase(name='ubuntu', channel='24.04'),\n      charm_channel='1.23/stable',\n      scale=1,\n      provider_id='4564ea31-4b5c-4ec8-8543-40288266ed9e',\n      address='10.152.183.35',\n      app_status=StatusInfo(current='active', since='13 Jun 2026 21:06:14+12:00'),\n      relations={\n        'admin': [\n          AppStatusRelation(related_app='scheduler-admin-k8s', interface='scheduler', scope='global'),\n        ],\n        'db': [\n          AppStatusRelation(related_app='postgresql-k8s', interface='postgresql_client', scope='global'),\n        ],\n        'peer': [\n          AppStatusRelation(related_app='scheduler-k8s', interface='scheduler', scope='global'),\n        ],\n        'host-info': [\n          AppStatusRelation(related_app='web-frontend', interface='host-info', scope='global'),\n          AppStatusRelation(related_app='scheduler-admin-k8s', interface='host-info', scope='global'),\n        ],\n        'visibility': [\n          AppStatusRelation(related_app='postgresql-k8s', interface='postgresql_client', scope='global'),\n        ],\n      },\n      units={\n        'scheduler-k8s/0': UnitStatus(\n          workload_status=StatusInfo(current='active', since='13 Jun 2026 21:06:14+12:00'),\n          juju_status=StatusInfo(current='idle', since='13 Jun 2026 23:14:18+12:00', version='3.6.23'),\n          leader=True,\n          address='10.1.0.158',\n          provider_id='scheduler-k8s-0',\n        ),\n      },\n      version='1.23.1',\n      endpoint_bindings={\n        '': 'alpha',\n        'admin': 'alpha',\n        'db': 'alpha',\n        'frontend-certificates': 'alpha',\n        'grafana-dashboard': 'alpha',\n        'log-proxy': 'alpha',\n        'logging': 'alpha',\n        'metrics-endpoint': 'alpha',\n        'nginx-route': 'alpha',\n        'openfga': 'alpha',\n        'peer': 'alpha',\n        's3-parameters': 'alpha',\n        'host-info': 'alpha',\n        'ui': 'alpha',\n        'visibility': 'alpha',\n      },\n    ),\n  },\n  storage=CombinedStorage(\n    storage={\n      'pgdata/0': StorageInfo(\n        kind='filesystem',\n        status=EntityStatus(current='attached', since='13 Jun 2026 18:09:49+12:00'),\n        persistent=False,\n        life='alive',\n        attachments=StorageAttachments(\n          units={\n            'postgresql-k8s/0': UnitStorageAttachment(life='alive'),\n          },\n        ),\n      ),\n    },\n    filesystems={\n      '0': FilesystemInfo(\n        size=1024,\n        provider_id='d02f371d-0ea7-4bb1-a25e-02291f927f99',\n        volume='0',\n        storage='pgdata/0',\n        attachments=FilesystemAttachments(\n          containers={\n            'postgresql-k8s/0': FilesystemAttachment(mount_point='/var/lib/postgresql/data', read_only=False, life='alive'),\n          },\n          units={\n            'postgresql-k8s/0': UnitStorageAttachment(life='alive'),\n          },\n        ),\n        pool='kubernetes',\n        life='alive',\n        status=EntityStatus(current='attached', since='13 Jun 2026 18:09:49+12:00'),\n      ),\n    },\n    volumes={\n      '0': VolumeInfo(\n        size=1024,\n        persistent=True,\n        provider_id='pvc-d02f371d-0ea7-4bb1-a25e-02291f927f99',\n        storage='pgdata/0',\n        attachments=VolumeAttachments(\n          containers={\n            'postgresql-k8s/0': VolumeAttachment(read_only=False, life='alive'),\n          },\n          units={\n            'postgresql-k8s/0': UnitStorageAttachment(life='alive'),\n          },\n        ),\n        pool='kubernetes',\n        life='alive',\n        status=EntityStatus(current='attached', since='13 Jun 2026 17:08:52+12:00'),\n      ),\n    },\n  ),\n  controller=ControllerStatus(timestamp='10:39:30+12:00'),\n)",
         "settled_at": null
       },
       "seq": 3,
@@ -822,7 +822,7 @@
       "model_snapshot_before": null,
       "op": "session.error",
       "result": {
-        "error": "wait timed out after 900s\nStatus(\n  model=ModelStatus(\n    name='control',\n    type='caas',\n    controller='concierge-k8s',\n    cloud='k8s',\n    version='3.6.23',\n    model_status=StatusInfo(current='available', since='13 Jun 2026 17:08:20+12:00'),\n  ),\n  machines={},\n  apps={\n    'data-integrator': AppStatus(\n      charm='data-integrator',\n      charm_origin='charmhub',\n      charm_name='data-integrator',\n      charm_rev=418,\n      exposed=False,\n      base=FormattedBase(name='ubuntu', channel='24.04'),\n      charm_channel='latest/edge',\n      scale=1,\n      provider_id='6c62008a-04be-4593-8be3-728595e21af5',\n      address='10.152.183.190',\n      app_status=StatusInfo(current='waiting', message='installing agent', since='14 Jun 2026 10:24:30+12:00'),\n      relations={\n        'data-integrator-peers': [\n          AppStatusRelation(related_app='data-integrator', interface='data-integrator-peers', scope='global'),\n        ],\n        'postgresql': [\n          AppStatusRelation(related_app='postgresql-k8s', interface='postgresql_client', scope='global'),\n        ],\n      },\n      units={\n        'data-integrator/0': UnitStatus(\n          workload_status=StatusInfo(current='waiting', message='installing agent'),\n          juju_status=StatusInfo(current='allocating', since='14 Jun 2026 10:24:30+12:00'),\n        ),\n      },\n      endpoint_bindings={\n        '': 'alpha',\n        'cassandra': 'alpha',\n        'data-integrator-peers': 'alpha',\n        'etcd': 'alpha',\n        'kafka': 'alpha',\n        'kyuubi': 'alpha',\n        'mongodb': 'alpha',\n        'mongos': 'alpha',\n        'mysql': 'alpha',\n        'opensearch': 'alpha',\n        'postgresql': 'alpha',\n        'valkey': 'alpha',\n        'zookeeper': 'alpha',\n      },\n    ),\n    'hcts-frontend': AppStatus(\n      charm='local:hcts-frontend-6',\n      charm_origin='local',\n      charm_name='hcts-frontend',\n      charm_rev=6,\n      exposed=False,\n      base=FormattedBase(name='ubuntu', channel='24.04'),\n      scale=1,\n      provider_id='4457a019-62ab-414b-97ca-2eaf5642ec61',\n      address='10.152.183.23',\n      app_status=StatusInfo(current='blocked', message='waiting for temporal-host-info relation', since='13 Jun 2026 23:14:16+12:00'),\n      relations={\n        'temporal-host-info': [\n          AppStatusRelation(related_app='temporal-k8s', interface='temporal-host-info', scope='global'),\n        ],\n      },\n      units={\n        'hcts-frontend/0': UnitStatus(\n          workload_status=StatusInfo(current='unknown', message=\"agent lost, see 'juju show-status-log hcts-frontend/0'\", since='13 Jun 2026 23:14:16+12:00'),\n          juju_status=StatusInfo(current='lost', message='agent is not communicating with the server', since='13 Jun 2026 23:14:21+12:00', version='3.6.23'),\n          upgrading_from='local:hcts-frontend-5',\n          provider_id='hcts-frontend-0',\n        ),\n      },\n      endpoint_bindings={'': 'alpha', 'temporal-host-info': 'alpha'},\n    ),\n    'postgresql-k8s': AppStatus(\n      charm='postgresql-k8s',\n      charm_origin='charmhub',\n      charm_name='postgresql-k8s',\n      charm_rev=774,\n      exposed=False,\n      base=FormattedBase(name='ubuntu', channel='22.04'),\n      charm_channel='14/stable',\n      scale=1,\n      provider_id='03ac87ba-ccb6-4484-9549-8f0b3483707d',\n      address='10.152.183.58',\n      app_status=StatusInfo(current='active', since='13 Jun 2026 17:14:07+12:00'),\n      relations={\n        'database': [\n          AppStatusRelation(related_app='data-integrator', interface='postgresql_client', scope='global'),\n          AppStatusRelation(related_app='temporal-k8s', interface='postgresql_client', scope='global'),\n        ],\n        'database-peers': [\n          AppStatusRelation(related_app='postgresql-k8s', interface='postgresql_peers', scope='global'),\n        ],\n        'restart': [\n          AppStatusRelation(related_app='postgresql-k8s', interface='rolling_op', scope='global'),\n        ],\n        'upgrade': [\n          AppStatusRelation(related_app='postgresql-k8s', interface='upgrade', scope='global'),\n        ],\n      },\n      units={\n        'postgresql-k8s/0': UnitStatus(\n          workload_status=StatusInfo(current='active', message='Primary', since='13 Jun 2026 21:02:17+12:00'),\n          juju_status=StatusInfo(current='idle', since='14 Jun 2026 10:39:28+12:00', version='3.6.23'),\n          leader=True,\n          address='10.1.0.56',\n          provider_id='postgresql-k8s-0',\n        ),\n      },\n      version='14.20',\n      endpoint_bindings={\n        '': 'alpha',\n        'certificates': 'alpha',\n        'database': 'alpha',\n        'database-peers': 'alpha',\n        'db': 'alpha',\n        'db-admin': 'alpha',\n        'grafana-dashboard': 'alpha',\n        'ldap': 'alpha',\n        'logging': 'alpha',\n        'metrics-endpoint': 'alpha',\n        'receive-ca-cert': 'alpha',\n        'replication': 'alpha',\n        'replication-offer': 'alpha',\n        'restart': 'alpha',\n        's3-parameters': 'alpha',\n        'tracing': 'alpha',\n        'upgrade': 'alpha',\n      },\n    ),\n    'temporal-admin-k8s': AppStatus(\n      charm='temporal-admin-k8s',\n      charm_origin='charmhub',\n      charm_name='temporal-admin-k8s',\n      charm_rev=28,\n      exposed=False,\n      base=FormattedBase(name='ubuntu', channel='24.04'),\n      charm_channel='1.23/stable',\n      scale=1,\n      provider_id='8f6b005b-6c2f-4310-a876-a9647ec08151',\n      address='10.152.183.36',\n      app_status=StatusInfo(current='active', since='13 Jun 2026 17:19:14+12:00'),\n      relations={\n        'admin': [\n          AppStatusRelation(related_app='temporal-k8s', interface='temporal', scope='global'),\n        ],\n        'peer': [\n          AppStatusRelation(related_app='temporal-admin-k8s', interface='temporal-admin', scope='global'),\n        ],\n        'temporal-host-info': [\n          AppStatusRelation(related_app='temporal-k8s', interface='temporal-host-info', scope='global'),\n        ],\n      },\n      units={\n        'temporal-admin-k8s/0': UnitStatus(\n          workload_status=StatusInfo(current='active', since='13 Jun 2026 17:19:14+12:00'),\n          juju_status=StatusInfo(current='idle', since='13 Jun 2026 21:02:16+12:00', version='3.6.23'),\n          leader=True,\n          address='10.1.0.155',\n          provider_id='temporal-admin-k8s-0',\n        ),\n      },\n      version='1.23.1',\n      endpoint_bindings={'': 'alpha', 'admin': 'alpha', 'peer': 'alpha', 'temporal-host-info': 'alpha'},\n    ),\n    'temporal-k8s': AppStatus(\n      charm='temporal-k8s',\n      charm_origin='charmhub',\n      charm_name='temporal-k8s',\n      charm_rev=68,\n      exposed=False,\n      base=FormattedBase(name='ubuntu', channel='24.04'),\n      charm_channel='1.23/stable',\n      scale=1,\n      provider_id='4564ea31-4b5c-4ec8-8543-40288266ed9e',\n      address='10.152.183.35',\n      app_status=StatusInfo(current='active', since='13 Jun 2026 21:06:14+12:00'),\n      relations={\n        'admin': [\n          AppStatusRelation(related_app='temporal-admin-k8s', interface='temporal', scope='global'),\n        ],\n        'db': [\n          AppStatusRelation(related_app='postgresql-k8s', interface='postgresql_client', scope='global'),\n        ],\n        'peer': [\n          AppStatusRelation(related_app='temporal-k8s', interface='temporal', scope='global'),\n        ],\n        'temporal-host-info': [\n          AppStatusRelation(related_app='hcts-frontend', interface='temporal-host-info', scope='global'),\n          AppStatusRelation(related_app='temporal-admin-k8s', interface='temporal-host-info', scope='global'),\n        ],\n        'visibility': [\n          AppStatusRelation(related_app='postgresql-k8s', interface='postgresql_client', scope='global'),\n        ],\n      },\n      units={\n        'temporal-k8s/0': UnitStatus(\n          workload_status=StatusInfo(current='active', since='13 Jun 2026 21:06:14+12:00'),\n          juju_status=StatusInfo(current='idle', since='13 Jun 2026 23:14:18+12:00', version='3.6.23'),\n          leader=True,\n          address='10.1.0.158',\n          provider_id='temporal-k8s-0',\n        ),\n      },\n      version='1.23.1',\n      endpoint_bindings={\n        '': 'alpha',\n        'admin': 'alpha',\n        'db': 'alpha',\n        'frontend-certificates': 'alpha',\n        'grafana-dashboard': 'alpha',\n        'log-proxy': 'alpha',\n        'logging': 'alpha',\n        'metrics-endpoint': 'alpha',\n        'nginx-route': 'alpha',\n        'openfga': 'alpha',\n        'peer': 'alpha',\n        's3-parameters': 'alpha',\n        'temporal-host-info': 'alpha',\n        'ui': 'alpha',\n        'visibility': 'alpha',\n      },\n    ),\n  },\n  storage=CombinedStorage(\n    storage={\n      'pgdata/0': StorageInfo(\n        kind='filesystem',\n        status=EntityStatus(current='attached', since='13 Jun 2026 18:09:49+12:00'),\n        persistent=False,\n        life='alive',\n        attachments=StorageAttachments(\n          units={\n            'postgresql-k8s/0': UnitStorageAttachment(life='alive'),\n          },\n        ),\n      ),\n    },\n    filesystems={\n      '0': FilesystemInfo(\n        size=1024,\n        provider_id='d02f371d-0ea7-4bb1-a25e-02291f927f99',\n        volume='0',\n        storage='pgdata/0',\n        attachments=FilesystemAttachments(\n          containers={\n            'postgresql-k8s/0': FilesystemAttachment(mount_point='/var/lib/postgresql/data', read_only=False, life='alive'),\n          },\n          units={\n            'postgresql-k8s/0': UnitStorageAttachment(life='alive'),\n          },\n        ),\n        pool='kubernetes',\n        life='alive',\n        status=EntityStatus(current='attached', since='13 Jun 2026 18:09:49+12:00'),\n      ),\n    },\n    volumes={\n      '0': VolumeInfo(\n        size=1024,\n        persistent=True,\n        provider_id='pvc-d02f371d-0ea7-4bb1-a25e-02291f927f99',\n        storage='pgdata/0',\n        attachments=VolumeAttachments(\n          containers={\n            'postgresql-k8s/0': VolumeAttachment(read_only=False, life='alive'),\n          },\n          units={\n            'postgresql-k8s/0': UnitStorageAttachment(life='alive'),\n          },\n        ),\n        pool='kubernetes',\n        life='alive',\n        status=EntityStatus(current='attached', since='13 Jun 2026 17:08:52+12:00'),\n      ),\n    },\n  ),\n  controller=ControllerStatus(timestamp='10:39:30+12:00'),\n)"
+        "error": "wait timed out after 900s\nStatus(\n  model=ModelStatus(\n    name='jtr-demo',\n    type='caas',\n    controller='k8s-controller',\n    cloud='k8s',\n    version='3.6.23',\n    model_status=StatusInfo(current='available', since='13 Jun 2026 17:08:20+12:00'),\n  ),\n  machines={},\n  apps={\n    'data-integrator': AppStatus(\n      charm='data-integrator',\n      charm_origin='charmhub',\n      charm_name='data-integrator',\n      charm_rev=418,\n      exposed=False,\n      base=FormattedBase(name='ubuntu', channel='24.04'),\n      charm_channel='latest/edge',\n      scale=1,\n      provider_id='6c62008a-04be-4593-8be3-728595e21af5',\n      address='10.152.183.190',\n      app_status=StatusInfo(current='waiting', message='installing agent', since='14 Jun 2026 10:24:30+12:00'),\n      relations={\n        'data-integrator-peers': [\n          AppStatusRelation(related_app='data-integrator', interface='data-integrator-peers', scope='global'),\n        ],\n        'postgresql': [\n          AppStatusRelation(related_app='postgresql-k8s', interface='postgresql_client', scope='global'),\n        ],\n      },\n      units={\n        'data-integrator/0': UnitStatus(\n          workload_status=StatusInfo(current='waiting', message='installing agent'),\n          juju_status=StatusInfo(current='allocating', since='14 Jun 2026 10:24:30+12:00'),\n        ),\n      },\n      endpoint_bindings={\n        '': 'alpha',\n        'cassandra': 'alpha',\n        'data-integrator-peers': 'alpha',\n        'etcd': 'alpha',\n        'kafka': 'alpha',\n        'kyuubi': 'alpha',\n        'mongodb': 'alpha',\n        'mongos': 'alpha',\n        'mysql': 'alpha',\n        'opensearch': 'alpha',\n        'postgresql': 'alpha',\n        'valkey': 'alpha',\n        'zookeeper': 'alpha',\n      },\n    ),\n    'web-frontend': AppStatus(\n      charm='local:web-frontend-6',\n      charm_origin='local',\n      charm_name='web-frontend',\n      charm_rev=6,\n      exposed=False,\n      base=FormattedBase(name='ubuntu', channel='24.04'),\n      scale=1,\n      provider_id='4457a019-62ab-414b-97ca-2eaf5642ec61',\n      address='10.152.183.23',\n      app_status=StatusInfo(current='blocked', message='waiting for host-info relation', since='13 Jun 2026 23:14:16+12:00'),\n      relations={\n        'host-info': [\n          AppStatusRelation(related_app='scheduler-k8s', interface='host-info', scope='global'),\n        ],\n      },\n      units={\n        'web-frontend/0': UnitStatus(\n          workload_status=StatusInfo(current='unknown', message=\"agent lost, see 'juju show-status-log web-frontend/0'\", since='13 Jun 2026 23:14:16+12:00'),\n          juju_status=StatusInfo(current='lost', message='agent is not communicating with the server', since='13 Jun 2026 23:14:21+12:00', version='3.6.23'),\n          upgrading_from='local:web-frontend-5',\n          provider_id='web-frontend-0',\n        ),\n      },\n      endpoint_bindings={'': 'alpha', 'host-info': 'alpha'},\n    ),\n    'postgresql-k8s': AppStatus(\n      charm='postgresql-k8s',\n      charm_origin='charmhub',\n      charm_name='postgresql-k8s',\n      charm_rev=774,\n      exposed=False,\n      base=FormattedBase(name='ubuntu', channel='22.04'),\n      charm_channel='14/stable',\n      scale=1,\n      provider_id='03ac87ba-ccb6-4484-9549-8f0b3483707d',\n      address='10.152.183.58',\n      app_status=StatusInfo(current='active', since='13 Jun 2026 17:14:07+12:00'),\n      relations={\n        'database': [\n          AppStatusRelation(related_app='data-integrator', interface='postgresql_client', scope='global'),\n          AppStatusRelation(related_app='scheduler-k8s', interface='postgresql_client', scope='global'),\n        ],\n        'database-peers': [\n          AppStatusRelation(related_app='postgresql-k8s', interface='postgresql_peers', scope='global'),\n        ],\n        'restart': [\n          AppStatusRelation(related_app='postgresql-k8s', interface='rolling_op', scope='global'),\n        ],\n        'upgrade': [\n          AppStatusRelation(related_app='postgresql-k8s', interface='upgrade', scope='global'),\n        ],\n      },\n      units={\n        'postgresql-k8s/0': UnitStatus(\n          workload_status=StatusInfo(current='active', message='Primary', since='13 Jun 2026 21:02:17+12:00'),\n          juju_status=StatusInfo(current='idle', since='14 Jun 2026 10:39:28+12:00', version='3.6.23'),\n          leader=True,\n          address='10.1.0.56',\n          provider_id='postgresql-k8s-0',\n        ),\n      },\n      version='14.20',\n      endpoint_bindings={\n        '': 'alpha',\n        'certificates': 'alpha',\n        'database': 'alpha',\n        'database-peers': 'alpha',\n        'db': 'alpha',\n        'db-admin': 'alpha',\n        'grafana-dashboard': 'alpha',\n        'ldap': 'alpha',\n        'logging': 'alpha',\n        'metrics-endpoint': 'alpha',\n        'receive-ca-cert': 'alpha',\n        'replication': 'alpha',\n        'replication-offer': 'alpha',\n        'restart': 'alpha',\n        's3-parameters': 'alpha',\n        'tracing': 'alpha',\n        'upgrade': 'alpha',\n      },\n    ),\n    'scheduler-admin-k8s': AppStatus(\n      charm='scheduler-admin-k8s',\n      charm_origin='charmhub',\n      charm_name='scheduler-admin-k8s',\n      charm_rev=28,\n      exposed=False,\n      base=FormattedBase(name='ubuntu', channel='24.04'),\n      charm_channel='1.23/stable',\n      scale=1,\n      provider_id='8f6b005b-6c2f-4310-a876-a9647ec08151',\n      address='10.152.183.36',\n      app_status=StatusInfo(current='active', since='13 Jun 2026 17:19:14+12:00'),\n      relations={\n        'admin': [\n          AppStatusRelation(related_app='scheduler-k8s', interface='scheduler', scope='global'),\n        ],\n        'peer': [\n          AppStatusRelation(related_app='scheduler-admin-k8s', interface='scheduler-admin', scope='global'),\n        ],\n        'host-info': [\n          AppStatusRelation(related_app='scheduler-k8s', interface='host-info', scope='global'),\n        ],\n      },\n      units={\n        'scheduler-admin-k8s/0': UnitStatus(\n          workload_status=StatusInfo(current='active', since='13 Jun 2026 17:19:14+12:00'),\n          juju_status=StatusInfo(current='idle', since='13 Jun 2026 21:02:16+12:00', version='3.6.23'),\n          leader=True,\n          address='10.1.0.155',\n          provider_id='scheduler-admin-k8s-0',\n        ),\n      },\n      version='1.23.1',\n      endpoint_bindings={'': 'alpha', 'admin': 'alpha', 'peer': 'alpha', 'host-info': 'alpha'},\n    ),\n    'scheduler-k8s': AppStatus(\n      charm='scheduler-k8s',\n      charm_origin='charmhub',\n      charm_name='scheduler-k8s',\n      charm_rev=68,\n      exposed=False,\n      base=FormattedBase(name='ubuntu', channel='24.04'),\n      charm_channel='1.23/stable',\n      scale=1,\n      provider_id='4564ea31-4b5c-4ec8-8543-40288266ed9e',\n      address='10.152.183.35',\n      app_status=StatusInfo(current='active', since='13 Jun 2026 21:06:14+12:00'),\n      relations={\n        'admin': [\n          AppStatusRelation(related_app='scheduler-admin-k8s', interface='scheduler', scope='global'),\n        ],\n        'db': [\n          AppStatusRelation(related_app='postgresql-k8s', interface='postgresql_client', scope='global'),\n        ],\n        'peer': [\n          AppStatusRelation(related_app='scheduler-k8s', interface='scheduler', scope='global'),\n        ],\n        'host-info': [\n          AppStatusRelation(related_app='web-frontend', interface='host-info', scope='global'),\n          AppStatusRelation(related_app='scheduler-admin-k8s', interface='host-info', scope='global'),\n        ],\n        'visibility': [\n          AppStatusRelation(related_app='postgresql-k8s', interface='postgresql_client', scope='global'),\n        ],\n      },\n      units={\n        'scheduler-k8s/0': UnitStatus(\n          workload_status=StatusInfo(current='active', since='13 Jun 2026 21:06:14+12:00'),\n          juju_status=StatusInfo(current='idle', since='13 Jun 2026 23:14:18+12:00', version='3.6.23'),\n          leader=True,\n          address='10.1.0.158',\n          provider_id='scheduler-k8s-0',\n        ),\n      },\n      version='1.23.1',\n      endpoint_bindings={\n        '': 'alpha',\n        'admin': 'alpha',\n        'db': 'alpha',\n        'frontend-certificates': 'alpha',\n        'grafana-dashboard': 'alpha',\n        'log-proxy': 'alpha',\n        'logging': 'alpha',\n        'metrics-endpoint': 'alpha',\n        'nginx-route': 'alpha',\n        'openfga': 'alpha',\n        'peer': 'alpha',\n        's3-parameters': 'alpha',\n        'host-info': 'alpha',\n        'ui': 'alpha',\n        'visibility': 'alpha',\n      },\n    ),\n  },\n  storage=CombinedStorage(\n    storage={\n      'pgdata/0': StorageInfo(\n        kind='filesystem',\n        status=EntityStatus(current='attached', since='13 Jun 2026 18:09:49+12:00'),\n        persistent=False,\n        life='alive',\n        attachments=StorageAttachments(\n          units={\n            'postgresql-k8s/0': UnitStorageAttachment(life='alive'),\n          },\n        ),\n      ),\n    },\n    filesystems={\n      '0': FilesystemInfo(\n        size=1024,\n        provider_id='d02f371d-0ea7-4bb1-a25e-02291f927f99',\n        volume='0',\n        storage='pgdata/0',\n        attachments=FilesystemAttachments(\n          containers={\n            'postgresql-k8s/0': FilesystemAttachment(mount_point='/var/lib/postgresql/data', read_only=False, life='alive'),\n          },\n          units={\n            'postgresql-k8s/0': UnitStorageAttachment(life='alive'),\n          },\n        ),\n        pool='kubernetes',\n        life='alive',\n        status=EntityStatus(current='attached', since='13 Jun 2026 18:09:49+12:00'),\n      ),\n    },\n    volumes={\n      '0': VolumeInfo(\n        size=1024,\n        persistent=True,\n        provider_id='pvc-d02f371d-0ea7-4bb1-a25e-02291f927f99',\n        storage='pgdata/0',\n        attachments=VolumeAttachments(\n          containers={\n            'postgresql-k8s/0': VolumeAttachment(read_only=False, life='alive'),\n          },\n          units={\n            'postgresql-k8s/0': UnitStorageAttachment(life='alive'),\n          },\n        ),\n        pool='kubernetes',\n        life='alive',\n        status=EntityStatus(current='attached', since='13 Jun 2026 17:08:52+12:00'),\n      ),\n    },\n  ),\n  controller=ControllerStatus(timestamp='10:39:30+12:00'),\n)"
       },
       "seq": 4,
       "ts": "2026-06-13T22:39:32.139Z"
@@ -830,7 +830,7 @@
   ],
   "jubilant_version": "1.10.0",
   "juju_version": "3.6.23-genericlinux-amd64",
-  "model": "control",
+  "model": "jtr-demo",
   "recorded_at": "2026-06-13T22:39:32.139Z",
   "schema_version": 1,
   "session_id": "52de42ac-1684-46bb-a6f3-00fb8157d55f"

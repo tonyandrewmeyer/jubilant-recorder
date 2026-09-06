@@ -9,7 +9,7 @@ not the credential it carried.
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, cast
 
 # Rules ordered from most specific to least.  Each entry is
 # (compiled_pattern, sentinel_label).
@@ -19,9 +19,12 @@ _RULES: list[tuple[re.Pattern[str], str]] = [
         re.compile(r"Authorization:\s*Bearer\s+\S+", re.IGNORECASE),
         "bearer",
     ),
-    # URL with embedded credentials: https://user:pass@host/…
+    # URL with embedded credentials: scheme://user:pass@host/…
+    # Any scheme, not just http(s): connection strings for postgresql,
+    # mysql, redis, amqp and friends are exactly where charm action
+    # results hand back credentials.
     (
-        re.compile(r"https?://[^\s/:@]+:[^\s/@]+@"),
+        re.compile(r"[a-zA-Z][a-zA-Z0-9+.\-]*://[^\s/:@]+:[^\s/@]+@"),
         "url-credentials",
     ),
     # Query-string / CLI-flag form: password=VALUE  (case-insensitive key)
@@ -54,31 +57,46 @@ def redact_string(value: str) -> tuple[str, bool]:
 
 
 def redact_payload(payload: dict[str, Any]) -> tuple[dict[str, Any], bool]:
-    """Apply redaction to every string (and list-of-string) value in *payload*.
+    """Recursively redact sensitive values anywhere in *payload*.
 
-    Returns ``(redacted_payload, any_redacted)``.  The original dict is not
-    mutated.
+    Walks nested dicts and lists to any depth, applying both key-based
+    redaction (a key like ``password`` blanks its string value outright,
+    as in :func:`redact_config_dict`) and the pattern rules to every
+    string.  Operation *results* — action output, relation data, status
+    payloads — are where credentials actually surface, and they are
+    deeply nested, so a top-level-only pass is not enough.
+
+    Returns ``(redacted_payload, any_redacted)``.  The original is not mutated.
     """
-    any_redacted = False
-    result: dict[str, Any] = {}
-    for key, value in payload.items():
-        if isinstance(value, str):
-            new_val, changed = redact_string(value)
-            result[key] = new_val
+    result, changed = _redact_value(payload, None)
+    return cast("dict[str, Any]", result), changed
+
+
+def _redact_value(value: Any, key: str | None) -> tuple[Any, bool]:
+    """Redact *value*, which arrived under dict key *key* (None at the root)."""
+    if isinstance(value, dict):
+        any_redacted = False
+        out: dict[str, Any] = {}
+        for k, v in value.items():
+            out[k], changed = _redact_value(v, k)
             any_redacted = any_redacted or changed
-        elif isinstance(value, list):
-            new_list: list[Any] = []
-            for item in value:
-                if isinstance(item, str):
-                    new_item, changed = redact_string(item)
-                    new_list.append(new_item)
-                    any_redacted = any_redacted or changed
-                else:
-                    new_list.append(item)
-            result[key] = new_list
-        else:
-            result[key] = value
-    return result, any_redacted
+        return out, any_redacted
+    if isinstance(value, list):
+        any_redacted = False
+        items: list[Any] = []
+        for item in value:
+            # Carry the key down: {"uris": [...]} should redact its members.
+            new_item, changed = _redact_value(item, key)
+            items.append(new_item)
+            any_redacted = any_redacted or changed
+        return items, any_redacted
+    if isinstance(value, str):
+        if key is not None:
+            m = _CONFIG_KEY_PATTERN.search(key)
+            if m:
+                return f"<redacted:{m.group(1).lower()}>", True
+        return redact_string(value)
+    return value, False
 
 
 def redact_config_dict(values: dict[str, Any]) -> tuple[dict[str, Any], bool]:
