@@ -52,6 +52,10 @@ packages = ["src/jubilant_recorder"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "--strict-markers --strict-config"
+markers = [
+    "e2e: needs a real Juju controller; deselected unless --e2e or JTR_E2E is set",
+]
 
 [tool.pyright]
 include = ["src", "tests"]
