@@ -16,7 +16,7 @@ client.
 
 Run from the repo root on hcts-control:
 
-    uv run --with jubilant python k8s_wait_timeout_live.py
+    uv run python examples/k8s_wait_timeout_live.py
 
 Captures a log next to this file; the matching fixture lands at
 `tests/fixtures/k8s_wait_timeout.jsonl`.

@@ -16,7 +16,7 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
-from jubilant_recorder import codegen
+from jubilant_recorder import __version__, codegen
 from jubilant_recorder.shim import juju_shim
 
 _SHELL_INIT_BEGIN_MARKER = "# BEGIN jtr shell-init"
@@ -712,6 +712,7 @@ def cmd_shell(args: argparse.Namespace) -> int:
 def main() -> None:
     """Run the ``jtr`` command-line interface."""
     parser = argparse.ArgumentParser(prog="jtr")
+    parser.add_argument("--version", action="version", version=f"jubilant-recorder {__version__}")
     sub = parser.add_subparsers(dest="command")
 
     # shell-init

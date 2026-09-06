@@ -6,7 +6,7 @@
 
 Run from the repo root:
 
-    uv run --extra dev python deploy_ubuntu_live.py
+    uv run python examples/deploy_ubuntu_live.py
 
 The script's output is the path of the captured log plus a brief summary.
 """
