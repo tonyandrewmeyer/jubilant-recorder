@@ -56,6 +56,9 @@ reportMissingTypeStubs = false
 
 [tool.ruff]
 src = ["src", "tests"]
+# Generated codegen output, committed verbatim so a diff shows codegen moving.
+# Formatting it would make it stop matching what the generator emits.
+extend-exclude = ["tests/fixtures/golden"]
 line-length = 99
 target-version = "py311"
 
