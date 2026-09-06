@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import UTC, datetime
 
 import pytest
@@ -38,6 +39,10 @@ class TestRoundTripJson:
         assert len(doc["events"]) == 2
 
 
+def _without_recorded_at(text: str) -> str:
+    return re.sub(r'"recorded_at": "[^"]*"', '"recorded_at": "<normalised>"', text)
+
+
 class TestKeyOrderingStable:
     def test_key_ordering_stable(self, tmp_path):
         log_path_a = tmp_path / "a.json"
@@ -60,7 +65,13 @@ class TestKeyOrderingStable:
             log.append_event(event)
             log.close()
 
-        assert log_path_a.read_text() == log_path_b.read_text()
+        # close() stamps recorded_at from the wall clock, so the two writes
+        # differ whenever they straddle a millisecond boundary. That is the
+        # one field that is legitimately time-dependent; normalise it out
+        # rather than leaving a test that fails a few runs in a thousand.
+        assert _without_recorded_at(log_path_a.read_text()) == _without_recorded_at(
+            log_path_b.read_text()
+        )
 
 
 class TestSortKeysInOutput:

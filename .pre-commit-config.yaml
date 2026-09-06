@@ -28,7 +28,7 @@ repos:
 
       - id: pyright
         name: pyright
-        entry: uv run pyright
+        entry: uv run --extra dev --extra libjuju pyright
         language: system
         types: [python]
         pass_filenames: false

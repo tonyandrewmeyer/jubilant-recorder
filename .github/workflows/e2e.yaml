@@ -1,0 +1,74 @@
+name: End-to-end
+
+# These deploy real charms to a real controller, so they are slow and are not
+# run on every push. They gate a release, and can be started by hand.
+on:
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: scripted
+            path: tests/e2e/test_scripted_mode.py
+          - name: run subcommand
+            path: tests/e2e/test_run_mode.py
+          - name: shell capture
+            path: tests/e2e/test_shell_capture_mode.py
+          - name: libjuju
+            path: tests/e2e/test_libjuju_mode.py
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+
+      - name: Provision Juju
+        run: |
+          sudo snap install --classic concierge
+          sudo concierge prepare -p machine
+
+      # The e2e fixtures skip when they cannot find a controller, which would
+      # otherwise let a broken provisioning step report a green, empty run.
+      - name: Check the controller is reachable
+        run: |
+          juju controllers
+          juju whoami
+
+      # JTR_E2E_REQUIRE turns "no controller, skipping" into a failure, so a
+      # broken provisioning step cannot report a green run that tested nothing.
+      - name: End-to-end tests
+        env:
+          JTR_E2E_REQUIRE: "1"
+        run: uv run --extra dev --extra libjuju pytest "${{ matrix.path }}" --e2e -v
+
+      - name: Juju status on failure
+        if: failure()
+        run: |
+          juju models || true
+          for m in $(juju models --format json | python3 -c \
+            'import json,sys;print(" ".join(m["short-name"] for m in json.load(sys.stdin)["models"]))'); do
+            echo "--- $m ---"
+            juju status -m "$m" || true
+            juju debug-log -m "$m" --replay --no-tail --lines 100 || true
+          done

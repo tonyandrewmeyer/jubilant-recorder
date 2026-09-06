@@ -18,6 +18,7 @@ exists precisely for this pattern.
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 
 from jubilant_recorder.extensions.libjuju.tap import LibjujuTap
 
@@ -32,7 +33,8 @@ class FakeConnection:
     Tests replace ``FakeConnection.rpc`` per test via the ``_make_stub`` helper.
     """
 
-    rpc = None  # replaced per-test by _make_stub
+    # Any, not a callable type: tests swap this for stubs with varying shapes.
+    rpc: Any = None  # replaced per-test by _make_stub
 
 
 def _make_stub(responses: list[dict]) -> object:

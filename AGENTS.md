@@ -16,7 +16,7 @@ Entry point: `jubilant-recorder` (defined in `pyproject.toml`).
 ## Setup
 
 ```bash
-uv sync --extra dev
+uv sync --extra dev --extra libjuju
 ```
 
 ## Checks before pushing
@@ -24,11 +24,12 @@ uv sync --extra dev
 ```bash
 uv run ruff format --check .
 uv run ruff check .
-uv run pyright
+uv run pyright   # needs the libjuju extra synced
 uv run pytest
 ```
 
-Pre-commit runs format + lint + pyright; CI runs the full set.
+Pre-commit runs format + lint + pyright; CI runs those plus the tests on
+every supported Python, and checks the built wheel.
 
 ## Conventions
 

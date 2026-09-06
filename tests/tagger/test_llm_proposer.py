@@ -125,7 +125,9 @@ def test_collect_known_entities_empty_log():
 # ── llm_augment safety rail ───────────────────────────────────────────────────
 
 
-def _proposer_from(proposals: list[dict]) -> AssertionProposer:
+def _proposer_from(proposals: list[Any]) -> AssertionProposer:
+    # Deliberately list[Any], not list[dict]: several tests feed malformed
+    # proposals through here to check that llm_augment drops them.
     class _Fixed:
         def propose(self, log):
             return proposals
