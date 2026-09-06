@@ -197,7 +197,7 @@
       "op": "deploy",
       "result": {
         "app_name": "totally-nonexistent-charm-zzz",
-        "error": "Command '['juju', 'deploy', '--model', 'jtr-step3', 'totally-nonexistent-charm-zzz', '--channel', 'latest/edge']' returned non-zero exit status 1.\nStderr:\nERROR resolving error: The Charm with the given name was not found in the Store.\nERROR failed to deploy charm \"totally-nonexistent-charm-zzz\"\n"
+        "error": "Command '['juju', 'deploy', '--model', 'jtr-demo', 'totally-nonexistent-charm-zzz', '--channel', 'latest/edge']' returned non-zero exit status 1.\nStderr:\nERROR resolving error: The Charm with the given name was not found in the Store.\nERROR failed to deploy charm \"totally-nonexistent-charm-zzz\"\n"
       },
       "seq": 4,
       "ts": "2026-06-13T22:47:36.879Z"
@@ -229,7 +229,7 @@
       },
       "op": "integrate",
       "result": {
-        "error": "Command '['juju', 'integrate', '--model', 'jtr-step3', 'ubuntu', 'ubuntu']' returned non-zero exit status 1.\nStderr:\nERROR no relations found\n"
+        "error": "Command '['juju', 'integrate', '--model', 'jtr-demo', 'ubuntu', 'ubuntu']' returned non-zero exit status 1.\nStderr:\nERROR no relations found\n"
       },
       "seq": 5,
       "ts": "2026-06-13T22:47:38.485Z"
@@ -237,7 +237,7 @@
   ],
   "jubilant_version": "1.10.0",
   "juju_version": "4.0.11-genericlinux-amd64",
-  "model": "jtr-step3",
+  "model": "jtr-demo",
   "recorded_at": "2026-06-13T22:47:38.653Z",
   "schema_version": 1,
   "session_id": "a04876cc-cb23-42c5-9f2a-6c7fdb1c7e46"

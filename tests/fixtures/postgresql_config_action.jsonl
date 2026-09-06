@@ -66,7 +66,7 @@
         "channel": "latest/stable",
         "charm": "data-integrator",
         "config": {
-          "database-name": "step9_session3_db"
+          "database-name": "demo_db"
         },
         "num_units": 1,
         "resources": {}
@@ -793,15 +793,15 @@
         "results": {
           "ok": "True",
           "postgresql": {
-            "data": "{\"database\": \"step9_session3_db\", \"external-node-connectivity\": \"true\", \"provided-secrets\": \"[\\\"mtls-cert\\\"]\", \"requested-secrets\": \"[\\\"username\\\", \\\"password\\\", \\\"tls\\\", \\\"tls-ca\\\", \\\"uris\\\", \\\"read-only-uris\\\", \\\"entity-name\\\", \\\"entity-password\\\"]\"}",
-            "database": "step9_session3_db",
+            "data": "{\"database\": \"demo_db\", \"external-node-connectivity\": \"true\", \"provided-secrets\": \"[\\\"mtls-cert\\\"]\", \"requested-secrets\": \"[\\\"username\\\", \\\"password\\\", \\\"tls\\\", \\\"tls-ca\\\", \\\"uris\\\", \\\"read-only-uris\\\", \\\"entity-name\\\", \\\"entity-password\\\"]\"}",
+            "database": "demo_db",
             "endpoints": "10.5.87.251:5432",
-            "password": "***REMOVED***",
+            "password": "<redacted:password>",
             "read-only-endpoints": "10.5.87.251:5432",
-            "read-only-uris": "postgresql://relation-4:***REMOVED***@10.5.87.251:5432/step9_session3_db",
+            "read-only-uris": "<redacted:url-credentials>10.5.87.251:5432/demo_db",
             "tls": "False",
             "tls-ca": "",
-            "uris": "postgresql://relation-4:***REMOVED***@10.5.87.251:5432/step9_session3_db",
+            "uris": "<redacted:url-credentials>10.5.87.251:5432/demo_db",
             "username": "relation-4",
             "version": "14.22"
           }
@@ -1102,7 +1102,7 @@
   ],
   "jubilant_version": "1.10.0",
   "juju_version": "4.0.11-genericlinux-amd64",
-  "model": "jtr-step3",
+  "model": "jtr-demo",
   "recorded_at": "2026-06-13T22:01:54.815Z",
   "schema_version": 1,
   "session_id": "af4e55d5-c760-45a2-a559-e0bf8d969f4d"
