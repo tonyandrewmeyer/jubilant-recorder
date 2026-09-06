@@ -11,7 +11,7 @@
 # hook being broken, and so tells you nothing.
 #
 # Usage: open a terminal, cd to a jubilant-recorder checkout, run:
-#     bash verify-shell-hook.sh /path/to/checkout <juju-model>
+#     bash tests/manual/verify-shell-hook.sh /path/to/checkout <juju-model>
 # then follow the printed instructions and type the commands yourself.
 
 set -uo pipefail
@@ -87,8 +87,8 @@ Two failures this distinguishes, since they look alike in the log:
 Note that 'jtr start' must be called directly, not as eval "\$(jtr start …)".
 shell-init defines a jtr shell function that applies the env changes itself; the
 eval form runs it in a subshell and silently loses JTR_SESSION, after printing a
-cheerful "session started" message. SHELL-HOOK-IMPL-STATUS.md's table says
-'prints export JTR_SESSION=…', which invites exactly that mistake.
+cheerful "session started" message. 'jtr start' does print an
+'export JTR_SESSION=…' line, which is what invites the mistake.
 
 INSTRUCTIONS
 fi

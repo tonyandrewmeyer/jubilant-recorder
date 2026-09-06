@@ -232,4 +232,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Licence
 
-Apache-2.0. See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
+Copyright 2026 Tony Meyer, under Apache-2.0. See [`LICENSE`](LICENSE).

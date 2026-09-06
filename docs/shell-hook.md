@@ -100,7 +100,7 @@ The two failure shapes look alike, so check in this order:
    not first on `PATH`. `which juju` should resolve to
    `~/.local/share/jtr/shims/juju`, not `/snap/bin/juju`.
 
-`scripts/verify-shell-hook.sh` walks through this by hand and reports which
+`tests/manual/verify-shell-hook.sh` walks through this by hand and reports which
 of the two you are looking at. It has to be run by a person at a terminal:
 bash-preexec fires from the `DEBUG` trap and `PROMPT_COMMAND`, which only
 run on a prompt cycle, so a scripted harness records nothing whether the

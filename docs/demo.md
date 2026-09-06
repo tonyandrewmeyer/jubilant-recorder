@@ -207,7 +207,7 @@ def test_recorded_session():
 
 There is a third mode that records plain `juju` commands typed at a prompt. It has two lanes: a PATH shim records `juju` itself, and bash-preexec hooks record context commands around it (`kubectl`, `lxc`, `charmcraft`, `curl`). `juju` is the first entry in `_BASENAME_DENYLIST`, so the hook lane drops it deliberately rather than double-recording what the shim already has.
 
-`showboat verify` cannot cover this section. The hook lane fires from the DEBUG trap and `PROMPT_COMMAND`, which only run on a prompt cycle, so anything driven non-interactively records zero events whether the hook works or not — indistinguishable from it being broken. `scripts/verify-shell-hook.sh` is the substitute: it prints the commands to type by hand and then checks the resulting log.
+`showboat verify` cannot cover this section. The hook lane fires from the DEBUG trap and `PROMPT_COMMAND`, which only run on a prompt cycle, so anything driven non-interactively records zero events whether the hook works or not — indistinguishable from it being broken. `tests/manual/verify-shell-hook.sh` is the substitute: it prints the commands to type by hand and then checks the resulting log.
 
 **Verified 2026-09-06**, by a person at a real prompt:
 

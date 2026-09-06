@@ -10,7 +10,7 @@ oversight: bash-preexec fires from the DEBUG trap and PROMPT_COMMAND, both of
 which need a real prompt cycle. A script body does not have one, and driving
 `bash -i` over a pipe does not reliably produce one either, so a scripted
 harness records zero events whether the hook works or not — which is
-indistinguishable from it being broken. `scripts/verify-shell-hook.sh` exists
+indistinguishable from it being broken. `tests/manual/verify-shell-hook.sh` exists
 because that lane has to be checked by a person at a terminal.
 
 The shim lane has no such problem: it is an exec wrapper that only reads
