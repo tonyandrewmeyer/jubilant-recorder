@@ -97,7 +97,7 @@ it discards the polished version and returns the deterministic output.
 ### OpenRouter API key
 
 Both LLM passes go through [OpenRouter](https://openrouter.ai)'s
-OpenAI-compatible API, defaulting to `anthropic/claude-sonnet-4.6`. Set the
+OpenAI-compatible API, defaulting to `anthropic/claude-sonnet-5`. Set the
 environment variable before running:
 
 ```bash
