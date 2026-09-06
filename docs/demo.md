@@ -142,7 +142,13 @@ OPENROUTER_API_KEY=$(cat ~/.jtr.key) uv run jubilant-recorder generate session.j
 
 There are two LLM passes, and they are not equally constrained. The **polisher** may rename the test and add a docstring, and a guard discards its output entirely if the assertions come back different - the prompt already forbade that, but nothing checked until it was tested. The **proposer** is allowed to add assertions, because that is its job.
 
-The proposer is the one to watch, and the diff above is it: it does not only add assertions, it replaces the portable `for _u in ...units.values()` form with a hardcoded `units['ubuntu/1']` one. That is the same bug as in section 2, arriving by a second route - the gesture said what to assert and the proposer overrode it. Worth knowing which of the two passes is responsible before blaming the wrong one, as I did at first: the polisher is innocent here, and the guard below proves it is being checked.
+> **The `output` block above predates the proposer fix and must be re-recorded**, for the same reason as section 2's. It was captured when the proposer restated a gesture's assertion pinned to a recorded unit name; it no longer does, so the diff should shrink to whatever `--ai` genuinely contributes. Run `showboat exec` before rehearsing.
+
+The proposer is the one to watch. It did not only add assertions: given a gesture that had already asserted a status app-wide, it restated the same claim as a hardcoded `units['ubuntu/1']`, and the generated test carried both - once portably, once in a form that raises `KeyError` in a fresh model. The gesture said what to assert and the proposal talked over it.
+
+Deduplication now compares what a tag *claims* - app and expected status - as well as its exact identity, so a proposal that restates an existing assertion at a different scope is dropped. A proposal about a status nothing has asserted yet is still added, which is the proposer's job.
+
+Worth knowing which of the two passes was responsible before blaming the wrong one, as I did at first: the polisher is innocent here, and the guard below proves it is being checked.
 
 Here is the polisher guard refusing a sabotaged polish:
 
