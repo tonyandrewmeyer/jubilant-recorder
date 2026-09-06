@@ -13,7 +13,7 @@ subordinate, which attaches to `ubuntu:juju-info`).
 
 Run from the repo root:
 
-    uv run --with jubilant python postgresql_integrate_live.py
+    uv run python examples/postgresql_integrate_live.py
 
 Captures a log next to this file.
 """

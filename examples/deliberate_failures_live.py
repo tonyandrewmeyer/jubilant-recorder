@@ -19,7 +19,7 @@ surviving deploy + assertion should remain as real test steps.
 
 Run from the repo root:
 
-    uv run --with jubilant python deliberate_failures_live.py
+    uv run python examples/deliberate_failures_live.py
 """
 
 from __future__ import annotations

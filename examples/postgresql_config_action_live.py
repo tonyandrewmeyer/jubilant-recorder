@@ -15,7 +15,7 @@ knows about:
 
 Run from the repo root:
 
-    uv run --with jubilant python postgresql_config_action_live.py
+    uv run python examples/postgresql_config_action_live.py
 
 Captures a log next to this file; the matching fixture commits as
 `tests/fixtures/postgresql_config_action.jsonl`.
