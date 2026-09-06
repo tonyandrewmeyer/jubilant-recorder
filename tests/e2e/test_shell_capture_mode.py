@@ -143,7 +143,9 @@ def test_shell_session_generates_a_test(model: str, tmp_path: Path, recorder_env
     )
 
     out = tmp_path / "test_from_shell.py"
-    _jtr("generate", str(log_path), "--out", str(out), env=recorder_env)
+    # `jtr generate` takes --session-log, unlike `jubilant-recorder generate`,
+    # which takes the log positionally.
+    _jtr("generate", "--session-log", str(log_path), "--out", str(out), env=recorder_env)
     source = out.read_text()
     ast.parse(source)
     assert "deploy" in source, source

@@ -54,8 +54,8 @@ def test_run_records_a_child_script_and_generates(
             str(log_path),
             "--out",
             str(out_path),
-            "--model",
-            model,
+            # `run` has no --model of its own; the child script targets the
+            # model itself, via RecordingJuju.start(model=...).
             "--",
             sys.executable,
             str(script),
