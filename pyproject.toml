@@ -9,7 +9,7 @@ requires-python = ">=3.11"
 description = "Record a live jubilant session and replay it as a pytest integration test."
 readme = "README.md"
 license = { file = "LICENSE" }
-authors = [{ name = "Canonical Ltd." }]
+authors = [{ name = "Tony Meyer", email = "jtr@aotearoa.dev" }]
 keywords = ["juju", "jubilant", "testing", "pytest", "record-replay"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -18,6 +18,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Testing",
 ]
 dependencies = [

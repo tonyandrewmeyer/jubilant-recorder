@@ -2,12 +2,9 @@
 
 ## Supported versions
 
-<!--
-Replace this section with the project's supported-version statement.
-For tools & frameworks: list major versions under support and link the
-SECURITY.md matrix. For products mirroring Ubuntu release lifecycle,
-state that explicitly.
--->
+This is a personal project at an early stage. Only the latest released
+version is supported: fixes go into a new release rather than being
+backported.
 
 ## Reporting a vulnerability
 
@@ -20,21 +17,14 @@ security advisories for this project](https://github.com/tonyandrewmeyer/jubilan
 See [Privately reporting a security vulnerability](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing/privately-reporting-a-security-vulnerability)
 for instructions on using the feature.
 
-You may also send email to tony.meyer@gmail.com. If you want to encrypt your
-email, follow [Canonical's reporting instructions](https://ubuntu.com/security/disclosure-policy#contact-us).
+You may also send email to jtr@aotearoa.dev.
 
-If you have a deadline for public disclosure, please let us know. Our
-vulnerability management team intends to respond within 3 working days
-of your report. This project aims to resolve all vulnerabilities
-within 90 days.
-
-The [Ubuntu Security disclosure and embargo policy](https://ubuntu.com/security/disclosure-policy)
-contains more information about what you can expect when you contact
-us, and what we expect from you.
+If you have a deadline for public disclosure, please say so. This is a
+spare-time project with no vulnerability management team behind it, so
+please do not expect a same-day response — but you will get one, and
+reports are taken seriously.
 
 To stay informed about vulnerabilities, watch:
 
 - The [GitHub Security Advisories for `tonyandrewmeyer/jubilant-recorder`](https://github.com/tonyandrewmeyer/jubilant-recorder/security/advisories).
 - The project's release history.
-- Relevant [Ubuntu Security Notices](https://ubuntu.com/security/notices) when a vulnerability
-  also affects an Ubuntu-packaged component.

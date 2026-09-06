@@ -1,9 +1,21 @@
 __pycache__/
 .pytest_cache/
+.ruff_cache/
 .venv/
 *.egg-info/
 build/
 dist/
+
+# Coverage output.
+.coverage
+htmlcov/
+
+# Editor and OS junk.
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
 
 # Output of examples/*.py recordings (committed copies live in tests/fixtures/)
 examples/*.jsonl

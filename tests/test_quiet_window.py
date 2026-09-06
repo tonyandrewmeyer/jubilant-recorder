@@ -124,7 +124,7 @@ class TestQuietWindowSynthesis:
         assert seqs == list(range(1, len(seqs) + 1))
 
     def test_wait_for_idle_args_shape(self) -> None:
-        """synthesised wait_for_idle has apps=null, timeout=null per SCHEMA.md."""
+        """synthesised wait_for_idle has apps=null, timeout=null per docs/schema.md."""
         log = _deploy_then_run(7.0)
         out = quiet_window.synthesize(log, idle_threshold_seconds=5.0)
 
@@ -261,7 +261,7 @@ class TestQuietWindowSynthesis:
         assert ops == ["deploy", "wait_for_idle", "integrate", "wait_for_idle", "status"]
 
     def test_missing_snapshot_no_crash(self) -> None:
-        """A null model_snapshot (SCHEMA.md: allowed for the very first event) must
+        """A null model_snapshot (docs/schema.md: allowed for the very first event) must
         not raise — just skip that pair for synthesis purposes."""
         events = [
             _event(1, "deploy", "2026-05-30T09:00:00.000Z", before=None, after=None),

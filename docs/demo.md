@@ -32,7 +32,7 @@ positional arguments:
 This is what a person writes. It is ordinary jubilant, plus `RecordingJuju.start` and three gesture calls that say what the generated test should assert. Nothing else about the script changes.
 
 ```bash
-cat demo_record.py
+cat examples/demo_record.py
 ```
 
 ```output
@@ -41,6 +41,7 @@ cat demo_record.py
 Ordinary jubilant, with four extra calls: RecordingJuju.start, and the
 three gestures that say what the generated test should assert.
 """
+
 from jubilant_recorder import RecordingJuju, assert_status, checkpoint
 
 with RecordingJuju.start("session.json", model="jtr-demo") as juju:
@@ -58,7 +59,7 @@ with RecordingJuju.start("session.json", model="jtr-demo") as juju:
 Run it. This is a real deploy against a real model, so it takes a couple of minutes.
 
 ```bash
-time uv run python demo_record.py && echo '--- session log ---' && python3 -c "import json; d=json.load(open('session.json')); print(len(d['events']), 'events,', d['juju_version'])"
+time uv run python examples/demo_record.py && echo '--- session log ---' && python3 -c "import json; d=json.load(open('session.json')); print(len(d['events']), 'events,', d['juju_version'])"
 ```
 
 ```output
@@ -208,11 +209,11 @@ There is a third mode that records plain `juju` commands typed at a prompt. It h
 
 `showboat verify` cannot cover this section. The hook lane fires from the DEBUG trap and `PROMPT_COMMAND`, which only run on a prompt cycle, so anything driven non-interactively records zero events whether the hook works or not — indistinguishable from it being broken. `scripts/verify-shell-hook.sh` is the substitute: it prints the commands to type by hand and then checks the resulting log.
 
-**Verified 2026-09-06**, by a person at a real prompt on `concierge-lxd-4`:
+**Verified 2026-09-06**, by a person at a real prompt:
 
 ```text
 3 events, 2 shell events
-   [shim] juju status -m charmscope-self-signed-certificates
+   [shim] juju status -m jtr-demo
    [shim] juju models
 PASS: juju commands recorded, recording is live.
 ```
@@ -226,6 +227,5 @@ Two limits on that result, both worth knowing before this mode goes on stage:
 
 ## Rehearsing
 
-`uvx showboat verify demo.md` re-runs every block above and diffs the output against what is recorded here. Run it shortly before presenting: it will name the block that broke, rather than the audience finding it. It needs a juju model called `jtr-demo` and an OpenRouter key at `~/.jtr.key`.
-
-The deploy block will differ on wall-clock time every run, and the unit number will differ if the model is not fresh. Both are expected.
+See [running-the-demo.md](running-the-demo.md) for how to rehearse this
+document, what it needs, and which blocks always differ.

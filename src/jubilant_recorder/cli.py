@@ -204,7 +204,7 @@ def cmd_run(args: argparse.Namespace) -> int:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="recorder",
+        prog="jubilant-recorder",
         description="Record a jubilant session and generate a pytest integration test.",
     )
     sub = parser.add_subparsers(dest="subcommand", required=True)

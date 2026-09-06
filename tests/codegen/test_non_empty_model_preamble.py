@@ -80,7 +80,7 @@ def test_empty_log_emits_no_comment() -> None:
 
 
 def test_null_first_snapshot_emits_no_comment() -> None:
-    """SCHEMA.md: `model_snapshot_before` may be null for the very first event
+    """docs/schema.md: `model_snapshot_before` may be null for the very first event
     if the pre-session snapshot fails — codegen must not crash or warn on it."""
     src = generate(_log(None))
     ast.parse(src)

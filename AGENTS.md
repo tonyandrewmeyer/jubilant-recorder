@@ -9,7 +9,7 @@ the resulting session log.
 - `src/jubilant_recorder/` — package source (recorder, codegen, CLI).
 - `tests/` — pytest suite. No real Juju required; tests use fixtures.
 - `examples/` — sample recording scripts.
-- `docs/`, `SCHEMA.md` — design and session-log schema reference.
+- `docs/` — schema reference, demo, and per-mode guides.
 
 Entry point: `jubilant-recorder` (defined in `pyproject.toml`).
 
@@ -41,7 +41,7 @@ every supported Python, and checks the built wheel.
 
 ## What to be careful about
 
-- The session log schema (`SCHEMA.md`) is a public contract — changes to event
+- The session log schema (`docs/schema.md`) is a public contract — changes to event
   shapes need a schema version bump and codegen update in lock-step.
 - The gesture API (`assert_status`, `assert_action_result`, `checkpoint`) is
   user-facing; signature changes ripple into example scripts and the generated
