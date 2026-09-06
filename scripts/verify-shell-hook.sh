@@ -49,6 +49,7 @@ not run them from a script. The point is that a human prompt cycle happens
 between each one.
 
     export PATH="${CHECKOUT}/.venv/bin:\$PATH"
+    jtr shim install
     source ~/bash-preexec.sh
     eval "\$(jtr shell-init --shell bash)"
     jtr start verify --output ${LOG}
@@ -62,9 +63,26 @@ Then run:
     bash verify-shell-hook.sh ${CHECKOUT} ${MODEL} --check
 
 WHAT TO LOOK FOR. The log should carry a shell event for each of the two juju
-commands and NOT for the echo. Zero events means the hook is not wired up (bash-preexec
-ignoring a bare preexec/precmd function) and means the hook is not wired up,
-even though every command appeared to work.
+commands and NOT for the echo. Zero juju events means the recording is not wired
+up, even though every command appeared to work.
+
+WHY 'jtr shim install' IS IN THAT LIST. juju is recorded by the PATH shim, not
+by the preexec/precmd hook - 'juju' is the first entry in _BASENAME_DENYLIST, so
+the hook path drops it deliberately and the two lanes are complementary: the
+shim records juju, the hook records context commands (kubectl, lxc, charmcraft,
+curl). 'jtr shell-init' puts ~/.local/share/jtr/shims on PATH but does not
+create it; 'jtr shim install' is what materialises the shim. Skip that step and
+juju resolves to the real binary, every command works perfectly, and the log
+carries nothing but a session_end - which reads exactly like the B1 bug and is
+not it. That is what happened on 2026-09-06.
+
+Two failures this distinguishes, since they look alike in the log:
+
+  - zero events of ANY kind, with context commands typed too: the hook is not
+    wired up (bash-preexec ignoring a bare preexec/precmd function - the B1
+    shape).
+  - context commands recorded but no juju: the shim is not installed, or is
+    installed but not first on PATH.
 
 Note that 'jtr start' must be called directly, not as eval "\$(jtr start …)".
 shell-init defines a jtr shell function that applies the env changes itself; the
@@ -85,20 +103,44 @@ if [ "$CHECK_ONLY" = "1" ]; then
 import json, sys
 events = [json.loads(l) for l in open(sys.argv[1]) if l.strip()]
 shell = [e for e in events if e.get("op") in ("shell", "shell_context")]
-cmds = [(e.get("args") or {}).get("cmd", "") for e in shell]
+
+# Neither lane writes an "args.cmd" key: the shim records args.argv as juju's
+# own argv with source "shim", and the hook records args.argv as a
+# single-element list holding the whole command line, with source "hook".
+# Reading "cmd" gave every event an empty string, so the juju count was always
+# zero and this check could never pass, however healthy the run.
+def describe(e):
+    args = e.get("args") or {}
+    argv = args.get("argv") or []
+    basename = args.get("basename") or ""
+    if args.get("source") == "shim":
+        return " ".join([basename, *argv]).strip()
+    return " ".join(str(a) for a in argv).strip() or basename
+
+def basename_of(e):
+    return ((e.get("args") or {}).get("basename") or "").strip()
+
 print(f"{len(events)} events, {len(shell)} shell events")
-for c in cmds:
-    print("  ", c)
-juju = [c for c in cmds if c.strip().startswith("juju ")]
-echoes = [c for c in cmds if c.strip().startswith("echo ")]
+for e in shell:
+    print(f"   [{(e.get('args') or {}).get('source', '?')}] {describe(e)}")
+
+juju = [e for e in shell if basename_of(e) == "juju"]
+echoes = [e for e in shell if basename_of(e) == "echo"]
+
 if not shell:
-    print("FAIL: zero shell events - the hook is not wired up.")
+    print("FAIL: zero shell events. Either jtr start did not take effect, or")
+    print("      neither lane is wired up - see WHY 'jtr shim install' above.")
     sys.exit(1)
 if len(juju) < 2:
     print(f"FAIL: expected 2 juju commands, recorded {len(juju)}.")
+    print("      juju is the shim's lane, not the hook's. Check that")
+    print("      `jtr shim install` ran and that `which juju` resolves to")
+    print("      ~/.local/share/jtr/shims/juju rather than the real binary.")
     sys.exit(1)
 if echoes:
-    print("WARN: a non-juju command was recorded; the shim should only see juju.")
-print("PASS: juju commands recorded, hook is live.")
+    print("WARN: the echo was recorded. It should be filtered - echo is in")
+    print("      neither _BASENAME_DENYLIST nor _CONTEXT_ALLOWLIST, and the")
+    print("      hook lane drops anything outside the allowlist.")
+print("PASS: juju commands recorded, recording is live.")
 PY
 fi
