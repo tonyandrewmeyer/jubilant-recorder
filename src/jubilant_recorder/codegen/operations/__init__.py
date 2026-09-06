@@ -55,7 +55,7 @@ EMITTERS = {
     # as the CMR and `Application.*` groups: bucket 2 there only ever meant
     # "jubilant has no client method", which `juju.cli()` answers. That set is
     # now empty by design — see `_BUCKET2_FACADES`' comment in
-    # extensions/libjuju/correlate.py. `juju revoke-secret` and
+    # src/jubilant_recorder/extensions/libjuju/correlate.py. `juju revoke-secret` and
     # `juju find-offers` were both verified against juju 3.6.27 rather than
     # assumed, per the `set_charm` lesson (`juju set-charm` is not a real
     # subcommand; the target is `juju refresh --switch`).

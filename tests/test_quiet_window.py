@@ -1,6 +1,6 @@
 """Tests for the core recorder's quiet-window ``wait_for_idle`` synthesis.
 
-Mirrors ``extensions/libjuju/tests/test_correlate.py::TestWaitForIdleSynthesis`` in
+Mirrors ``tests/libjuju/test_correlate.py::TestWaitForIdleSynthesis`` in
 shape (same op sequence assertions, same "no synthesis" edge cases), but drives
 ``quiet_window.synthesize()`` over already-recorded core-style events instead of
 raw RPCs/deltas — see the module docstring in ``quiet_window.py`` for why the

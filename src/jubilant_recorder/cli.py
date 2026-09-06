@@ -144,8 +144,12 @@ def cmd_generate(args: argparse.Namespace) -> int:
     if source_aware:
         # Optional, purely decorative — see extensions/libjuju/source_overlay.py.
         # A missing/unparsed source file yields an empty overlay; codegen output
-        # is unaffected either way.
-        from extensions.libjuju.source_overlay import align_events, extract_call_sites
+        # is unaffected either way. Parses source with ast, so it needs no
+        # libjuju install of its own.
+        from jubilant_recorder.extensions.libjuju.source_overlay import (
+            align_events,
+            extract_call_sites,
+        )
 
         found = extract_call_sites(Path(source_aware))
         overlay = align_events(found.call_sites, annotated.get("events", []) or [])

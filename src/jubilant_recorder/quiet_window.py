@@ -1,6 +1,6 @@
 """Synthesise ``wait_for_idle`` events for the core recorder's quiet windows.
 
-WHY: ``extensions/libjuju/correlate.py`` already solves
+WHY: ``src/jubilant_recorder/extensions/libjuju/correlate.py`` already solves
 this for the libjuju-tap path, using the gap between the last AllWatcher delta
 and the next user RPC as its quiet-window signal. The core recorder
 (``RecordingJuju``) has no delta stream, so it needs a different signal built from
@@ -103,7 +103,7 @@ def synthesize(log: SessionLog, *, idle_threshold_seconds: float | None = None) 
     lasts at least ``idle_threshold_seconds`` (env ``JUBILANT_RECORDER_IDLE_THRESHOLD_S``,
     default 5.0s, when not given explicitly). ``seq`` is renumbered from 1 across
     the whole result so it stays monotonically increasing, mirroring
-    ``extensions/libjuju/correlate.py``'s own synthesised-event convention.
+    ``src/jubilant_recorder/extensions/libjuju/correlate.py``'s own synthesised-event convention.
     """
     threshold = _resolve_threshold(idle_threshold_seconds)
     out = copy.deepcopy(log)
