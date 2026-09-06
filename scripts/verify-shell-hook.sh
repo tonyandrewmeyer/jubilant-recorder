@@ -20,7 +20,7 @@ MODEL="${2:-}"
 LOG="${CHECKOUT}/hook-verify.jsonl"
 
 if [ -z "$MODEL" ]; then
-    echo "usage: bash verify-shell-hook.sh <checkout> <juju-model>" >&2
+    echo "usage: bash $0 <checkout> <juju-model>" >&2
     exit 64
 fi
 
@@ -60,7 +60,7 @@ between each one.
 
 Then run:
 
-    bash verify-shell-hook.sh ${CHECKOUT} ${MODEL} --check
+    bash $0 ${CHECKOUT} ${MODEL} --check
 
 WHAT TO LOOK FOR. The log should carry a shell event for each of the two juju
 commands and NOT for the echo. Zero juju events means the recording is not wired
