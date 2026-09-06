@@ -64,6 +64,14 @@ def juju_controller() -> str:
     except (RuntimeError, subprocess.TimeoutExpired) as exc:
         _no_controller(f"no reachable juju controller: {exc}")
     data = json.loads(out)
+    # `juju controllers` answers from the local cache, so it succeeds against a
+    # controller that is half-bootstrapped or gone — it reported a healthy
+    # controller here while every API call failed with "no controller API
+    # addresses". Only an actual API call proves reachability.
+    try:
+        _juju("models", "--format", "json", timeout=120)
+    except (RuntimeError, subprocess.TimeoutExpired) as exc:
+        _no_controller(f"controller is registered but not reachable: {exc}")
     current = data.get("current-controller")
     if current:
         return current

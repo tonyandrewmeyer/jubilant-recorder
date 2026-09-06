@@ -45,7 +45,7 @@ def test_records_a_live_libjuju_session(model: str, tmp_path: Path):
         try:
             with RecordingLibjuju(output_log_path=log_path, model=model):
                 await m.deploy(TEST_CHARM, application_name=TEST_CHARM)
-                await m.wait_for_idle(apps=[TEST_CHARM], timeout=900, wait_for_active=True)
+                await m.wait_for_idle(apps=[TEST_CHARM], timeout=900, status="active")
         finally:
             await m.disconnect()
 
@@ -80,4 +80,8 @@ def test_records_a_live_libjuju_session(model: str, tmp_path: Path):
     )
     source = out.read_text()
     ast.parse(source)
-    assert f"juju.deploy('{TEST_CHARM}'" in source, source
+    # libjuju's DeployFromRepository reports the *resolved* charm URL
+    # (`ch:amd64/noble/ubuntu`), not the name the caller passed, so match on
+    # the application rather than the charm string.
+    assert "juju.deploy(" in source, source
+    assert f"app='{TEST_CHARM}'" in source, source
