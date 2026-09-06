@@ -1,6 +1,7 @@
 # Secrets facade — libjuju → jubilant gaps
 
-Documented during carry (c): `Secrets.*` bucket-2 → bucket-1 promotion.
+Where the libjuju `Secrets.*` facade has no jubilant equivalent, and what
+codegen emits instead.
 
 ## Closed 2026-08-18: `Secrets.RevokeSecret` is bucket-1
 
@@ -52,4 +53,4 @@ end state for the RPC surface rather than a collapsed taxonomy — see the
 set's own comment in `correlate.py` for the full reasoning and the rule
 that keeps the escape hatch from being over-applied. The bucket-2 branch
 stays live and is exercised by a synthetic member
-(`extensions/libjuju/tests/conftest.py`).
+(`tests/libjuju/conftest.py`).

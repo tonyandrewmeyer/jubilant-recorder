@@ -21,7 +21,7 @@ Usage
 ::
 
     from pathlib import Path
-    from extensions.libjuju.recording import RecordingLibjuju
+    from jubilant_recorder.extensions.libjuju.recording import RecordingLibjuju
 
     with RecordingLibjuju.start(
         log_path=Path("session.json"),
@@ -62,9 +62,11 @@ import functools
 from collections.abc import Callable, Generator
 from typing import TYPE_CHECKING, Any
 
-from extensions.libjuju.correlate import correlate as _default_correlate
-from extensions.libjuju.tap import LibjujuTap
 from jubilant_recorder.events import EventEnvelope
+from jubilant_recorder.extensions.libjuju.correlate import (
+    correlate as _default_correlate,
+)
+from jubilant_recorder.extensions.libjuju.tap import LibjujuTap
 from jubilant_recorder.session_log import SessionLog
 
 if TYPE_CHECKING:
@@ -97,7 +99,7 @@ class RecordingLibjuju:
         ``LibjujuTap()``. Inject in tests to wire a ``FakeConnection``.
     correlator:
         Optional callable matching ``correlate(rpcs, deltas) ->
-        list[event_dict]``. Defaults to ``extensions.libjuju.correlate.
+        list[event_dict]``. Defaults to ``jubilant_recorder.extensions.libjuju.correlate.
         correlate``. Inject in tests to assert exactly which RPCs and
         deltas flowed through.
     """

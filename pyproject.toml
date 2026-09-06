@@ -27,6 +27,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# The libjuju recording front-end (jubilant_recorder.extensions.libjuju) taps
+# python-libjuju's RPC layer, so it needs that library. Everything else in the
+# package drives the juju CLI through jubilant and does not.
+libjuju = [
+    "juju>=3.5",
+]
 dev = [
     "pytest>=8",
     "ruff>=0.16.0",
@@ -45,11 +51,11 @@ Issues = "https://github.com/tonyandrewmeyer/jubilant-recorder/issues"
 packages = ["src/jubilant_recorder"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "extensions/libjuju/tests"]
-pythonpath = ["."]
+testpaths = ["tests"]
 
 [tool.pyright]
 include = ["src", "tests"]
+exclude = ["tests/fixtures/golden"]
 pythonVersion = "3.11"
 typeCheckingMode = "standard"
 reportMissingTypeStubs = false

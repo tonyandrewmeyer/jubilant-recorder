@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from extensions.libjuju import correlate
+from jubilant_recorder.extensions.libjuju import correlate
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

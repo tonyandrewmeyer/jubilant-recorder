@@ -20,8 +20,8 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from extensions.libjuju.recording import RecordingLibjuju
-from extensions.libjuju.tap import LibjujuTap
+from jubilant_recorder.extensions.libjuju.recording import RecordingLibjuju
+from jubilant_recorder.extensions.libjuju.tap import LibjujuTap
 
 if TYPE_CHECKING:
     from pathlib import Path

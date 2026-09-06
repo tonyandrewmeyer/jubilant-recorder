@@ -148,7 +148,15 @@ class LibjujuTap:
     def _get_connection_class(self) -> type:
         if self._connection_class is not None:
             return self._connection_class
-        from juju.client.connection import Connection  # type: ignore[import]
+        try:
+            from juju.client.connection import Connection  # type: ignore[import]
+        except ImportError as exc:  # pragma: no cover - depends on install shape
+            raise ImportError(
+                "The libjuju recording extension needs python-libjuju, which is "
+                "not installed. Install it with the `libjuju` extra: "
+                "`pip install jubilant-recorder[libjuju]` (or `uv add "
+                "'jubilant-recorder[libjuju]'`)."
+            ) from exc
 
         return Connection
 

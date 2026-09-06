@@ -12,7 +12,7 @@ Timestamp convention used in these tests:
 
 from __future__ import annotations
 
-from extensions.libjuju.correlate import (
+from jubilant_recorder.extensions.libjuju.correlate import (
     _BUCKET1_MAP,
     _classify,
     _extract_args,

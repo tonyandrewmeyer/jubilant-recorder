@@ -12,8 +12,9 @@ import asyncio
 import sys
 from pathlib import Path
 
-from extensions.libjuju.recording import RecordingLibjuju
 from juju.model import Model
+
+from jubilant_recorder.extensions.libjuju.recording import RecordingLibjuju
 
 
 async def main(log_path: Path, model_name: str) -> None:
