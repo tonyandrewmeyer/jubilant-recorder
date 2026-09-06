@@ -7,3 +7,6 @@ dist/
 
 # Output of examples/*.py recordings (committed copies live in tests/fixtures/)
 examples/*.jsonl
+
+# Output of scripts/verify-shell-hook.sh
+hook-verify.jsonl
