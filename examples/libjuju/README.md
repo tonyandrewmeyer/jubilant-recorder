@@ -65,12 +65,3 @@ unit-test corpus because the fake `Connection` never emitted them:
    `charm or bundle not found for channel "24.04/stable"`. Fixed by
    dropping the `base.channel` fallback and letting the CLI default when
    the caller never pinned a charm channel.
-
-## Known limitations
-
-- `config_get` (bucket-1) still renders as `# TODO: manual step` in the
-  generated test — the codegen op-emitter table is missing a
-  `config_get` case.
-- The synthetic trailer event `_libjuju_orphan_deltas` also renders as a
-  `# TODO: manual step`. It's a diagnostic marker; codegen should suppress
-  it.
