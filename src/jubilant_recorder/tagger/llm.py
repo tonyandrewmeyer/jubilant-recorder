@@ -137,6 +137,20 @@ class LLMProposer:
         return proposals
 
 
+def _coverage(tag_dict: dict[str, Any]) -> tuple[Any, ...] | None:
+    """Return a coarser key for what a tag claims, ignoring how it is scoped.
+
+    Mirrors ``engine._coverage``. A proposal naming a unit and a gesture
+    scoped to the app make the same claim about the same app and status;
+    identity alone lets both through, and the generated test then asserts it
+    twice -- once portably, once pinned to whichever unit the recording
+    happened to produce.
+    """
+    if tag_dict.get("kind") != "unit_status":
+        return None
+    return ("unit_status", tag_dict.get("app"), tag_dict.get("expected"))
+
+
 def _identity(proposal: dict[str, Any]) -> tuple[Any, ...]:
     kind = proposal.get("kind", "")
     fields = _IDENTITY_FIELDS.get(kind, ())
@@ -322,8 +336,19 @@ def llm_augment(log: SessionLog, proposer: AssertionProposer) -> SessionLog:
 
         # Deduplicate: skip if an assertion with the same identity already exists.
         ident = _identity(proposal)
-        existing_identities = {_identity(a) for a in event["assertions"] if isinstance(a, dict)}
-        if ident in existing_identities:
+        existing = [a for a in event["assertions"] if isinstance(a, dict)]
+        if ident in {_identity(a) for a in existing}:
+            continue
+
+        # ...and skip if an existing assertion already makes the same claim at
+        # a different scope. Without this the proposer does not merely add to
+        # what a gesture asserted, it restates it pinned to a recorded unit
+        # name -- an explicit assertion being duplicated by a proposal is worse
+        # than a proposal being dropped.
+        claim = _coverage(proposal)
+        if claim is not None and claim in {
+            key for a in existing if (key := _coverage(a)) is not None
+        }:
             continue
 
         event["assertions"].append(_proposal_to_tag_dict(proposal))

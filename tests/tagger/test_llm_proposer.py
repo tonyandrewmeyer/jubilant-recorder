@@ -641,3 +641,93 @@ class TestTolerantJSONPayload:
         assert _json_payload(raw) == raw
         with pytest.raises(json.JSONDecodeError):
             json.loads(_json_payload(raw))
+
+
+def test_llm_proposal_does_not_restate_a_gesture_assertion():
+    """A proposal must not duplicate what a gesture already asserted.
+
+    The proposer does not only add assertions: given a gesture that asserted a
+    status app-wide, it proposed the same claim pinned to the recorded unit
+    name, and the generated test then carried both -- once portably, once in a
+    form that raises KeyError in a fresh model. An explicit assertion being
+    restated by a proposal is worse than a proposal being dropped.
+    """
+    snap_before = make_snapshot(
+        apps={"my-charm": {"units": {"my-charm/1": make_unit("waiting")}}},
+    )
+    snap_after = make_snapshot(
+        apps={"my-charm": {"units": {"my-charm/1": make_unit("active")}}},
+    )
+    event = make_event(1, "wait_for_idle", before=snap_before, after=snap_after)
+    event["assertions"] = [
+        {
+            "kind": "unit_status",
+            "app": "my-charm",
+            "unit": None,
+            "expected": "active",
+            "strict": True,
+            "source": "gesture",
+        }
+    ]
+    log = make_log([event])
+
+    out = llm_augment(
+        log,
+        _proposer_from(
+            [
+                {
+                    "seq": 1,
+                    "kind": "unit_status",
+                    "app": "my-charm",
+                    "unit": "my-charm/1",
+                    "expected": "active",
+                }
+            ]
+        ),
+    )
+
+    tags = [a for a in out["events"][0]["assertions"] if a["kind"] == "unit_status"]
+    assert len(tags) == 1
+    assert tags[0]["source"] == "gesture"
+    assert tags[0]["unit"] is None
+
+
+def test_llm_proposal_for_a_different_status_is_still_added():
+    """The coverage check keys on app *and* status, so it must not over-suppress."""
+    snap_before = make_snapshot(
+        apps={"my-charm": {"units": {"my-charm/0": make_unit("waiting")}}},
+    )
+    snap_after = make_snapshot(
+        apps={"my-charm": {"units": {"my-charm/0": make_unit("active")}}},
+    )
+    event = make_event(1, "wait_for_idle", before=snap_before, after=snap_after)
+    event["assertions"] = [
+        {
+            "kind": "unit_status",
+            "app": "my-charm",
+            "unit": None,
+            "expected": "active",
+            "strict": True,
+            "source": "gesture",
+        }
+    ]
+    log = make_log([event])
+
+    out = llm_augment(
+        log,
+        _proposer_from(
+            [
+                {
+                    "seq": 1,
+                    "kind": "unit_status",
+                    "app": "my-charm",
+                    "unit": "my-charm/0",
+                    "expected": "blocked",
+                }
+            ]
+        ),
+    )
+
+    tags = [a for a in out["events"][0]["assertions"] if a["kind"] == "unit_status"]
+    assert len(tags) == 2
+    assert {t["expected"] for t in tags} == {"active", "blocked"}
