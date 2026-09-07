@@ -13,7 +13,7 @@ juju version && uv run jubilant-recorder --help 2>&1 | head -12
 
 ```output
 4.0.14-genericlinux-amd64
-usage: recorder [-h] {start,stop,run,generate} ...
+usage: jubilant-recorder [-h] [--version] {start,stop,run,generate} ...
 
 Record a jubilant session and generate a pytest integration test.
 
@@ -64,9 +64,9 @@ time uv run python examples/demo_record.py && echo '--- session log ---' && pyth
 
 ```output
 
-real	2m11.440s
-user	0m10.150s
-sys	0m5.078s
+real	1m17.362s
+user	0m5.066s
+sys	0m2.573s
 --- session log ---
 8 events, 4.0.14-genericlinux-amd64
 ```
@@ -88,7 +88,8 @@ def test_recorded_session():
         juju.deploy('ubuntu', channel='stable')
         assert len(juju.status().apps['ubuntu'].units) == 1
         juju.wait(jubilant.all_active, timeout=900)
-        assert juju.status().apps['ubuntu'].units['ubuntu/1'].workload_status.current == 'active'
+        for _u in juju.status().apps['ubuntu'].units.values():
+            assert _u.workload_status.current == 'active'
         juju.wait(lambda s: jubilant.all_active(s, *['ubuntu']))
         for _u in juju.status().apps['ubuntu'].units.values():
             assert _u.workload_status.current == 'active'
@@ -100,8 +101,6 @@ def test_recorded_session():
             assert _u.workload_status.current == 'active'
         # checkpoint: reconfigured
 ```
-
-> **The `output` block above predates the tagger fix and must be re-recorded.** It was captured when the automatic tagger emitted `units['ubuntu/1']`, pinning whichever unit number the recording happened to produce; the generated test then raised `KeyError` in the fresh `temp_model` it opens for itself. The tagger is now app-scoped, so that line renders as a `for _u in ...units.values()` loop — or disappears, where an `assert_status` gesture already made the same claim about the same app and status. Run `showboat exec` on this document before rehearsing; the block will differ, and that is the fix landing rather than a regression.
 
 The `for _u in ...units.values()` loop came from an `assert_status` gesture, and works in any model. The tagger now emits the same shape for what it infers: a recorded unit name is an artefact of the recording, not a fact about the replay, so it never reaches the generated test. Where only some of an app's units reached a status, the tagger emits `any(...)` rather than the loop, so it does not claim more than the recording saw.
 
@@ -126,28 +125,21 @@ OPENROUTER_API_KEY=$(cat ~/.jtr.key) uv run jubilant-recorder generate session.j
 ```
 
 ```output
-11,12c11
-<         for _u in juju.status().apps['ubuntu'].units.values():
-<             assert _u.workload_status.current == 'active'
----
->         assert juju.status().apps['ubuntu'].units['ubuntu/1'].workload_status.current == 'active'
-15a15
->         assert juju.status().apps['ubuntu'].units['ubuntu/1'].workload_status.current == 'active'
-17,18c17
-<         for _u in juju.status().apps['ubuntu'].units.values():
-<             assert _u.workload_status.current == 'active'
----
->         assert juju.status().apps['ubuntu'].units['ubuntu/1'].workload_status.current == 'active'
+16a17,20
+>         assert any(
+>             _u.workload_status.current == 'active'
+>             for _u in juju.status().apps['ubuntu'].units.values()
+>         )
 (diff exit 1: 0 means --ai changed nothing at all)
 ```
 
 There are two LLM passes, and they are not equally constrained. The **polisher** may rename the test and add a docstring, and a guard discards its output entirely if the assertions come back different - the prompt already forbade that, but nothing checked until it was tested. The **proposer** is allowed to add assertions, because that is its job.
 
-> **The `output` block above predates the proposer fix and must be re-recorded**, for the same reason as section 2's. It was captured when the proposer restated a gesture's assertion pinned to a recorded unit name; it no longer does, so the diff should shrink to whatever `--ai` genuinely contributes. Run `showboat exec` before rehearsing.
-
 The proposer is the one to watch. It did not only add assertions: given a gesture that had already asserted a status app-wide, it restated the same claim as a hardcoded `units['ubuntu/1']`, and the generated test carried both - once portably, once in a form that raises `KeyError` in a fresh model. The gesture said what to assert and the proposal talked over it.
 
 Deduplication now compares what a tag *claims* - app and expected status - as well as its exact identity, so a proposal that restates an existing assertion at a different scope is dropped. A proposal about a status nothing has asserted yet is still added, which is the proposer's job.
+
+That fixed the restating half and not the originating one. A proposal no gesture had covered still reached the test pinned to `units['ubuntu/1']`, because the coverage check has nothing to match it against - `uv run pytest` on the `--ai` output failed there for real. Proposals are now converted app-scoped at the point they become tags, so no unit name reaches the generated test by any route; `any(...)` rather than the loop, since a proposal is evidence about the one unit it names and asserting every unit would claim more than the model said. What `--ai` adds above is that shape, and the test it produces passes.
 
 Worth knowing which of the two passes was responsible before blaming the wrong one, as I did at first: the polisher is innocent here, and the guard below proves it is being checked.
 
@@ -207,18 +199,23 @@ def test_recorded_session():
 
 There is a third mode that records plain `juju` commands typed at a prompt. It has two lanes: a PATH shim records `juju` itself, and bash-preexec hooks record context commands around it (`kubectl`, `lxc`, `charmcraft`, `curl`). `juju` is the first entry in `_BASENAME_DENYLIST`, so the hook lane drops it deliberately rather than double-recording what the shim already has.
 
-`showboat verify` cannot cover this section. The hook lane fires from the DEBUG trap and `PROMPT_COMMAND`, which only run on a prompt cycle, so anything driven non-interactively records zero events whether the hook works or not — indistinguishable from it being broken. `tests/manual/verify-shell-hook.sh` is the substitute: it prints the commands to type by hand and then checks the resulting log.
+`showboat verify` still cannot cover this section: it runs each block with `bash -c`, and the hook lane fires from the DEBUG trap and `PROMPT_COMMAND`, neither of which runs without a prompt cycle. What does work is a pseudo-terminal. `tests/manual/verify-shell-hook.sh --auto` drives the same sequence under `script -qec` and then checks the log, so the lane is verifiable at rehearsal rather than trusted from a transcript recorded a week earlier.
 
-**Verified 2026-09-06**, by a person at a real prompt:
+That is a correction to what this section used to say. It claimed anything driven non-interactively records zero events whether the hook works or not; measured again, the discriminator is the pty and not the person. `script -qec` fires the hooks whether bash-preexec is sourced from an rcfile or typed by hand, and only piping into `bash -i` records nothing.
+
+**Verified 2026-09-07**, both lanes, via `--auto`:
 
 ```output
-3 events, 2 shell events
+4 events, 3 shell events
    [shim] juju status -m jtr-demo
    [shim] juju models
-PASS: juju commands recorded, recording is live.
+   [hook] kubectl version --client
+PASS: juju commands recorded via the shim lane, and 1 context command(s) via the hook lane.
 ```
 
-Both `juju` invocations recorded through the shim with the right argv; the `echo` correctly absent, since it is in neither `_BASENAME_DENYLIST` nor `_CONTEXT_ALLOWLIST` and the hook lane drops anything outside the allowlist.
+Both `juju` invocations through the shim with the right argv, and the `kubectl` through the hook — the first time that lane has been covered at all. The `echo` is correctly absent: it is in neither `_BASENAME_DENYLIST` nor `_CONTEXT_ALLOWLIST`, and the hook drops anything outside the allowlist. So would a `cat`, for the same reason; the allowlist is `kubectl`, `k8s`, `microk8s`, `lxc`, `lxd`, `charmcraft`, `rockcraft`, `snapcraft`, `curl`, `http`, `wget`.
+
+`--auto` does not retire the manual path. It cannot rule out a difference between this harness and a real login shell, and a person at a prompt remains the stronger evidence — it means the weaker evidence is available every time rather than once a week.
 
 Two limits on that result, both worth knowing before this mode goes on stage:
 
