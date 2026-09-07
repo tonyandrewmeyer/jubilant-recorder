@@ -15,6 +15,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from jubilant_recorder.codegen.assertions import emit
 from jubilant_recorder.tagger import tag
 from jubilant_recorder.tagger.llm import (
     AssertionProposer,
@@ -324,6 +325,41 @@ def test_llm_augment_non_dict_proposal_dropped():
 # ── llm_augment valid proposals ───────────────────────────────────────────────
 
 
+def test_llm_augment_unit_status_never_pins_a_unit_name():
+    """A proposal no gesture covers still must not reach the test pinned.
+
+    The coverage check only drops a proposal that restates a claim an
+    existing assertion already makes. A proposal that originates its own
+    claim has nothing to match against, so before this was fixed at
+    conversion the generated test carried
+    `units['ubuntu/1']` and raised KeyError in its own fresh `temp_model()`
+    -- observed for real, not constructed: `uv run pytest test_demo_ai.py`
+    on the 2026-09-07 demo re-record failed exactly there.
+    """
+    snap = make_snapshot(apps={"ubuntu": {"units": {"ubuntu/1": make_unit()}}})
+    log = make_log([make_event(1, "wait_for_idle", before=snap, after=snap)])
+
+    out = llm_augment(
+        log,
+        _proposer_from(
+            [
+                {
+                    "seq": 1,
+                    "kind": "unit_status",
+                    "app": "ubuntu",
+                    "unit": "ubuntu/1",
+                    "expected": "active",
+                }
+            ]
+        ),
+    )
+
+    tags = [a for a in out["events"][0]["assertions"] if a["kind"] == "unit_status"]
+    assert len(tags) == 1
+    assert tags[0]["unit"] is None
+    assert "ubuntu/1" not in emit(tags[0], 8)
+
+
 def test_llm_augment_unit_status_merged():
     snap = make_snapshot(apps={"my-charm": {"units": {"my-charm/0": make_unit()}}})
     log = make_log([make_event(1, "wait_for_idle", before=snap, after=snap)])
@@ -349,7 +385,11 @@ def test_llm_augment_unit_status_merged():
     assert assertions[0]["source"] == "llm"
     assert assertions[0]["strict"] is False
     assert assertions[0]["app"] == "my-charm"
-    assert assertions[0]["unit"] == "my-charm/0"
+    # App-scoped, not pinned to the unit the proposal named: see
+    # `_proposal_to_tag_dict`. The renderer emits the portable `any(...)`
+    # form for this, which survives a fresh `temp_model()`.
+    assert assertions[0]["unit"] is None
+    assert assertions[0]["scope"] == "any"
     assert assertions[0]["expected"] == "active"
 
 

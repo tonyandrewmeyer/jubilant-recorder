@@ -211,7 +211,7 @@ There is a third mode that records plain `juju` commands typed at a prompt. It h
 
 **Verified 2026-09-06**, by a person at a real prompt:
 
-```text
+```output
 3 events, 2 shell events
    [shim] juju status -m jtr-demo
    [shim] juju models
