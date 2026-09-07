@@ -237,11 +237,28 @@ def _proposal_to_tag_dict(proposal: dict[str, Any]) -> dict[str, Any]:
     base: dict[str, Any] = {"kind": kind, "source": "llm", "strict": False}
 
     if kind == "unit_status":
+        # App-scoped, for the reason `tagger/rules/status.py` gives for the
+        # delta rule: a recorded unit name is an artefact of the recording,
+        # not a fact about the replay, and a test that pins `ubuntu/1` raises
+        # KeyError in the fresh `temp_model()` it opens for itself.
+        #
+        # The proposer reached here later than the delta rule did. Dropping a
+        # proposal that *restated* a gesture's claim was not enough: nothing
+        # stopped it originating a pinned assertion where no gesture had made
+        # the claim, and then the coverage check has nothing to match against.
+        # So the unit is dropped at conversion rather than filtered afterwards.
+        #
+        # "any" rather than "all": the proposal is evidence about the one unit
+        # it names, so asserting the status of every unit of the app would
+        # claim more than the model said. `_validate_proposal` still requires
+        # that unit to exist in the session log -- it is what grounds the
+        # proposal -- it just does not reach the generated test.
         return {
             **base,
             "app": proposal["app"],
-            "unit": proposal["unit"],
+            "unit": None,
             "expected": proposal["expected"],
+            "scope": "any",
         }
     elif kind == "unit_count":
         return {**base, "app": proposal["app"], "expected": proposal["expected"]}
