@@ -33,6 +33,27 @@ else
     CHECK_ONLY=0
 fi
 
+# --auto drives the same sequence under a pseudo-terminal instead of printing
+# it for a person to type. The header above says a pty "is a pty but not a
+# person at a prompt" and that three harness shapes recorded zero events. That
+# is half right, and the half that is wrong is worth having: measured
+# 2026-09-07 on a fresh checkout, the discriminator is the pty itself, not the
+# person.
+#
+#     script -qec, bash-preexec sourced from an rcfile      3 firings
+#     script -qec, bash-preexec sourced as a typed line     3 firings
+#     piped into `bash -i`, no pty                          0 firings
+#
+# The header names both shapes and treats them as one; only the pipe shape
+# records nothing. What --auto cannot rule out is a difference between this
+# harness and a real login shell that neither shape exposes, so it does not
+# replace the manual path - it makes the hook lane checkable at rehearsal,
+# where the alternative today is trusting a transcript from a previous week.
+AUTO=0
+if [ "${3:-}" = "--auto" ] || [ "${MODEL}" = "--auto" ]; then
+    AUTO=1
+fi
+
 if [ "$CHECK_ONLY" = "0" ]; then
 if [ ! -f ~/bash-preexec.sh ]; then
     echo "fetching bash-preexec…"
@@ -91,6 +112,38 @@ cheerful "session started" message. 'jtr start' does print an
 'export JTR_SESSION=…' line, which is what invites the mistake.
 
 INSTRUCTIONS
+
+if [ "$AUTO" = "1" ]; then
+    if [ ! -t 1 ] && ! command -v script >/dev/null 2>&1; then
+        echo "FAIL: --auto needs util-linux 'script' to allocate a pty." >&2
+        exit 1
+    fi
+    RCFILE="$(mktemp)"
+    FEED="$(mktemp)"
+    trap 'rm -f "$RCFILE" "$FEED"' EXIT
+    cat > "$RCFILE" <<RC
+export PATH="${CHECKOUT}/.venv/bin:\$PATH"
+source ~/bash-preexec.sh
+eval "\$(jtr shell-init --shell bash)"
+RC
+    # One command per line, each getting its own prompt cycle. `kubectl` is
+    # here and the manual list does not have it: it is the only command in the
+    # sequence that exercises the *hook* lane, which is the half that has never
+    # been covered. `echo` stays as the negative control.
+    {
+        echo "jtr shim install"
+        echo "jtr start verify --output ${LOG}"
+        echo "juju status -m ${MODEL}"
+        echo "juju models"
+        echo "kubectl version --client"
+        echo "echo this-is-not-juju"
+        echo "jtr stop"
+        echo "exit"
+    } > "$FEED"
+    echo "--- driving the sequence under a pty ---"
+    script -qec "bash --rcfile $RCFILE -i" /dev/null < "$FEED" > /dev/null 2>&1
+    CHECK_ONLY=1
+fi
 fi
 
 if [ "$CHECK_ONLY" = "1" ]; then
@@ -99,8 +152,8 @@ if [ "$CHECK_ONLY" = "1" ]; then
         echo "FAIL: no log at ${LOG}. jtr start did not take effect."
         exit 1
     fi
-    python3 - "$LOG" <<'PY'
-import json, sys
+    JTR_VERIFY_EXPECT_CONTEXT="$AUTO" python3 - "$LOG" <<'PY'
+import json, os, sys
 events = [json.loads(l) for l in open(sys.argv[1]) if l.strip()]
 shell = [e for e in events if e.get("op") in ("shell", "shell_context")]
 
@@ -126,6 +179,7 @@ for e in shell:
 
 juju = [e for e in shell if basename_of(e) == "juju"]
 echoes = [e for e in shell if basename_of(e) == "echo"]
+context = [e for e in shell if e.get("op") == "shell_context"]
 
 if not shell:
     print("FAIL: zero shell events. Either jtr start did not take effect, or")
@@ -141,6 +195,22 @@ if echoes:
     print("WARN: the echo was recorded. It should be filtered - echo is in")
     print("      neither _BASENAME_DENYLIST nor _CONTEXT_ALLOWLIST, and the")
     print("      hook lane drops anything outside the allowlist.")
-print("PASS: juju commands recorded, recording is live.")
+
+# The two lanes fail independently and the failures look alike in the log, so
+# say which one was actually covered rather than reporting one PASS for both.
+if os.environ.get("JTR_VERIFY_EXPECT_CONTEXT") == "1":
+    if not context:
+        print("FAIL: zero context events. The shim lane recorded juju, so the")
+        print("      session is live - it is the preexec/precmd lane that is")
+        print("      not firing. That is the B1 shape.")
+        sys.exit(1)
+    print(f"PASS: juju commands recorded via the shim lane, and "
+          f"{len(context)} context command(s) via the hook lane.")
+else:
+    print("PASS: juju commands recorded, recording is live.")
+    if not context:
+        print("NOTE: no context command was typed, so the hook lane is")
+        print("      untested by this run - only the shim lane is covered.")
+        print("      Type a `kubectl` next to the juju calls, or use --auto.")
 PY
 fi

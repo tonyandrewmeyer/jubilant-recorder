@@ -626,10 +626,38 @@ def cmd_shim_install(args: argparse.Namespace) -> int:
         base = Path(xdg_data_home) if xdg_data_home else Path.home() / ".local" / "share"
         target_dir = base / "jtr" / "shims"
 
-    real_juju = getattr(args, "real_juju", None) or shutil.which("juju")
+    # Resolve the real binary on a PATH with the shim directory removed.
+    # `jtr shell-init` puts that directory first, so a plain
+    # `shutil.which("juju")` in an initialised shell finds a previously
+    # installed shim and bakes its own path in as REAL_JUJU. The shim then
+    # execs itself forever, recording an event per iteration: observed as
+    # 10,875 events and a 3.8 MB log in ten minutes. The first install in a
+    # fresh shell is correct, which is why this survived - the instructions
+    # say to run `jtr shim install` on every verification, so it is the
+    # second run that breaks, and the first run is the one people did.
+    real_juju = getattr(args, "real_juju", None)
+    if not real_juju:
+        resolved_target = target_dir.resolve()
+        entries = [
+            entry
+            for entry in os.environ.get("PATH", "").split(os.pathsep)
+            if entry and Path(entry).resolve() != resolved_target
+        ]
+        real_juju = shutil.which("juju", path=os.pathsep.join(entries))
     if not real_juju:
         print(
             "jtr shim install: --real-juju not given and no `juju` found on PATH.",
+            file=sys.stderr,
+        )
+        return 1
+    if Path(real_juju).resolve() == (target_dir / "juju").resolve():
+        # Belt and braces: an explicit --real-juju pointing at the shim, or a
+        # PATH entry that reaches the shim dir by a different spelling than the
+        # one filtered above.
+        print(
+            f"jtr shim install: refusing to install a shim whose real juju is "
+            f"the shim itself ({real_juju}). Pass --real-juju with the path to "
+            f"the actual binary.",
             file=sys.stderr,
         )
         return 1
