@@ -44,7 +44,8 @@ def test_shim_install_idempotent(tmp_path: Path) -> None:
 
 
 def test_shim_install_no_real_juju_error(tmp_path: Path, capsys, monkeypatch) -> None:
-    monkeypatch.setattr("shutil.which", lambda _name: None)
+    # `path=` since the resolver now searches a PATH with the shim dir removed.
+    monkeypatch.setattr("shutil.which", lambda _name, path=None: None)
     target = tmp_path / "shims"
     rc = cmd_shim_install(_ns(target=str(target), real_juju=None))
     assert rc != 0
@@ -115,3 +116,40 @@ def test_installed_shim_is_a_passthrough_with_no_session(tmp_path: Path) -> None
     )
     assert proc.returncode == 0, f"shim did not run: {proc.stderr!r}"
     assert not log.exists() or log.read_text().strip() == ""
+
+
+def test_shim_install_ignores_the_shim_dir_when_resolving_real_juju(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """A second install in a shell-init'd session must not find its own shim.
+
+    `jtr shell-init` puts the shim directory first on PATH, so resolving
+    `juju` there returns the shim from the previous install. Baking that in
+    as REAL_JUJU makes the shim exec itself forever - observed live as 10,875
+    recorded events and a 3.8 MB log in ten minutes, from a `--auto`
+    verification run that was the second install in one session.
+    """
+    target = tmp_path / "shims"
+    real_dir = tmp_path / "real"
+    real_dir.mkdir()
+    real_juju = real_dir / "juju"
+    real_juju.write_text("#!/bin/sh\nexit 0\n")
+    real_juju.chmod(0o755)
+
+    # First install resolves the genuine binary.
+    monkeypatch.setenv("PATH", str(real_dir))
+    assert cmd_shim_install(_ns(target=str(target), real_juju=None)) == 0
+    assert f'REAL_JUJU = "{real_juju}"' in (target / "juju").read_text()
+
+    # Second install, now with the shim dir first, as shell-init leaves it.
+    monkeypatch.setenv("PATH", os.pathsep.join([str(target), str(real_dir)]))
+    assert cmd_shim_install(_ns(target=str(target), real_juju=None)) == 0
+    assert f'REAL_JUJU = "{real_juju}"' in (target / "juju").read_text()
+    assert str(target / "juju") not in (target / "juju").read_text().split("REAL_JUJU")[1][:200]
+
+
+def test_shim_install_refuses_a_real_juju_that_is_the_shim(tmp_path: Path) -> None:
+    target = tmp_path / "shims"
+    target.mkdir(parents=True)
+    rc = cmd_shim_install(_ns(target=str(target), real_juju=str(target / "juju")))
+    assert rc == 1
