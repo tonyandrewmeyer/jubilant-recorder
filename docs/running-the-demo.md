@@ -15,14 +15,20 @@ That re-runs every code block and diffs the output against what is recorded. Run
 it shortly before presenting: it names the block that broke, rather than the
 audience finding it.
 
-Two blocks will always differ and that is expected: the deploy block reports
-wall-clock time, and the unit number in the generated test depends on whether
-the model is fresh.
+One block will always differ and that is expected: the deploy block reports
+wall-clock time.
+
+The unit number used to be the second one. It is not any more - neither the
+tagger nor the proposer puts a unit name in the generated test, so a stale
+model changes the timing and nothing else. If a unit number does appear in a
+diff, that is a regression rather than the usual noise.
 
 ## What it needs
 
-- A juju model called `jtr-demo`. `juju add-model jtr-demo`, and remove the
-  `ubuntu` application between runs if you want the unit numbering to match.
+- A juju model called `jtr-demo`. `juju add-model jtr-demo`. Removing the
+  `ubuntu` application between runs is no longer needed to make the output
+  match, since no unit name reaches the generated test, but a fresh model
+  still deploys faster than one juju has to tear down first.
 - An OpenRouter key at `~/.jtr.key`, for section 3. Without it that section
   still runs and shows the no-key path, which is worth showing anyway.
 - `uvx`, for showboat itself.
