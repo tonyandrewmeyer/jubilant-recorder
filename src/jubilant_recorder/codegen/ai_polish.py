@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import ast
 import json
+import re
 import warnings
 from typing import Any, Protocol, TypeAlias, runtime_checkable
 
@@ -121,7 +122,30 @@ class LLMPolisher:
 
         if not raw:
             return code
-        return raw.strip()
+        return _strip_code_fence(raw)
+
+
+_FENCE_RE = re.compile(r"^\s*```(?:[A-Za-z0-9_+-]*)\s*\n(?P<body>.*?)\n?\s*```\s*$", re.DOTALL)
+
+
+def _strip_code_fence(raw: str) -> str:
+    """Return the Python in *raw*, tolerating a markdown fence around it.
+
+    The prompt says not to wrap the code in fences and usually gets bare
+    Python, but not always. A fenced reply is not a refusal and the code
+    inside it is often exactly right - yet `polish()` parses what it is
+    given, so the fence makes it a `SyntaxError` and the whole polish is
+    dropped. The tagger lane hit the same thing and fixed it there
+    (`tagger.llm._json_payload`); this is the codegen lane's version,
+    kept separate because that one recovers JSON and this one Python.
+
+    Anything without a fence is returned stripped, so the caller's parse
+    path is unchanged for the common case.
+    """
+    fenced = _FENCE_RE.match(raw)
+    if fenced:
+        return fenced.group("body")
+    return raw.strip()
 
 
 def polish(code: str, session_log: SessionLog, *, polisher: Polisher | None = None) -> str:
@@ -130,16 +154,40 @@ def polish(code: str, session_log: SessionLog, *, polisher: Polisher | None = No
     Returns the polished code if it still parses and preserves the
     behaviour-bearing jubilant call sequence; otherwise returns `code`
     unchanged. `polisher` defaults to `StubPolisher`.
+
+    Every path that discards the polish warns, and says which gate did
+    it. Falling back is the designed behaviour, but three of these paths
+    used to be silent, so a discarded polish and a model that had
+    nothing to add were the same observation: `--ai` output identical to
+    the deterministic output, with no way to tell which had happened.
     """
     polisher = polisher or StubPolisher()
     polished = polisher.polish(code, session_log)
+    if not polished.strip():
+        warnings.warn(
+            "LLM polish returned nothing — using deterministic output",
+            stacklevel=2,
+        )
+        return code
     if polished == code:
+        warnings.warn(
+            "LLM polish returned the test unchanged — deterministic output kept",
+            stacklevel=2,
+        )
         return code
     try:
         ast.parse(polished)
-    except SyntaxError:
+    except SyntaxError as exc:
+        warnings.warn(
+            f"LLM polish did not return parseable Python ({exc}) — using deterministic output",
+            stacklevel=2,
+        )
         return code
     if not behaviour_preserved(code, polished):
+        warnings.warn(
+            "LLM polish changed the test's juju calls — using deterministic output",
+            stacklevel=2,
+        )
         return code
     if not assertions_preserved(code, polished):
         warnings.warn(
