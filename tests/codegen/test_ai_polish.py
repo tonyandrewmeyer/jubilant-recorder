@@ -184,6 +184,16 @@ def test_llm_polisher_empty_response_returns_original() -> None:
     assert result == deterministic
 
 
+class _ReturningPolisher:
+    """Returns whatever it was constructed with, whatever it was given."""
+
+    def __init__(self, out: str) -> None:
+        self._out = out
+
+    def polish(self, code: str, session_log: dict[str, Any]) -> str:
+        return self._out
+
+
 class _AssertRewritingPolisher:
     """Stands in for the live model, which rewrote assertions despite the prompt."""
 
@@ -237,3 +247,86 @@ def test_polish_keeps_a_rename_that_leaves_assertions_alone():
     polisher = _AssertRewritingPolisher(_RENAMED_ONLY)
 
     assert polish(_ORIGINAL, {}, polisher=polisher) == _RENAMED_ONLY
+
+
+@pytest.mark.parametrize(
+    "fence",
+    ["```python\n{body}```\n", "```\n{body}```\n", "  ```py\n{body}```  \n"],
+    ids=["language", "bare", "surrounding-whitespace"],
+)
+def test_llm_polisher_strips_a_markdown_fence(fence: str) -> None:
+    # The prompt says not to fence the code; models do it anyway, and an
+    # unstripped fence makes a perfectly good polish a SyntaxError.
+    log = _annotated()
+    deterministic = codegen.generate(log)
+    improved = deterministic.replace("def test_recorded_session(", "def test_deploy_my_charm(")
+    polisher = LLMPolisher(_make_mock_client(fence.format(body=improved)), model="test/model")
+
+    result = polish(deterministic, log, polisher=polisher)
+
+    assert "test_deploy_my_charm" in result
+    assert "```" not in result
+    ast.parse(result)
+
+
+def test_llm_polisher_leaves_unfenced_code_alone() -> None:
+    log = _annotated()
+    deterministic = codegen.generate(log)
+    improved = deterministic.replace("def test_recorded_session(", "def test_deploy_my_charm(")
+    polisher = LLMPolisher(_make_mock_client(improved), model="test/model")
+    assert polisher.polish(deterministic, log) == improved.strip()
+
+
+def test_llm_polisher_does_not_strip_a_fence_inside_the_code() -> None:
+    # Only a fence wrapping the whole response is a wrapper; one in a
+    # docstring is content.
+    log = _annotated()
+    deterministic = codegen.generate(log)
+    improved = deterministic.replace(
+        "def test_recorded_session():",
+        'def test_recorded_session():\n    """Recorded from:\n\n    ```\n    juju deploy\n    ```\n    """',
+    )
+    polisher = LLMPolisher(_make_mock_client(improved), model="test/model")
+    assert "```" in polisher.polish(deterministic, log)
+
+
+@pytest.mark.parametrize(
+    ("polished", "expected"),
+    [
+        ("", "returned nothing"),
+        ("{code}", "returned the test unchanged"),
+        ("not python at all ((", "did not return parseable Python"),
+        ("{dropped}", "changed the test's juju calls"),
+    ],
+    ids=["empty", "identical", "unparseable", "behaviour-changed"],
+)
+def test_every_discarded_polish_says_which_gate_rejected_it(polished: str, expected: str) -> None:
+    # A discarded polish and a model with nothing to add both leave the
+    # deterministic output in place; without a warning they are the same
+    # observation from outside.
+    log = _annotated()
+    deterministic = codegen.generate(log)
+    dropped = "\n".join(line for line in deterministic.splitlines() if "juju.deploy(" not in line)
+    out = polished.format(code=deterministic, dropped=dropped)
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        result = polish(deterministic, log, polisher=_ReturningPolisher(out))
+
+    assert result == deterministic
+    assert any(expected in str(warning.message) for warning in w), [
+        str(warning.message) for warning in w
+    ]
+
+
+def test_an_accepted_polish_warns_about_nothing() -> None:
+    log = _annotated()
+    deterministic = codegen.generate(log)
+    improved = deterministic.replace("def test_recorded_session(", "def test_deploy_my_charm(")
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        result = polish(deterministic, log, polisher=_ReturningPolisher(improved))
+
+    assert "test_deploy_my_charm" in result
+    assert not w
