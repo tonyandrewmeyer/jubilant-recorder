@@ -64,8 +64,12 @@ The [full walkthrough](docs/demo.md) shows all three recording modes end to end.
 uv add jubilant-recorder            # or: pip install jubilant-recorder
 ```
 
-Requires Python 3.11+ and `jubilant>=1.0`. To record libjuju-driven sessions
-as well, install the extra:
+Requires Python 3.11+ and `jubilant>=1.10`. The floor is set by what the
+*generated tests* call rather than by the recorder itself — `add_machine`
+landed in jubilant 1.10, and `show_model`, `model_constraints`,
+`add_ssh_key` and `version` in 1.9.
+
+To record libjuju-driven sessions as well, install the extra:
 
 ```bash
 uv add 'jubilant-recorder[libjuju]'

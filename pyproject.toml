@@ -24,7 +24,13 @@ classifiers = [
 ]
 dependencies = [
     "httpx>=0.27",
-    "jubilant>=1.0",
+    # 1.10 is the floor because of what codegen *emits*, not what the
+    # recorder calls: `add_machine` landed in 1.10, and `show_model`,
+    # `model_constraints`, `add_ssh_key` and `version` in 1.9. A generated
+    # test that calls a method the installed jubilant does not have is worse
+    # than one that never offered to, so the promise is made by the
+    # dependency rather than by a footnote.
+    "jubilant>=1.10",
     "pyyaml>=6.0",
 ]
 
