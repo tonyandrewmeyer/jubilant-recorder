@@ -129,3 +129,28 @@ def test_a_recorder_failure_does_not_fail_the_test(pytester: pytest.Pytester) ->
     result = pytester.runpytest(f"--jtr-record={pytester.path / 'sessions'}")
     result.assert_outcomes(passed=1)
     result.stdout.fnmatch_lines(["*recording failed and was discarded*"])
+
+
+def test_model_state_carries_between_tests(pytester: pytest.Pytester) -> None:
+    """Each test is a separate session against a model they all share.
+
+    The plugin hands each session the state the last one left, so a test
+    that adds a unit to an application deployed by an earlier test does not
+    look like it created that application from nothing.
+    """
+    pytester.makepyfile(
+        test_charm="""
+        def test_one():
+            pass
+
+        def test_two():
+            pass
+        """
+    )
+    out = pytester.path / "test_migrated.py"
+    pytester.runpytest(f"--jtr-out={out}")
+
+    # With no libjuju traffic there is nothing to carry, but the handoff
+    # itself must have happened rather than raised.
+    assert out.exists()
+    assert "def test_one(juju: jubilant.Juju):" in out.read_text()

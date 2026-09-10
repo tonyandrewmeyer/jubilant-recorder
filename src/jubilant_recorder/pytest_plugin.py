@@ -42,6 +42,7 @@ if TYPE_CHECKING:
     from collections.abc import Generator
 
 _RECORDER_KEY = "_jtr_recorder"
+_SNAPSHOT_KEY = "_jtr_snapshot"
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -151,7 +152,16 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None, None, None]:
     name = _safe_test_name(item)
     log_path = directory / f"{name}.json"
     recorded = _recorded(item.config)
-    recorder = RecordingLibjuju(output_log_path=log_path, model="")
+    # Carry the model state forward. The AllWatcher stream is a stream of
+    # *changes*, and each test gets its own recording session against a model
+    # they all share — so from the second test onwards the tap sees only what
+    # changed, and a session that starts from "no units" produces assertions
+    # that are short by whatever the earlier tests left behind.
+    recorder = RecordingLibjuju(
+        output_log_path=log_path,
+        model="",
+        initial_snapshot=getattr(item.config, _SNAPSHOT_KEY, None),
+    )
     try:
         recorder.__enter__()
     except Exception as exc:  # pragma: no cover - defensive
@@ -173,6 +183,7 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None, None, None]:
             _warn(item, f"recording failed and was discarded: {exc!r}")
         else:
             recorded.append((name, log_path))
+            setattr(item.config, _SNAPSHOT_KEY, recorder.final_snapshot)
 
 
 def _warn(item: pytest.Item, message: str) -> None:

@@ -41,13 +41,13 @@ def juju():
 
 
 def test_deploy(juju: jubilant.Juju):
-    juju.deploy('postgresql', channel='14/stable')
-    juju.wait(lambda s: jubilant.all_active(s, 'postgresql'))
+    juju.deploy("postgresql", channel="14/stable")
+    juju.wait(lambda s: jubilant.all_active(s, "postgresql"))
 
 
 def test_relate(juju: jubilant.Juju):
-    juju.deploy('data-integrator')
-    juju.integrate('postgresql', 'data-integrator')
+    juju.deploy("data-integrator")
+    juju.integrate("postgresql", "data-integrator")
 ```
 
 The module-scoped fixture is not decoration. A pytest-operator suite's

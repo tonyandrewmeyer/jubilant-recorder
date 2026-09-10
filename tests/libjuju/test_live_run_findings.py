@@ -162,3 +162,84 @@ def test_a_short_trailing_gap_is_not_a_wait() -> None:
 def test_no_rpcs_at_all_synthesises_nothing() -> None:
     events = correlate([], [_unit_delta("ubuntu/0", "ubuntu", "active", ts=30.0)])
     assert [e["op"] for e in events] == ["_libjuju_orphan_deltas"]
+
+
+# --- typed objects in params ---
+
+
+class _LibjujuTypeWithToJson:
+    """The shape libjuju's generated `Type` classes have.
+
+    `to_json()` returns a JSON *string*, which `_normalise` used to hand
+    straight through as a scalar: structure intact but opaque, and the
+    correlator then read a whole entity as if it were a name.
+    """
+
+    def to_json(self) -> str:
+        return '{"tag": "application-ubuntu-peer", "force": false}'
+
+
+def test_normalise_parses_a_to_json_string_back_into_structure() -> None:
+    from jubilant_recorder.extensions.libjuju.tap import _normalise
+
+    assert _normalise(_LibjujuTypeWithToJson()) == {
+        "tag": "application-ubuntu-peer",
+        "force": False,
+    }
+
+
+def test_destroy_application_accepts_the_tag_spelling() -> None:
+    """`DestroyApplicationParams` says `tag`, `Entities` says `application-tag`."""
+    args = _extract_args(
+        "Application", "DestroyApplication", {"applications": [{"tag": "application-ubuntu-peer"}]}
+    )
+    assert args == {"app": "ubuntu-peer"}
+
+
+# --- state carried between per-test sessions ---
+
+
+def test_deltas_are_read_against_the_state_the_session_started_from() -> None:
+    """A tap that attaches part-way through a model's life misses the past.
+
+    That is every test after the first, when a suite shares one model and
+    each test is recorded separately. Without this, `test_scale_up` looked
+    like it took a model from no units to one unit, and the generated test
+    asserted a count short by everything the earlier tests deployed.
+    """
+    initial = {
+        "schema_version": 1,
+        "captured_at": _ts(0),
+        "apps": {
+            "ubuntu": {
+                "units": {
+                    "ubuntu/0": {
+                        "workload_status": "active",
+                        "workload_message": "",
+                        "agent_status": "idle",
+                    }
+                }
+            }
+        },
+        "relations": [],
+    }
+    rpcs = [
+        _rpc(
+            "Application",
+            "AddUnits",
+            {"application": "ubuntu", "num-units": 1},
+        )
+    ]
+    deltas = [_unit_delta("ubuntu/1", "ubuntu", "active", ts=0.2)]
+
+    events = correlate(rpcs, deltas, initial_snapshot=initial)
+    after = events[0]["model_snapshot_after"]["apps"]["ubuntu"]["units"]
+    assert sorted(after) == ["ubuntu/0", "ubuntu/1"]
+
+
+def test_without_the_initial_snapshot_only_the_new_unit_is_seen() -> None:
+    """The behaviour the parameter exists to correct, pinned so it stays visible."""
+    rpcs = [_rpc("Application", "AddUnits", {"application": "ubuntu", "num-units": 1})]
+    deltas = [_unit_delta("ubuntu/1", "ubuntu", "active", ts=0.2)]
+    events = correlate(rpcs, deltas)
+    assert list(events[0]["model_snapshot_after"]["apps"]["ubuntu"]["units"]) == ["ubuntu/1"]

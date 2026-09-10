@@ -6,12 +6,20 @@ the resulting session log.
 
 ## Layout
 
-- `src/jubilant_recorder/` — package source (recorder, codegen, CLI).
+- `src/jubilant_recorder/` — package source (recorder, codegen, CLIs).
+  - `codegen/cli_translate.py` — every recorded `juju` argv becomes a
+    jubilant call: a typed one where a method exists, `juju.cli(...)` where
+    it does not. Flag tables are the real juju CLI surface; the regeneration
+    command for the `--model` list is in the file.
+  - `pytest_plugin.py` — records an unmodified pytest-operator suite
+    (`pytest --jtr-out=...`). Registered as a `pytest11` entry point, inert
+    unless one of its options is passed.
 - `tests/` — pytest suite. No real Juju required; tests use fixtures.
 - `examples/` — sample recording scripts.
 - `docs/` — schema reference, demo, and per-mode guides.
 
-Entry point: `jubilant-recorder` (defined in `pyproject.toml`).
+Entry points: `jubilant-recorder` and `jtr` (the shell-capture CLI), both
+defined in `pyproject.toml`, plus the `pytest11` plugin entry point.
 
 ## Setup
 
@@ -48,3 +56,10 @@ every supported Python, and checks the built wheel.
   test surface.
 - LLM augmentation is gated behind `--ai` and must not run by default; the
   deterministic codegen path is the source of truth.
+- The pytest plugin runs inside somebody else's test suite. A bug in the
+  recorder must never fail the test it is recording — it warns and discards
+  that session log. There is a test for this; keep it passing.
+- Generated code has to run, not just parse. Check a new emitter's call
+  against the real `jubilant.Juju` signature; a plausible-looking kwarg that
+  does not exist (`juju.config(app, keys=[...])` was one) turns every
+  generated test using it into a TypeError.

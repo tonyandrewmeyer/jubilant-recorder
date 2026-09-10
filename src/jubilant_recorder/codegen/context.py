@@ -253,6 +253,14 @@ def interleave_context(events: list[dict[str, Any]], indent: int = 8) -> tuple[l
             body_lines.append(EMITTERS["run"](event, indent, var_name=run_var))
         elif op in EMITTERS:
             body_lines.append(EMITTERS[op](event, indent))
+            if op == "status_call":
+                # The call replays the check; the comment says what the
+                # operator was looking at when they made it. Only rendered
+                # when something was not active — a healthy model says
+                # nothing the assertions below do not already say.
+                comment = render_status_comment(event, indent)
+                if comment is not None and event.get("model_snapshot_after") is not None:
+                    body_lines.append(comment)
             if op == "config":
                 comment = render_config_result(event, indent)
                 if comment is not None:

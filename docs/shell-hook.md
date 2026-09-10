@@ -75,12 +75,12 @@ import jubilant
 
 def test_my_session():
     with jubilant.temp_model() as juju:
-        juju.deploy('postgresql', channel='14/stable')
-        juju.integrate('postgresql', 'data-integrator')
+        juju.deploy("postgresql", channel="14/stable")
+        juju.integrate("postgresql", "data-integrator")
         # note: waiting for the relation to settle
         juju.status()
-        for _u in juju.status().apps['postgresql'].units.values():
-            assert _u.workload_status.current == 'active'
+        for _u in juju.status().apps["postgresql"].units.values():
+            assert _u.workload_status.current == "active"
 ```
 
 Three things are worth knowing about how that is produced.

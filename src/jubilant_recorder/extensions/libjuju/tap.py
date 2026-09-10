@@ -38,6 +38,7 @@ with the delta burst that followed it.
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -65,16 +66,26 @@ def _normalise(obj: Any) -> Any:
         return {str(k): _normalise(v) for k, v in obj.items()}
     if isinstance(obj, (list, tuple, set, frozenset)):
         return [_normalise(v) for v in obj]
-    to_json = getattr(obj, "to_json", None)
-    if callable(to_json):
-        try:
-            return _normalise(to_json())
-        except Exception:
-            pass
+    # `serialize()` first, because libjuju's `Type.to_json()` returns a JSON
+    # *string*. Normalising that returned the string unchanged — structure
+    # intact but opaque — and the correlator then read a whole entity as if
+    # it were an application name: a live run produced
+    # `juju.remove_application('{"tag": "ubuntu-peer", …}')`. `to_json()` is
+    # still tried, with its result parsed back, for objects that have no
+    # `serialize()`.
     serialize = getattr(obj, "serialize", None)
     if callable(serialize):
         try:
             return _normalise(serialize())
+        except Exception:
+            pass
+    to_json = getattr(obj, "to_json", None)
+    if callable(to_json):
+        try:
+            encoded = to_json()
+            if isinstance(encoded, str):
+                encoded = json.loads(encoded)
+            return _normalise(encoded)
         except Exception:
             pass
     d = getattr(obj, "__dict__", None)

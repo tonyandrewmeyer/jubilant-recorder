@@ -216,6 +216,14 @@ def _body(
             body_lines.append(EMITTERS["config_get"](event, indent, var_name=config_get_var))
         elif op in EMITTERS:
             body_lines.append(EMITTERS[op](event, indent))
+            if op == "status_call":
+                # The call replays the check; the comment says what the
+                # operator was looking at when they made it. Only rendered
+                # when something was not active — a healthy model says
+                # nothing the assertions below do not already say.
+                comment = ctx.render_status_comment(event, indent)
+                if comment is not None and event.get("model_snapshot_after") is not None:
+                    body_lines.append(comment)
             if op == "config":
                 comment = ctx.render_config_result(event, indent)
                 if comment is not None:

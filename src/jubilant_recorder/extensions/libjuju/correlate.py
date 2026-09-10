@@ -243,6 +243,38 @@ class _ModelState:
         # set of frozenset({endpoint_a, endpoint_b})
         self._relations: list[frozenset[str]] = []
 
+    @classmethod
+    def from_snapshot(cls, snapshot: dict[str, Any] | None) -> _ModelState:
+        """Rebuild state from a snapshot this class produced earlier.
+
+        The AllWatcher stream is a stream of *changes*, so a tap installed
+        part-way through a model's life sees only what happened after it
+        attached. That is exactly the situation `pytest_plugin` is in from
+        the second test onwards: the model is shared across the module, but
+        each test gets its own recording session. Without carrying the
+        state forward, `test_scale_up` looks like it took a model with no
+        units to one with one unit, and the generated test asserts a unit
+        count that is short by however many units the earlier tests left.
+        """
+        state = cls()
+        if not snapshot:
+            return state
+        for app_name, app_data in (snapshot.get("apps") or {}).items():
+            for unit_name, unit_data in ((app_data or {}).get("units") or {}).items():
+                state._units[unit_name] = {
+                    "workload_status": (unit_data or {}).get("workload_status", "unknown"),
+                    "workload_message": (unit_data or {}).get("workload_message", ""),
+                    "agent_status": (unit_data or {}).get("agent_status", "unknown"),
+                    "app": app_name,
+                }
+        for relation in snapshot.get("relations") or []:
+            endpoints = (relation or {}).get("endpoints") or []
+            if len(endpoints) >= 2:
+                pair = frozenset(endpoints[:2])
+                if pair not in state._relations:
+                    state._relations.append(pair)
+        return state
+
     def apply_delta(self, delta: dict[str, Any]) -> None:
         entity_kind = delta.get("entity_kind", "")
         change_kind = delta.get("change_kind", "")
@@ -502,10 +534,12 @@ def _extract_args(facade: str, method: str, params: dict[str, Any]) -> dict[str,
         entities = params.get("applications") or []
         first = entities[0] if entities else ""
         if isinstance(first, dict):
-            name = str(first.get("application-tag", "")).replace("application-", "")
+            # `application-tag` on the Entities shape, `tag` on the
+            # DestroyApplicationParams shape libjuju 3.6 actually sends.
+            raw = first.get("application-tag") or first.get("tag") or ""
         else:
-            name = str(first).replace("application-", "")
-        return {"app": name}
+            raw = first
+        return {"app": str(raw).replace("application-", "")}
 
     if key in (("Application", "DestroyUnit"), ("Application", "DestroyUnits")):
         entries = params.get("units") or []
@@ -798,6 +832,7 @@ def correlate(
     *,
     window_seconds: float = 2.0,
     idle_threshold_seconds: float | None = None,
+    initial_snapshot: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Pair RPCs with their delta bursts; emit docs/schema.md-shaped events.
 
@@ -817,6 +852,12 @@ def correlate(
         in the inter-RPC gap to the start of the next user RPC.  If ``None``
         (the default), the value is read from the ``LIBJUJU_IDLE_THRESHOLD_S``
         environment variable, falling back to 5.0 s.
+    initial_snapshot:
+        Model state the recording started from, as a snapshot this module
+        produced earlier. Deltas describe changes, so a tap that attached
+        part-way through a model's life needs to be told what it missed —
+        see ``_ModelState.from_snapshot``. ``None`` (the default) means an
+        empty model.
 
     Returns
     -------
@@ -855,7 +896,7 @@ def correlate(
             orphan_deltas.append(delta)
 
     # Build events by replaying model state and emitting one event per RPC.
-    state = _ModelState()
+    state = _ModelState.from_snapshot(initial_snapshot)
     events: list[dict[str, Any]] = []
     seq = 0
 

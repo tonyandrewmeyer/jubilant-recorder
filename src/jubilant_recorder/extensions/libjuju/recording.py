@@ -112,15 +112,24 @@ class RecordingLibjuju:
         tap: LibjujuTap | None = None,
         correlator: Correlator | None = None,
         idle_threshold_seconds: float | None = None,
+        initial_snapshot: dict[str, Any] | None = None,
     ) -> None:
         self._output_log_path = output_log_path
         self._model = model
+        self._initial_snapshot = initial_snapshot
+        self.final_snapshot: dict[str, Any] | None = initial_snapshot
         self._tap: LibjujuTap = tap if tap is not None else LibjujuTap()
         if correlator is not None:
             self._correlator: Correlator = correlator
         elif idle_threshold_seconds is not None:
             self._correlator = functools.partial(
-                _default_correlate, idle_threshold_seconds=idle_threshold_seconds
+                _default_correlate,
+                idle_threshold_seconds=idle_threshold_seconds,
+                initial_snapshot=initial_snapshot,
+            )
+        elif initial_snapshot is not None:
+            self._correlator = functools.partial(
+                _default_correlate, initial_snapshot=initial_snapshot
             )
         else:
             self._correlator = _default_correlate
@@ -182,6 +191,14 @@ class RecordingLibjuju:
         for raw_event in events:
             envelope = _event_to_envelope(raw_event, log.next_seq())
             log.append_event(envelope)
+        # Where this session left the model, so a caller recording the next
+        # one against the same model can hand it back in as
+        # ``initial_snapshot``. See ``_ModelState.from_snapshot``.
+        for raw_event in reversed(events):
+            after = raw_event.get("model_snapshot_after")
+            if after is not None:
+                self.final_snapshot = after
+                break
         if exc is not None and isinstance(exc, Exception):
             log.record_session_error(exc)
 
@@ -199,6 +216,7 @@ class RecordingLibjuju:
         tap: LibjujuTap | None = None,
         correlator: Correlator | None = None,
         idle_threshold_seconds: float | None = None,
+        initial_snapshot: dict[str, Any] | None = None,
     ) -> Generator[RecordingLibjuju, None, None]:
         recorder = cls(
             output_log_path=log_path,
@@ -206,6 +224,7 @@ class RecordingLibjuju:
             tap=tap,
             correlator=correlator,
             idle_threshold_seconds=idle_threshold_seconds,
+            initial_snapshot=initial_snapshot,
         )
         with recorder as ctx:
             yield ctx

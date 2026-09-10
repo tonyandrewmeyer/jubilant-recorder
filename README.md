@@ -157,7 +157,7 @@ The `jubilant-recorder` command provides four subcommands:
 | `jubilant-recorder start [--session-log PATH] [--model NAME]` | Begin a recording session. Writes `{pid, session_log_path, model, started_at}` to `$XDG_CACHE_HOME/jubilant-recorder/active.json` (or `~/.cache/jubilant-recorder/active.json`). Prints the session log path to stdout. |
 | `jubilant-recorder stop` | Read the state file, finalise the session log if necessary, remove the state file. |
 | `jubilant-recorder run [--session-log PATH] [--out TEST.py] [--name NAME] [--ai] [--ai-model MODEL] [-- CMD ARGS…]` | All-in-one: start a session, run `CMD` under the recorder (or `$SHELL` if no command given), stop, and generate a test alongside the session log. |
-| `jubilant-recorder generate SESSION_LOG [--out TEST.py] [--name TEST_NAME] [--ai] [--ai-model MODEL]` | Pure post-processing: read a completed session log, run the tagger over it, and produce a pytest test file. |
+| `jubilant-recorder generate SESSION_LOG [--out TEST.py] [--name TEST_NAME] [--source-aware PATH] [--ai] [--ai-model MODEL]` | Pure post-processing: read a completed session log, run the tagger over it, and produce a pytest test file. `--source-aware` points at the test file that produced the log; it improves generated variable names and carries source comments through, and is never required. |
 
 `jubilant-recorder run` exports `JUBILANT_RECORDER_SESSION_LOG` into the
 child process environment so user scripts can locate the active log.
