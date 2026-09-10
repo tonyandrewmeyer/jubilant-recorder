@@ -5,10 +5,9 @@ import pytest
 def test_k8s_wait_timeout():
     with jubilant.temp_model() as juju:
         # NOTE: this session was recorded against a model that already had
-        # applications deployed (postgresql-k8s (1 unit), scheduler-admin-k8s (1 unit), scheduler-k8s (1 unit), web-frontend (1 unit)). jubilant.temp_model() above gives
-        # this test a fresh, empty model instead, so that pre-existing state is
-        # NOT recreated here — set it up by hand if the recorded operations
-        # below assumed it was already present.
+        # applications deployed (postgresql-k8s (1 unit), scheduler-admin-k8s (1 unit), scheduler-k8s (1 unit), web-frontend (1 unit)), which jubilant.temp_model() above does not
+        # recreate — it gives this test a fresh, empty model. Set that state
+        # up by hand if the recorded operations below assumed it was there.
         juju.deploy('data-integrator', channel='latest/edge', config={'database-name': 'real_world_demo'}, trust=True)
         assert len(juju.status().apps['data-integrator'].units) == 1
         juju.integrate('postgresql-k8s', 'data-integrator')

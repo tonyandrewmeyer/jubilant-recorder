@@ -74,3 +74,42 @@ def test_empty_input_produces_an_importable_module() -> None:
     src = generate_module([])
     ast.parse(src)
     assert "import jubilant" in src
+
+
+def _deploy_with_prior_state(seq: int, charm: str) -> dict[str, Any]:
+    event = _deploy(seq, charm)
+    event["model_snapshot_before"] = {
+        "schema_version": 1,
+        "captured_at": "2026-09-10T10:00:00.000Z",
+        "apps": {
+            "ubuntu": {
+                "units": {
+                    "ubuntu/0": {
+                        "workload_status": "active",
+                        "workload_message": "",
+                        "agent_status": "idle",
+                    }
+                }
+            }
+        },
+        "relations": [],
+    }
+    return event
+
+
+def test_only_the_first_test_warns_about_a_non_empty_starting_model() -> None:
+    """For the rest, that state is what the tests before them deployed.
+
+    Every test after the first started from a model the earlier ones had
+    filled, so warning on each buried the real steps under a five-line note
+    that was also wrong.
+    """
+    src = generate_module(
+        [
+            ("test_first", _log([_deploy_with_prior_state(1, "ubuntu")])),
+            ("test_second", _log([_deploy_with_prior_state(2, "postgresql")])),
+            ("test_third", _log([_deploy_with_prior_state(3, "redis")])),
+        ]
+    )
+    assert src.count("# NOTE: this session was recorded") == 1
+    assert src.index("# NOTE:") < src.index("def test_second")

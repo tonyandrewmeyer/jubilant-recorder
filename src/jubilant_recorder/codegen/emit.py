@@ -84,21 +84,18 @@ def generate_module(
     """
     indent = preamble.FIXTURE_BODY_INDENT
     blocks: list[list[str]] = []
-    any_pytest = False
-    for name, session in sessions:
-        body_lines, needs_pytest = _body(session, indent, overlay)
-        any_pytest = any_pytest or needs_pytest
+    for position, (name, session) in enumerate(sessions):
+        body_lines, _ = _body(session, indent, overlay)
         if not _has_statement(body_lines):
             body_lines.append(preamble.empty_body_filler(indent))
+        # Only the first test can start from state nobody in this module
+        # created. For the rest, a non-empty starting model is what the
+        # tests before them deployed — see `preamble.test_header`.
+        pre_existing: tuple[str, ...] = ()
         events = session.get("events", []) or []
-        first_snapshot = events[0].get("model_snapshot_before") if events else None
-        blocks.append(
-            [
-                *preamble.test_header(name, preamble.pre_existing_apps(first_snapshot)),
-                *body_lines,
-            ]
-        )
-    del any_pytest  # the fixture decorator always needs pytest imported
+        if position == 0 and events:
+            pre_existing = preamble.pre_existing_apps(events[0].get("model_snapshot_before"))
+        blocks.append([*preamble.test_header(name, pre_existing), *body_lines])
     lines = list(preamble.module_header())
     for block in blocks:
         lines.extend(block)

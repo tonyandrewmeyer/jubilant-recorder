@@ -115,7 +115,14 @@ def module_header(*, needs_pytest: bool = True) -> list[str]:
 
 
 def test_header(test_name: str, pre_existing_apps: tuple[str, ...] = ()) -> list[str]:
-    """Build the `def <name>(juju):` line for one test in a multi-test module."""
+    """Build the `def <name>(juju):` line for one test in a multi-test module.
+
+    ``pre_existing_apps`` is only ever passed for the *first* test in the
+    module. For every test after it, a non-empty starting model is not a
+    trap — it is what the tests before it deployed, which is the whole
+    point of the shared fixture. Warning about it on each one buried the
+    real steps under a five-line note that was also wrong.
+    """
     # Two blank lines before a top-level def, as PEP 8 and every formatter
     # the reader runs over this file will expect.
     lines = ["", "", f"def {test_name}(juju: jubilant.Juju):"]
@@ -133,8 +140,7 @@ def _non_empty_model_lines(
     present = ", ".join(pre_existing_apps)
     return [
         f"{pad}# NOTE: this session was recorded against a model that already had",
-        f"{pad}# applications deployed ({present}). {source} gives",
-        f"{pad}# this test a fresh, empty model instead, so that pre-existing state is",
-        f"{pad}# NOT recreated here — set it up by hand if the recorded operations",
-        f"{pad}# below assumed it was already present.",
+        f"{pad}# applications deployed ({present}), which {source} does not",
+        f"{pad}# recreate — it gives this test a fresh, empty model. Set that state",
+        f"{pad}# up by hand if the recorded operations below assumed it was there.",
     ]
