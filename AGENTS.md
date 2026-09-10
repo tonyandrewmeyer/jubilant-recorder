@@ -15,7 +15,10 @@ the resulting session log.
     (`pytest --jtr-out=...`). Registered as a `pytest11` entry point, inert
     unless one of its options is passed.
 - `tests/` — pytest suite. No real Juju required; tests use fixtures.
-- `examples/` — sample recording scripts.
+  `tests/e2e/` is the exception: those need a controller and are deselected
+  unless you pass `--e2e`. They are what proves a generated test *runs*.
+- `examples/` — sample recording scripts, plus a libjuju driver and a
+  pytest-operator suite for the two non-scripted modes.
 - `docs/` — schema reference, demo, and per-mode guides.
 
 Entry points: `jubilant-recorder` and `jtr` (the shell-capture CLI), both
@@ -51,9 +54,9 @@ every supported Python, and checks the built wheel.
 
 - The session log schema (`docs/schema.md`) is a public contract — changes to event
   shapes need a schema version bump and codegen update in lock-step.
-- The gesture API (`assert_status`, `assert_action_result`, `checkpoint`) is
-  user-facing; signature changes ripple into example scripts and the generated
-  test surface.
+- The gesture API (`assert_status`, `assert_action_result`, `assert_config`,
+  `checkpoint`) is user-facing; signature changes ripple into example scripts
+  and the generated test surface.
 - LLM augmentation is gated behind `--ai` and must not run by default; the
   deterministic codegen path is the source of truth.
 - The pytest plugin runs inside somebody else's test suite. A bug in the
@@ -62,4 +65,10 @@ every supported Python, and checks the built wheel.
 - Generated code has to run, not just parse. Check a new emitter's call
   against the real `jubilant.Juju` signature; a plausible-looking kwarg that
   does not exist (`juju.config(app, keys=[...])` was one) turns every
-  generated test using it into a TypeError.
+  generated test using it into a TypeError. The dependency floor
+  (`jubilant>=1.10`) is set by what codegen emits, not by what the recorder
+  calls — raise it when an emitter starts using a newer method.
+- `docs/demo.md` is a showboat document: every block in it was really run.
+  Re-record it rather than editing its outputs
+  (`uvx showboat verify docs/demo.md --output docs/demo.md`), and read
+  `docs/running-the-demo.md` first.
