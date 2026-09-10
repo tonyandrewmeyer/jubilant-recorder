@@ -56,7 +56,7 @@ def attach_status_snapshots(log: dict[str, Any]) -> dict[str, Any]:
 
 def _is_shim_status(event: dict[str, Any]) -> bool:
     args = event.get("args") or {}
-    if event.get("op") != "shell" or args.get("source") != "shim":
+    if event.get("op") != "shell" or args.get("source") not in ("shim", "jubilant"):
         return False
     argv = args.get("argv") or []
     return bool(argv) and argv[0] == "status"

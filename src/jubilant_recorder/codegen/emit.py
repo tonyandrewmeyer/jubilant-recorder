@@ -26,6 +26,13 @@ _DEFAULT_TEST_NAME = "test_recorded_session"
 # fallback emitter buried the real steps in JSON.
 _SKIP_OPS = frozenset({"checkpoint", "session_end", "config_override"})
 
+# `args.source` values on a `shell` event that mean "this is a `juju` argv".
+# `"shim"` is the PATH shim; `"jubilant"` is `RecordingJuju._cli()` recording
+# a jubilant method it has no typed override for. Both are translated by
+# `codegen/cli_translate.py`. A `shell` event with neither — the libjuju
+# front-end's own bucket-2 shape — must still reach the fallback emitter.
+_ARGV_SOURCES = frozenset({"shim", "jubilant"})
+
 
 def generate(
     log: SessionLog,
@@ -140,7 +147,7 @@ def _body(
         # equivalent libjuju events (bucket-2, find_application_offers) also
         # use `op: "shell"` but without a shim source; those must still fall
         # through to fallback so they render as `# TODO: manual step`.
-        if op == "shell" and (event.get("args") or {}).get("source") == "shim":
+        if op == "shell" and (event.get("args") or {}).get("source") in _ARGV_SOURCES:
             # Every `juju` argv is translated into a jubilant call below: a
             # typed op where the shape maps onto a jubilant client method,
             # and `cli_passthrough` -> `juju.cli(...)` for everything else.

@@ -322,8 +322,8 @@ printed.
 | Field | Location | Type | Notes |
 |---|---|---|---|
 | `argv` | args | array of string | The `juju` argv, **without** the `juju` binary itself. Redacted (see below). |
-| `basename` | args | string | Always `"juju"`: the shim is only ever installed as the juju intercept. |
-| `source` | args | string | `"shim"` for the PATH shim. Its absence marks a libjuju bucket-2 event, which shares the op name but not the shape. |
+| `basename` | args | string | Always `"juju"`. |
+| `source` | args | string | `"shim"` for the PATH shim; `"jubilant"` for a `RecordingJuju` call with no typed override (see below). Codegen translates both. A `shell` event with neither is a libjuju bucket-2 event, which shares the op name but not the shape. |
 | `session_id` | args | string | The `JTR_SESSION` the event belongs to. |
 | `captured` | result | boolean | Whether `stdout` holds the command's output. True only for the read-only subcommands in the shim's `_CAPTURE_STDOUT`. |
 | `exit_code` | result | integer \| null | The real exit status. Non-zero means codegen comments the translated call out rather than emitting a line that claims the command worked. |
@@ -334,6 +334,17 @@ printed.
 `model_snapshot_before`/`model_snapshot_after` are null as written by the
 shim — it sees argv, not a model — and are filled in for `status` events by
 `shim_snapshots` before tagging.
+
+**`source: "jubilant"`.** `jubilant.Juju` has some thirty public methods and
+`RecordingJuju` overrides nine of them with typed ops. Every other one —
+`ssh`, `exec`, `scp`, `refresh`, `trust`, `add_machine`, `model_config`, the
+secret readers — records its raw argv in this shape instead, so a scripted
+session keeps steps it would otherwise drop entirely. These carry no model
+snapshot: `_cli()` runs on every jubilant call including the typed ones, and
+snapshotting here would double a recording's cost to add nothing the typed
+paths do not already capture. The argv has no `--model` in it, because
+jubilant injects that inside its own `_cli()`, after the argv the recorder
+sees.
 
 **Redaction.** `argv` and `stdout` are redacted as they are written, by the
 shared rules in `jubilant_recorder.redaction` plus any pattern the operator

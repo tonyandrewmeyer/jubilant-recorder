@@ -1718,9 +1718,10 @@ def session_model(events: list[dict[str, Any]]) -> str | None:
     switched: str | None = None
     counts: dict[str, int] = {}
     for event in events:
-        if event.get("op") != "shell" or (event.get("args") or {}).get("source") != "shim":
+        args = event.get("args") or {}
+        if event.get("op") != "shell" or args.get("source") not in ("shim", "jubilant"):
             continue
-        argv = [str(a) for a in ((event.get("args") or {}).get("argv") or [])]
+        argv = [str(a) for a in (args.get("argv") or [])]
         if not argv:
             continue
         if argv[0] == "add-model":

@@ -27,6 +27,7 @@ class _CLICapture:
     end_ts: datetime
     stdout: str
     stderr: str
+    exit_code: int = 0
 
 
 def _infer_app_name(charm: str) -> str:
@@ -53,6 +54,9 @@ class RecordingJuju(jubilant.Juju):
         super().__init__(**kwargs)
         self._session_log = session_log
         self._suppress_recording: int = 0
+        # The argv of the most recent `_cli()` call, held until either a
+        # typed emitter claims it or the next `_cli()` flushes it as an
+        # untyped one. See `_flush_pending_capture`.
         self._pending_capture: _CLICapture | None = None
 
     def _cli(
@@ -68,6 +72,11 @@ class RecordingJuju(jubilant.Juju):
                 self, *args, include_model=include_model, stdin=stdin, log=log, timeout=timeout
             )
 
+        # Anything the previous call left unclaimed was a jubilant method
+        # with no typed override here — flush it before this call's argv
+        # replaces it, so the session log keeps the order they happened in.
+        self._flush_pending_capture()
+
         start_ts = datetime.now(UTC)
         exc = None
         try:
@@ -76,7 +85,7 @@ class RecordingJuju(jubilant.Juju):
             )
         except jubilant.CLIError as e:
             exc = e
-            stdout, stderr = "", ""
+            stdout, stderr = e.stdout or "", e.stderr or ""
         end_ts = datetime.now(UTC)
         self._pending_capture = _CLICapture(
             args=args,
@@ -84,10 +93,60 @@ class RecordingJuju(jubilant.Juju):
             end_ts=end_ts,
             stdout=stdout,
             stderr=stderr,
+            exit_code=exc.returncode if exc is not None else 0,
         )
         if exc is not None:
             raise exc
         return stdout, stderr
+
+    def _flush_pending_capture(self) -> None:
+        """Record an unclaimed ``_cli()`` call as a raw-argv event.
+
+        `jubilant.Juju` has some thirty-odd public methods and this class
+        overrides nine of them. Every other one — `ssh`, `exec`, `scp`,
+        `refresh`, `trust`, `add_machine`, `model_config`, the secret
+        readers — went through `_cli()`, had its argv captured into
+        `_pending_capture`, and was then silently dropped, because nothing
+        ever read that field. A scripted session that used any of them
+        produced a test with those steps simply missing.
+
+        Rather than write and maintain an override per method, the argv is
+        recorded in the shape the PATH shim writes, and codegen's existing
+        argv translation (`codegen/cli_translate.py`) turns it into the
+        typed jubilant call or `juju.cli(...)`. One translation table, two
+        front-ends.
+
+        No model snapshot is taken: `_cli()` runs on every jubilant call
+        including the nine typed ones, and snapshotting here would double
+        the cost of a recording to add nothing the typed paths do not
+        already capture. An untyped step is recorded, and carries no
+        derived assertion.
+        """
+        capture = self._pending_capture
+        self._pending_capture = None
+        if capture is None or self._suppress_recording > 0:
+            return
+        argv = [redact_string(a)[0] for a in capture.args]
+        stdout, _ = redact_string(capture.stdout)
+        event = EventEnvelope(
+            seq=self._session_log.next_seq(),
+            op="shell",
+            ts=_format_ts(capture.start_ts),
+            args={"argv": argv, "basename": "juju", "source": "jubilant"},
+            result={
+                "captured": True,
+                "exit_code": capture.exit_code,
+                "stdout": stdout,
+                "stderr": None,
+                "stdout_truncated": False,
+            },
+            model_snapshot_before=None,
+            model_snapshot_after=None,
+            assertions=[],
+            gesture=None,
+            duration_ms=(capture.end_ts - capture.start_ts).total_seconds() * 1000,
+        )
+        self._session_log.append_event(event)
 
     def _take_snapshot(self) -> dict[str, Any] | None:
         self._suppress_recording += 1
@@ -111,6 +170,9 @@ class RecordingJuju(jubilant.Juju):
         start_ts: datetime,
         end_ts: datetime,
     ) -> None:
+        # This call is being recorded with its own typed op, so the raw
+        # argv `_cli()` captured for it is not also wanted.
+        self._pending_capture = None
         duration_ms = (end_ts - start_ts).total_seconds() * 1000
         redacted_args = _redact_args(args_dict)
         # Results matter at least as much as args: `juju run` action output and
@@ -502,8 +564,14 @@ class RecordingJuju(jubilant.Juju):
             try:
                 yield juju
             except Exception as e:
+                # The call that raised was still a call the session made.
+                juju._flush_pending_capture()
                 log.record_session_error(e)
                 raise
+            else:
+                # The last jubilant call in the body may have been one with
+                # no typed override, and nothing after it to flush it.
+                juju._flush_pending_capture()
             finally:
                 _active_session.reset(token)
 
