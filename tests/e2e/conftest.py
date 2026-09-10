@@ -30,8 +30,14 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 REQUIRE_CONTROLLER = bool(os.environ.get("JTR_E2E_REQUIRE"))
 
 # charm-ubuntu is the smallest thing that actually reaches active on a machine
-# cloud, and it is what examples/ has always used.
+# cloud, and it is what examples/ has always used. It has no Kubernetes
+# build, so a k8s run needs a different one — see the `test_charm` fixture.
 TEST_CHARM = "ubuntu"
+K8S_TEST_CHARM = "snappass-test"
+
+# The workload container `snappass-test` declares, for the `--container`
+# flags that only mean anything on Kubernetes.
+K8S_WORKLOAD_CONTAINER = "snappass"
 
 
 def _no_controller(reason: str) -> NoReturn:
@@ -52,6 +58,36 @@ def _juju(*args: str, timeout: int = 600) -> str:
     if proc.returncode != 0:
         raise RuntimeError(f"juju {' '.join(args)} failed:\n{proc.stderr}")
     return proc.stdout
+
+
+@pytest.fixture(scope="session")
+def cloud_type(juju_controller: str) -> str:
+    """``"caas"`` for a Kubernetes controller, ``"iaas"`` for a machine one.
+
+    Juju's behaviour forks on this in ways the recorder has to follow —
+    `add-unit` versus `scale-application`, `remove-unit`'s `-n`, the
+    `--container` flags, `trust --scope cluster`, and the shape of
+    `juju status --format json` itself. Running the suite against only one
+    of the two leaves the other's translations unexercised.
+    """
+    controllers = json.loads(_juju("controllers", "--format", "json", timeout=120))
+    cloud = (controllers.get("controllers") or {}).get(juju_controller, {}).get("cloud", "")
+    clouds = json.loads(_juju("clouds", "--format", "json", "--all", timeout=120))
+    for name, details in (clouds or {}).items():
+        # `juju clouds` prefixes some entries (`localhost` vs `lxd`), so
+        # match on the tail rather than the whole key.
+        if name == cloud or name.endswith(f"/{cloud}"):
+            return "caas" if (details or {}).get("type") in ("k8s", "kubernetes") else "iaas"
+    # An unknown cloud is a controller we cannot characterise, and guessing
+    # wrong means deploying a machine charm to Kubernetes and waiting for a
+    # timeout to explain it.
+    _no_controller(f"could not determine the cloud type of controller {juju_controller!r}")
+
+
+@pytest.fixture(scope="session")
+def test_charm(cloud_type: str) -> str:
+    """The smallest charm that reaches active on the controller under test."""
+    return K8S_TEST_CHARM if cloud_type == "caas" else TEST_CHARM
 
 
 @pytest.fixture(scope="session")

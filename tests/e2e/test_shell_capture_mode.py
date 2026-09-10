@@ -120,7 +120,9 @@ def test_shim_is_transparent_when_no_session(tmp_path: Path, recorder_env: dict[
     assert not log_path.exists(), "shim recorded despite no active session"
 
 
-def test_shell_session_generates_a_test(model: str, tmp_path: Path, recorder_env: dict[str, str]):
+def test_shell_session_generates_a_test(
+    model: str, tmp_path: Path, recorder_env: dict[str, str], test_charm: str
+):
     """A shell-captured session must reach codegen, not just the log."""
     shim_dir = tmp_path / "shims"
     real_juju = shutil.which("juju")
@@ -134,7 +136,7 @@ def test_shell_session_generates_a_test(model: str, tmp_path: Path, recorder_env
     env["JTR_LOG"] = str(log_path)
 
     subprocess.run(
-        ["juju", "deploy", "ubuntu", "-m", model],
+        ["juju", "deploy", test_charm, "-m", model],
         env=env,
         capture_output=True,
         encoding="utf-8",

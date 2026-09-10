@@ -87,7 +87,9 @@ def test_add_model_of_the_session_model_is_a_note() -> None:
 
 def test_destroy_model_of_the_session_model_is_a_note() -> None:
     src = generate(
-        _wrap([_shim(1, ["add-model", "demo"]), _shim(2, ["destroy-model", "demo", "-y"])])
+        _wrap(
+            [_shim(1, ["add-model", "demo"]), _shim(2, ["destroy-model", "demo", "--no-prompt"])]
+        )
     )
     assert "juju.destroy_model(" not in src
     assert "tears the" in src
@@ -95,7 +97,12 @@ def test_destroy_model_of_the_session_model_is_a_note() -> None:
 
 def test_destroy_model_of_another_model_is_a_real_call() -> None:
     src = generate(
-        _wrap([_shim(1, ["add-model", "demo"]), _shim(2, ["destroy-model", "leftovers", "-y"])])
+        _wrap(
+            [
+                _shim(1, ["add-model", "demo"]),
+                _shim(2, ["destroy-model", "leftovers", "--no-prompt"]),
+            ]
+        )
     )
     assert "juju.destroy_model('leftovers')" in src
 
@@ -147,7 +154,8 @@ def test_remove_unit_machine_model_shape() -> None:
 
 
 def test_remove_unit_k8s_shape() -> None:
-    assert _c("remove-unit", "ubuntu", "-n", "2") == (
+    """`--num-units` only; `juju remove-unit -n` is rejected outright."""
+    assert _c("remove-unit", "ubuntu", "--num-units", "2") == (
         "remove_unit",
         {"app_or_unit": ["ubuntu"], "num_units": 2},
     )
@@ -155,7 +163,7 @@ def test_remove_unit_k8s_shape() -> None:
 
 def test_remove_unit_num_units_with_several_targets_falls_through() -> None:
     """jubilant raises TypeError for that combination rather than accepting it."""
-    assert _c("remove-unit", "a", "b", "-n", "2")[0] == "cli_passthrough"
+    assert _c("remove-unit", "a", "b", "--num-units", "2")[0] == "cli_passthrough"
 
 
 def test_add_machine() -> None:

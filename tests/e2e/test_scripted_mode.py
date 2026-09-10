@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from tests.e2e.conftest import REPO_ROOT, TEST_CHARM
+from tests.e2e.conftest import REPO_ROOT
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.e2e
 
 
-def test_record_deploy_and_generate(model: str, tmp_path: Path):
+def test_record_deploy_and_generate(model: str, tmp_path: Path, test_charm: str):
     """Record a deploy, then generate a test that reflects it."""
     from jubilant_recorder import gestures
     from jubilant_recorder.recording_juju import RecordingJuju
@@ -32,9 +32,9 @@ def test_record_deploy_and_generate(model: str, tmp_path: Path):
     log_path = tmp_path / "session.json"
 
     with RecordingJuju.start(log_path, model=model) as juju:
-        juju.deploy(TEST_CHARM)
-        juju.wait(lambda s: all(u.is_active for u in s.apps[TEST_CHARM].units.values()))
-        gestures.assert_status(TEST_CHARM, "active")
+        juju.deploy(test_charm)
+        juju.wait(lambda s: all(u.is_active for u in s.apps[test_charm].units.values()))
+        gestures.assert_status(test_charm, "active")
         gestures.checkpoint("deployed")
 
     log = json.loads(log_path.read_text())
@@ -46,7 +46,7 @@ def test_record_deploy_and_generate(model: str, tmp_path: Path):
     # fixtures cannot prove `juju status` still parses into what codegen wants.
     deploy_event = next(e for e in log["events"] if e["op"] == "deploy")
     assert deploy_event["model_snapshot_after"] is not None
-    assert TEST_CHARM in deploy_event["model_snapshot_after"]["apps"]
+    assert test_charm in deploy_event["model_snapshot_after"]["apps"]
 
     out = tmp_path / "test_generated.py"
     subprocess.run(
@@ -67,12 +67,12 @@ def test_record_deploy_and_generate(model: str, tmp_path: Path):
     )
     source = out.read_text()
     ast.parse(source)
-    assert f"juju.deploy('{TEST_CHARM}'" in source, source
+    assert f"juju.deploy('{test_charm}'" in source, source
     assert "# checkpoint: deployed" in source, source
     assert "# TODO: manual step" not in source, source
 
 
-def test_generated_test_replays_green(model: str, tmp_path: Path):
+def test_generated_test_replays_green(model: str, tmp_path: Path, test_charm: str):
     """The generated test is the product. Run it, and require it to pass.
 
     Everything else here checks that codegen *emits* something plausible.
@@ -83,8 +83,8 @@ def test_generated_test_replays_green(model: str, tmp_path: Path):
 
     log_path = tmp_path / "session.json"
     with RecordingJuju.start(log_path, model=model) as juju:
-        juju.deploy(TEST_CHARM)
-        juju.wait(lambda s: all(u.is_active for u in s.apps[TEST_CHARM].units.values()))
+        juju.deploy(test_charm)
+        juju.wait(lambda s: all(u.is_active for u in s.apps[test_charm].units.values()))
 
     generated = tmp_path / "test_replay.py"
     subprocess.run(

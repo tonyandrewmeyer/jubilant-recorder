@@ -42,7 +42,7 @@ INVOCATIONS: tuple[tuple[str, ...], ...] = (
     ("run", "ubuntu/0", "do-thing", "key=value", "--wait", "30s"),
     ("add-unit", "ubuntu", "-n", "2", "--to", "0"),
     ("remove-unit", "ubuntu/1", "ubuntu/2", "--force", "--destroy-storage"),
-    ("remove-unit", "ubuntu", "-n", "2"),
+    ("remove-unit", "ubuntu", "--num-units", "2"),
     ("add-machine", "lxd:0", "--base", "ubuntu@24.04", "-n", "3", "--constraints", "mem=4G"),
     ("ssh", "ubuntu/0", "ls", "-la"),
     ("ssh", "--container", "web", "root@ubuntu/0", "ls"),
@@ -68,7 +68,7 @@ INVOCATIONS: tuple[tuple[str, ...], ...] = (
     # other than the session's own; `PRELUDE` supplies a session model so
     # these two do. See `operations/model_lifecycle.py`.
     ("add-model", "other"),
-    ("destroy-model", "other", "--force", "--no-wait", "--destroy-storage", "--timeout", "5m"),
+    ("destroy-model", "other", "--force", "--no-wait", "--destroy-storage", "-t", "5m"),
     ("add-secret", "mine", "k=v", "--info", "a secret"),
     ("update-secret", "mine", "k=v", "--info", "x", "--name", "y", "--auto-prune"),
     ("show-secret", "mine", "--reveal", "--revision", "2"),

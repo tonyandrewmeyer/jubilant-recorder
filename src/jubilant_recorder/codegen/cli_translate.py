@@ -433,16 +433,12 @@ def _classify_refresh(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
 
 
 _REMOVE_APP_BOOLEAN = frozenset(
-    {"--no-prompt", "-y", "--yes", "--destroy-storage", "--force", "--no-wait", "--dry-run"}
+    {"--no-prompt", "--destroy-storage", "--force", "--no-wait", "--dry-run"}
 )
 
 
 def _classify_remove_application(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
-    parsed = _parse(
-        rest,
-        aliases={"-y": "--no-prompt", "--yes": "--no-prompt"},
-        boolean=_REMOVE_APP_BOOLEAN,
-    )
+    parsed = _parse(rest, boolean=_REMOVE_APP_BOOLEAN)
     if parsed is None or not parsed.positionals:
         return None
     if parsed.flags.get("--dry-run"):
@@ -613,9 +609,10 @@ def _classify_grant_secret(rest: list[str]) -> tuple[str, dict[str, Any]] | None
     return "secret_grant", {"identifier": identifier, "app": apps[0] if len(apps) == 1 else apps}
 
 
-_SECRETS_ALIASES = {"-o": "--format"}
-_SECRETS_VALUED = frozenset({"--owner", "--format"})
-_SECRETS_BOOLEAN = frozenset({"--revisions"})
+# `--revisions` is on `juju show-secret`, not `juju secrets`.
+_SECRETS_ALIASES: dict[str, str] = {}
+_SECRETS_VALUED = frozenset({"--owner"})
+_SECRETS_BOOLEAN: frozenset[str] = frozenset()
 
 
 def _classify_secrets(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
@@ -863,24 +860,17 @@ def _classify_add_model(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
     return "add_model", args
 
 
+# `-t` is the short form of `--timeout`; there is no `-y`/`--yes`.
 _DESTROY_MODEL_VALUED = frozenset({"--timeout"})
 _DESTROY_MODEL_BOOLEAN = frozenset(
-    {
-        "--no-prompt",
-        "-y",
-        "--yes",
-        "--destroy-storage",
-        "--release-storage",
-        "--force",
-        "--no-wait",
-    }
+    {"--no-prompt", "--destroy-storage", "--release-storage", "--force", "--no-wait"}
 )
 
 
 def _classify_destroy_model(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
     parsed = _parse(
         rest,
-        aliases={"-y": "--no-prompt", "--yes": "--no-prompt"},
+        aliases={"-t": "--timeout"},
         valued=_DESTROY_MODEL_VALUED,
         boolean=_DESTROY_MODEL_BOOLEAN,
     )
@@ -925,19 +915,20 @@ def _duration_seconds(raw: str) -> float | None:
 # remove-unit
 # ---------------------------------------------------------------------------
 
+# `juju remove-unit` has `--num-units` but no `-n`, and `--no-prompt` but no
+# `-y`/`--yes` — verified against 3.6.28, where `-n` is rejected outright.
 _REMOVE_UNIT_VALUED = frozenset({"--num-units"})
-_REMOVE_UNIT_BOOLEAN = frozenset({"--no-prompt", "-y", "--yes", "--destroy-storage", "--force"})
+_REMOVE_UNIT_BOOLEAN = frozenset(
+    {"--no-prompt", "--destroy-storage", "--force", "--no-wait", "--dry-run"}
+)
 
 
 def _classify_remove_unit(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
-    parsed = _parse(
-        rest,
-        aliases={"-y": "--no-prompt", "--yes": "--no-prompt", "-n": "--num-units"},
-        valued=_REMOVE_UNIT_VALUED,
-        boolean=_REMOVE_UNIT_BOOLEAN,
-    )
+    parsed = _parse(rest, valued=_REMOVE_UNIT_VALUED, boolean=_REMOVE_UNIT_BOOLEAN)
     if parsed is None or not parsed.positionals:
         return None
+    if parsed.flags.get("--dry-run"):
+        return None  # a dry run removed nothing; replaying it as a removal is wrong
     args: dict[str, Any] = {"app_or_unit": list(parsed.positionals)}
     num_units = _last(parsed.flags.get("--num-units"))
     if num_units is not None:
@@ -955,13 +946,15 @@ def _classify_remove_unit(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
 # add-machine
 # ---------------------------------------------------------------------------
 
+# `juju add-machine` spells the count `-n` only — unlike `deploy`/`add-unit`,
+# it has no `--num-machines` long form.
 _ADD_MACHINE_VALUED = frozenset(
-    {"--base", "--constraints", "--disks", "--num-machines", "--private-key", "--public-key"}
+    {"--base", "--constraints", "--disks", "-n", "--private-key", "--public-key"}
 )
 
 
 def _classify_add_machine(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
-    parsed = _parse(rest, aliases={"-n": "--num-machines"}, valued=_ADD_MACHINE_VALUED)
+    parsed = _parse(rest, valued=_ADD_MACHINE_VALUED)
     if parsed is None or len(parsed.positionals) > 1:
         return None
     args: dict[str, Any] = {}
@@ -978,7 +971,7 @@ def _classify_add_machine(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
     disks = _last(parsed.flags.get("--disks"))
     if disks:
         args["disks"] = disks
-    num_machines = _last(parsed.flags.get("--num-machines"))
+    num_machines = _last(parsed.flags.get("-n"))
     if num_machines is not None:
         if not _UINT_RE.match(num_machines):
             return None
@@ -1341,7 +1334,9 @@ def _classify_version(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
 # wait-for
 # ---------------------------------------------------------------------------
 
-_WAIT_FOR_VALUED = frozenset({"--query", "--timeout", "--format"})
+# `--summary` is the subcommand's own output toggle; there is no `--format`.
+_WAIT_FOR_VALUED = frozenset({"--query", "--timeout"})
+_WAIT_FOR_BOOLEAN = frozenset({"--summary"})
 
 
 def _classify_wait_for(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
@@ -1355,7 +1350,7 @@ def _classify_wait_for(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
     through to ``juju.cli``, where the expression survives verbatim for the
     reader to translate by hand.
     """
-    parsed = _parse(rest, valued=_WAIT_FOR_VALUED)
+    parsed = _parse(rest, valued=_WAIT_FOR_VALUED, boolean=_WAIT_FOR_BOOLEAN)
     if parsed is None or not parsed.positionals:
         return None
     if parsed.flags.get("--query"):

@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from tests.e2e.conftest import REPO_ROOT, TEST_CHARM
+from tests.e2e.conftest import REPO_ROOT
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -41,27 +41,35 @@ for _module, _hint in (
             pytest.fail(f"JTR_E2E_REQUIRE is set but {_module} is not importable: {_hint}")
         pytest.skip(_hint, allow_module_level=True)
 
-_SUITE = f'''
+
+def _suite(charm: str) -> str:
+    """A pytest-operator suite deploying *charm*.
+
+    A function rather than a module constant because the charm depends on
+    the controller's cloud, which is only known once a fixture has looked.
+    """
+    return f'''
 import pytest
 from pytest_operator.plugin import OpsTest
 
 
 @pytest.mark.abort_on_fail
 async def test_deploy(ops_test: OpsTest):
-    await ops_test.model.deploy("{TEST_CHARM}", application_name="{TEST_CHARM}")
+    await ops_test.model.deploy("{charm}", application_name="{charm}")
     await ops_test.model.wait_for_idle(
-        apps=["{TEST_CHARM}"], status="active", timeout=900
+        apps=["{charm}"], status="active", timeout=900
     )
 
 
 async def test_read_config(ops_test: OpsTest):
-    config = await ops_test.model.applications["{TEST_CHARM}"].get_config()
+    config = await ops_test.model.applications["{charm}"].get_config()
     assert isinstance(config, dict)
 
 
 async def test_remove(ops_test: OpsTest):
-    await ops_test.model.remove_application("{TEST_CHARM}", block_until_done=True)
+    await ops_test.model.remove_application("{charm}", block_until_done=True)
 '''
+
 
 _CONFIG = """
 [pytest]
@@ -69,10 +77,12 @@ asyncio_mode = auto
 """
 
 
-def test_records_a_real_pytest_operator_suite(tmp_path: Path, juju_controller: str):
+def test_records_a_real_pytest_operator_suite(
+    tmp_path: Path, juju_controller: str, test_charm: str
+):
     suite_dir = tmp_path / "suite"
     (suite_dir / "tests" / "integration").mkdir(parents=True)
-    (suite_dir / "tests" / "integration" / "test_charm.py").write_text(_SUITE)
+    (suite_dir / "tests" / "integration" / "test_charm.py").write_text(_suite(test_charm))
     (suite_dir / "pytest.ini").write_text(_CONFIG)
     out = tmp_path / "test_migrated.py"
 
@@ -111,7 +121,7 @@ def test_records_a_real_pytest_operator_suite(tmp_path: Path, juju_controller: s
     assert "juju.deploy(" in source
     # The wait each test ends on used to be lost, taking the assertion with it.
     assert "workload_status.current == 'active'" in source, source
-    assert f"juju.remove_application('{TEST_CHARM}')" in source, source
+    assert f"juju.remove_application('{test_charm}')" in source, source
 
     logs = sorted(p.name for p in (tmp_path / "test_migrated-sessions").glob("*.json"))
     assert logs == ["test_deploy.json", "test_read_config.json", "test_remove.json"]
@@ -128,7 +138,7 @@ def _env() -> dict[str, str]:
     return env
 
 
-def test_the_migrated_module_replays_green(tmp_path: Path, juju_controller: str):
+def test_the_migrated_module_replays_green(tmp_path: Path, juju_controller: str, test_charm: str):
     """Record a suite, then run what came out of it.
 
     The claim the migration path makes is "a decent starting point", and a
@@ -139,7 +149,7 @@ def test_the_migrated_module_replays_green(tmp_path: Path, juju_controller: str)
     """
     suite_dir = tmp_path / "suite"
     (suite_dir / "tests" / "integration").mkdir(parents=True)
-    (suite_dir / "tests" / "integration" / "test_charm.py").write_text(_SUITE)
+    (suite_dir / "tests" / "integration" / "test_charm.py").write_text(_suite(test_charm))
     (suite_dir / "pytest.ini").write_text(_CONFIG)
     out = tmp_path / "test_migrated.py"
 

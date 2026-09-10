@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from tests.e2e.conftest import REPO_ROOT, TEST_CHARM
+from tests.e2e.conftest import REPO_ROOT
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -31,7 +31,7 @@ pytestmark = pytest.mark.e2e
 pytest.importorskip("juju", reason="needs the libjuju extra")
 
 
-def test_records_a_live_libjuju_session(model: str, tmp_path: Path):
+def test_records_a_live_libjuju_session(model: str, tmp_path: Path, test_charm: str):
     """Tap a real libjuju deployment and generate a test from it."""
     from juju.model import Model
 
@@ -44,8 +44,8 @@ def test_records_a_live_libjuju_session(model: str, tmp_path: Path):
         await m.connect(model_name=model)
         try:
             with RecordingLibjuju(output_log_path=log_path, model=model):
-                await m.deploy(TEST_CHARM, application_name=TEST_CHARM)
-                await m.wait_for_idle(apps=[TEST_CHARM], timeout=900, status="active")
+                await m.deploy(test_charm, application_name=test_charm)
+                await m.wait_for_idle(apps=[test_charm], timeout=900, status="active")
         finally:
             await m.disconnect()
 
@@ -84,4 +84,4 @@ def test_records_a_live_libjuju_session(model: str, tmp_path: Path):
     # (`ch:amd64/noble/ubuntu`), not the name the caller passed, so match on
     # the application rather than the charm string.
     assert "juju.deploy(" in source, source
-    assert f"app='{TEST_CHARM}'" in source, source
+    assert f"app='{test_charm}'" in source, source

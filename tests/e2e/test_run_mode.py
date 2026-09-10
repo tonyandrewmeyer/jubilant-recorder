@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from tests.e2e.conftest import REPO_ROOT, TEST_CHARM
+from tests.e2e.conftest import REPO_ROOT
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -26,7 +26,7 @@ pytestmark = pytest.mark.e2e
 
 
 def test_run_records_a_child_script_and_generates(
-    model: str, tmp_path: Path, recorder_env: dict[str, str]
+    model: str, tmp_path: Path, recorder_env: dict[str, str], test_charm: str
 ):
     script = tmp_path / "recording_script.py"
     script.write_text(
@@ -36,7 +36,7 @@ def test_run_records_a_child_script_and_generates(
 
         log = os.environ["JUBILANT_RECORDER_SESSION_LOG"]
         with RecordingJuju.start(log, model={model!r}) as juju:
-            juju.deploy({TEST_CHARM!r})
+            juju.deploy({test_charm!r})
             juju.status()
         """)
     )
@@ -74,4 +74,4 @@ def test_run_records_a_child_script_and_generates(
 
     source = out_path.read_text()
     ast.parse(source)
-    assert f"juju.deploy('{TEST_CHARM}'" in source, source
+    assert f"juju.deploy('{test_charm}'" in source, source

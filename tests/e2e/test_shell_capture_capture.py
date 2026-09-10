@@ -102,7 +102,7 @@ def test_status_captures_a_snapshot(model: str, shim_env: dict[str, str]):
 
 
 def test_two_statuses_around_a_deploy_produce_an_assertion(
-    model: str, shim_env: dict[str, str], tmp_path: Path
+    model: str, shim_env: dict[str, str], tmp_path: Path, test_charm: str
 ):
     """The whole point of capturing status: a shell session that asserts.
 
@@ -110,10 +110,10 @@ def test_two_statuses_around_a_deploy_produce_an_assertion(
     session had no assertions in it at all, whatever the operator checked.
     """
     assert _juju(shim_env, "status", "-m", model).returncode == 0
-    assert _juju(shim_env, "deploy", "ubuntu", "-m", model).returncode == 0
+    assert _juju(shim_env, "deploy", test_charm, "-m", model).returncode == 0
     assert (
         _juju(
-            shim_env, "wait-for", "application", "ubuntu", "-m", model, "--timeout", "20m"
+            shim_env, "wait-for", "application", test_charm, "-m", model, "--timeout", "20m"
         ).returncode
         == 0
     )
@@ -123,7 +123,7 @@ def test_two_statuses_around_a_deploy_produce_an_assertion(
     _jtr("generate", "--session-log", shim_env["JTR_LOG"], "--out", str(out), env=shim_env)
     source = out.read_text()
     ast.parse(source)
-    assert "juju.deploy('ubuntu')" in source
+    assert f"juju.deploy('{test_charm}')" in source
     assert "workload_status.current == 'active'" in source, source
 
 
@@ -152,7 +152,9 @@ def test_the_model_flag_does_not_reach_the_generated_test(
     assert "juju.status()" in source
 
 
-def test_the_generated_test_replays_green(model: str, shim_env: dict[str, str], tmp_path: Path):
+def test_the_generated_test_replays_green(
+    model: str, shim_env: dict[str, str], tmp_path: Path, test_charm: str
+):
     """The generated test is the product. Run it, and require it to pass.
 
     Everything else here checks the log holds the right thing. This is the
@@ -161,16 +163,19 @@ def test_the_generated_test_replays_green(model: str, shim_env: dict[str, str], 
     reads fine and raises TypeError.
     """
     assert _juju(shim_env, "status", "-m", model).returncode == 0
-    assert _juju(shim_env, "deploy", "ubuntu", "-m", model).returncode == 0
+    assert _juju(shim_env, "deploy", test_charm, "-m", model).returncode == 0
     assert (
         _juju(
-            shim_env, "wait-for", "application", "ubuntu", "-m", model, "--timeout", "20m"
+            shim_env, "wait-for", "application", test_charm, "-m", model, "--timeout", "20m"
         ).returncode
         == 0
     )
     assert _juju(shim_env, "status", "-m", model).returncode == 0
-    assert _juju(shim_env, "config", "ubuntu", "-m", model).returncode == 0
-    assert _juju(shim_env, "exec", "--unit", "ubuntu/0", "-m", model, "--", "true").returncode == 0
+    assert _juju(shim_env, "config", test_charm, "-m", model).returncode == 0
+    assert (
+        _juju(shim_env, "exec", "--unit", f"{test_charm}/0", "-m", model, "--", "true").returncode
+        == 0
+    )
 
     generated = tmp_path / "test_replay_from_shell.py"
     _jtr("generate", "--session-log", shim_env["JTR_LOG"], "--out", str(generated), env=shim_env)
