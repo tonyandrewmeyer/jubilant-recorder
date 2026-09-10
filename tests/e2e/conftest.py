@@ -16,6 +16,7 @@ import json
 import os
 import shutil
 import subprocess
+import time
 import uuid
 import warnings
 from pathlib import Path
@@ -166,6 +167,45 @@ def _destroy_model_best_effort(qualified_name: str) -> None:
             f"could not destroy {qualified_name}: {proc.stderr.strip()}",
             stacklevel=2,
         )
+
+
+@pytest.fixture
+def second_model(juju_controller: str):
+    """A second empty model, for cross-model relations.
+
+    A CMR needs two, and every other test in this suite needs one — so this
+    is separate rather than folded into `model`, which would double the
+    add/destroy cost of the whole suite to serve two tests.
+    """
+    name = f"jtr-e2e-{uuid.uuid4().hex[:8]}"
+    _juju("add-model", "--no-switch", "-c", juju_controller, name)
+    try:
+        yield name
+    finally:
+        _destroy_model_best_effort(f"{juju_controller}:{name}")
+
+
+# `data-integrator` is the cheapest charm with a relation endpoint that runs
+# on both clouds. It settles into `blocked` rather than `active` without
+# config, which is fine: an offer needs an endpoint, not a healthy workload.
+CMR_CHARM = "data-integrator"
+CMR_ENDPOINT = "postgresql"
+
+
+def wait_for_unit(model: str, app: str, timeout: int = 600) -> None:
+    """Block until *app* has a unit, whatever state it settled into.
+
+    `juju wait-for application` waits for *active* by default, which
+    `data-integrator` never reaches without config.
+    """
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        status = json.loads(_juju("status", "-m", model, "--format", "json", timeout=120))
+        units = (status.get("applications", {}).get(app) or {}).get("units") or {}
+        if units:
+            return
+        time.sleep(5)
+    raise TimeoutError(f"{app} never got a unit in {model}")
 
 
 @pytest.fixture

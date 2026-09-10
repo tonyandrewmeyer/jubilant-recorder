@@ -1734,6 +1734,15 @@ def classify(
         # test that model does not exist; the equivalent question is "show
         # me the model I am in", which is `show_model()` with no argument.
         op_args.pop("model", None)
+    elif op == "create_offer" and session_model is not None:
+        # `juju offer mine.app:ep` in a session working in `mine` is just
+        # "offer from the model I am in", and the generated test is in one
+        # of its own. Keep the dotted form only when it names a *different*
+        # model, where it is load-bearing.
+        app = str(op_args.get("app") or "")
+        prefix, dot, rest = app.partition(".")
+        if dot and prefix == session_model:
+            op_args["app"] = rest
     return op, op_args
 
 
@@ -1771,7 +1780,16 @@ def cross_model_models(events: list[dict[str, Any]]) -> tuple[str, ...]:
     cross-model steps — which is nearly all of them, and which emits
     nothing.
     """
-    own = session_model(events)
+    # Deliberately the *declared* model — one the session created or switched
+    # to — rather than `session_model`'s full heuristic. Its last resort is
+    # "the model named most often by `-m`", and a cross-model session names
+    # two models about equally often, so whichever one that picked had its
+    # references silently suppressed. Which one it picked depended on the
+    # model names, so this passed on one controller and failed on another.
+    #
+    # A spurious note costs a reader four lines; a missing one costs them a
+    # test that cannot pass and no clue why.
+    own = session_model(events, infer_from_model_flag=False)
     found: set[str] = set()
     for event in events:
         args = event.get("args") or {}
@@ -1800,7 +1818,9 @@ def cross_model_models(events: list[dict[str, Any]]) -> tuple[str, ...]:
     return tuple(sorted(found))
 
 
-def session_model(events: list[dict[str, Any]]) -> str | None:
+def session_model(
+    events: list[dict[str, Any]], *, infer_from_model_flag: bool = True
+) -> str | None:
     """Infer the model a shell-capture session was recorded against.
 
     The first ``juju add-model NAME`` in the log wins: that is the model the
@@ -1808,6 +1828,11 @@ def session_model(events: list[dict[str, Any]]) -> str | None:
     for in the generated test. Failing that, the first ``juju switch NAME``
     (an operator working in a model they made earlier), and failing that the
     model named most often by a ``-m``/``--model`` flag.
+
+    ``infer_from_model_flag=False`` stops before that last step, leaving only
+    the models the session *declared*. `cross_model_models` needs that: the
+    majority rule is a reasonable guess for a session working in one model
+    and a coin toss for one working across two.
 
     Returns ``None`` for a session that never names a model — which is the
     common case, and leaves every model-lifecycle command translated
@@ -1836,6 +1861,6 @@ def session_model(events: list[dict[str, Any]]) -> str | None:
             counts[dropped] = counts.get(dropped, 0) + 1
     if switched is not None:
         return switched
-    if counts:
+    if counts and infer_from_model_flag:
         return max(sorted(counts), key=lambda name: counts[name])
     return None

@@ -188,3 +188,40 @@ def test_an_offer_with_no_model_name_warns_about_nothing() -> None:
     )
     assert "# NOTE: the cross-model" not in src
     assert "juju.offer('postgresql', endpoint='database')" in src
+
+
+def test_a_session_spanning_two_models_warns_about_the_offering_one() -> None:
+    """Neither model is declared, so `-m` counts cannot pick the test's own.
+
+    `session_model`'s last resort is "the model named most often by `-m`",
+    and a CMR session names two about equally often. Whichever it picked had
+    its references suppressed — which depended on the model names, so this
+    passed against one controller and failed against another.
+    """
+    src = _src(
+        ["offer", "m1.app:ep", "o"],
+        ["offers", "-m", "m1"],
+        ["show-offer", "-m", "m1", "admin/m1.o"],
+        ["consume", "-m", "m2", "admin/m1.o", "remote"],
+        ["remove-saas", "-m", "m2", "remote"],
+    )
+    assert "reference offers in model m1" in src
+
+
+def test_an_offer_from_the_sessions_own_model_drops_the_prefix() -> None:
+    """`juju offer mine.app:ep` in model `mine` is "offer from where I am"."""
+    src = _src(["add-model", "mine"], ["offer", "mine.postgresql:database", "o"])
+    assert "juju.offer('postgresql', endpoint='database', name='o')" in src
+    assert "mine.postgresql" not in src
+
+
+def test_a_declared_model_is_still_the_test_s_own() -> None:
+    """`add-model` says which one `temp_model()` stands in for."""
+    src = _src(
+        ["add-model", "mine"],
+        ["offer", "mine.app:ep", "o"],
+        ["consume", "admin/other.x", "remote"],
+    )
+    note = next(line for line in src.splitlines() if "reference offers in" in line)
+    assert "other" in note
+    assert "mine" not in note
