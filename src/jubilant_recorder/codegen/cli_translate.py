@@ -1,39 +1,42 @@
-"""Bucket-1 argv -> jubilant translation for PATH-shim ``juju <subcommand>`` calls.
+"""``juju`` argv -> jubilant translation for PATH-shim shell-capture events.
 
 Classifies each recorded shim event (``op: "shell"``, ``args.source ==
 "shim"``, ``args.argv`` the raw ``juju`` argv minus the ``juju`` binary
-itself) and translates it into one of the existing ``EMITTERS`` ops when
-its argv shape is a lossless match. Anything else (an unhandled
-subcommand, or a handled subcommand used with a flag outside the mapped
-subset) returns ``None`` so the caller falls through to the existing
-``# shell: ...`` comment rendering — bucket 2/3 needs no new code, that
-fallback already exists.
+itself) and turns it into a jubilant call.
 
-Only the subcommands classified bucket 1 are handled
-here (plus ``add-unit``/``scale-application``, promoted from bucket 2 to
-bucket 1 — see the docstring in ``operations/scale.py``). Every other
-subcommand — including ``add-secret``/``update-secret`` (the shim has no
-redaction), ``remove-unit`` (no op targets it), and the many bucket-3
-subcommands — is deliberately absent from ``_SUBCOMMANDS`` and falls
-through untouched.
+The classification is **total**: every non-empty argv produces an op.
+Where the argv shape maps cleanly onto a ``jubilant.Juju`` method it
+produces that method's typed op; where it does not — an unhandled
+subcommand, or a handled one used with a flag outside the mapped
+subset — it produces ``cli_passthrough``, which renders as
+``juju.cli(...)``. Only an empty argv (a bare ``juju``, which prints help
+and does nothing) returns ``None``, and only that still renders as a
+``# shell:`` comment.
+
+That is the whole design: the reader of a generated test should never have
+to retype a command the recording already captured. ``juju.cli()`` is
+jubilant's documented escape hatch and returns the command's standard
+output, so the passthrough loses the *typing* of an operation, never the
+operation.
 
 Design rule used throughout: each classifier only recognizes the flags it
 has deliberate handling for (mapped to a kwarg, or a documented "harmless
-to drop" output-shape flag). Any other ``-``-prefixed
-token — including one this module has simply never heard of — aborts
-classification immediately and returns ``None``. This means a flag that
-would otherwise be silently misparsed as a positional (corrupting the
-translation) can never reach that code path: we bail at the flag, before
-ever touching the tokens after it. This is a "bias to bucket 2 wherever
-the mapping is not exact" rule, applied structurally rather than
-case-by-case.
+to drop" output-shape flag; the juju-wide logging and output flags in
+``_GLOBAL_BOOLEAN``/``_GLOBAL_VALUED`` are always droppable). Any other
+``-``-prefixed token — including one this module has simply never heard
+of — aborts classification immediately, and the whole command goes to
+``juju.cli`` verbatim. This means a flag that would otherwise be silently
+misparsed as a positional (corrupting the translation) can never reach
+that code path: we bail at the flag, before ever touching the tokens after
+it. The bias is "an untyped call that is right beats a typed call that is
+a guess", applied structurally rather than case-by-case.
 
-Version pin: all flag tables below are the Juju **4.0** CLI surface. A
-session recorded against a different client version may misclassify (a
-flag that exists on 4.0 but not on the recording's actual client, or vice
-versa) — accepted as a known limitation rather than handled. The one
-documented 3.6 divergence (``set-application-base``) has no bucket-1
-mapping at all and is correspondingly absent from ``_SUBCOMMANDS`` here.
+Version pin: the flag tables below are the Juju CLI surface, cross-checked
+against ``juju help <subcommand>`` on 3.6.28. A session recorded against a
+different client may misclassify (a flag that exists on one and not the
+other) — that costs the command its typed translation and sends it to
+``juju.cli``, which is a degradation rather than a failure.
+``NO_MODEL_SUBCOMMANDS`` carries the command to regenerate it.
 """
 
 from __future__ import annotations
@@ -48,7 +51,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 # See module docstring "Version pin" above.
-JUJU_CLIENT_VERSION = "4.0"
+JUJU_CLIENT_VERSION = "3.6.28"
 
 _ALIASES = {
     "relate": "integrate",
@@ -501,7 +504,7 @@ def _classify_run(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
         units.append(positionals[i])
         i += 1
     if len(units) != 1:
-        return None  # zero units, or multi-unit — bucket 2
+        return None  # zero units, or multi-unit — `Juju.run()` takes exactly one
     if i >= len(positionals):
         return None  # no action name captured
     action = positionals[i]

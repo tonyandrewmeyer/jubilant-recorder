@@ -93,12 +93,12 @@ EMITTERS = {
     "set_relations_suspended": set_relations_suspended.emit,
     "config_unset": config_unset.emit,
     "update_application_base": update_application_base.emit,
-    # Shell-capture (PATH shim) additions. `cli_translate` now classifies
-    # every recorded `juju` invocation rather than only the subset with an
-    # exact bucket-1 shape: the ops below cover the jubilant client methods
-    # that had no CLI translation, and `cli_passthrough` catches everything
-    # else as `juju.cli(...)`. Nothing recorded from a shell session falls
-    # through to a `# shell:` comment any more.
+    # Shell-capture (PATH shim) additions. `cli_translate` classifies every
+    # recorded `juju` invocation, not just the subset whose argv maps
+    # exactly: the ops below cover the `jubilant.Juju` methods that had no
+    # CLI translation, and `cli_passthrough` catches everything else as
+    # `juju.cli(...)`. Nothing recorded from a shell session falls through
+    # to a `# shell:` comment any more.
     "cli_passthrough": cli_passthrough.emit,
     "status_call": status_call.emit,
     "add_model": model_lifecycle.emit_add_model,

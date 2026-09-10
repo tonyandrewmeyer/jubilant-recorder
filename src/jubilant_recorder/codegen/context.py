@@ -200,7 +200,7 @@ def interleave_context(events: list[dict[str, Any]], indent: int = 8) -> tuple[l
             body_lines.append(render_shell_context(event, indent))
             continue
         # See emit.generate() for the full comment; mirrored here because
-        # both dispatchers need the same per-event bucket-1 translation.
+        # both dispatchers need the same per-event argv translation.
         if op == "shell" and (event.get("args") or {}).get("source") == "shim":
             translated = cli_translate.classify(event, session_model=model)
             if translated is None:
