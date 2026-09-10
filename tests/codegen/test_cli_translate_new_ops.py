@@ -339,3 +339,21 @@ def _shim(seq: int, argv: list[str], exit_code: int = 0) -> dict:
         "assertions": [],
         "gesture": None,
     }
+
+
+def test_wait_for_query_carries_the_model_explicitly() -> None:
+    """`juju wait-for` rejects `--model`; `juju wait-for application` needs it.
+
+    `juju.cli()` inserts the flag after the first argument, which lands on
+    the group and fails to parse — and leaving it off waits on whatever
+    model the CLI happens to point at, which is worse than failing.
+    """
+    src = _src("wait-for", "application", "ubuntu", "--query", 'status=="active"')
+    assert "'--model', juju.model" in src
+    assert "include_model=False" in src
+
+
+def test_wait_for_drops_a_recorded_model_before_adding_its_own() -> None:
+    src = _src("wait-for", "unit", "ubuntu/0", "-m", "prod-cluster", "--query", "x")
+    assert "prod-cluster" not in src
+    assert "'--model', juju.model" in src

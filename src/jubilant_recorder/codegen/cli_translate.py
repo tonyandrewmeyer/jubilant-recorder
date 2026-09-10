@@ -1548,6 +1548,15 @@ _PROMPTING_SUBCOMMANDS = frozenset(
 )
 _NO_PROMPT_SPELLINGS = frozenset({"--no-prompt", "-y", "--yes"})
 
+# Command groups whose *subcommands* take `--model` even though the group
+# itself rejects it: `juju wait-for` has no model flag, but `juju wait-for
+# application` does. `juju.cli()` inserts `--model` after the first argument,
+# which lands on the group and fails to parse — and `include_model=False`
+# would silently wait on whatever model the operator's CLI happens to be
+# pointing at, which is worse. So the passthrough appends the model itself,
+# after the subcommand, reading it off the `Juju` instance at test time.
+MODEL_AFTER_SUBCOMMAND = frozenset({"wait-for"})
+
 # ``juju`` invoked with a global flag and no subcommand at all.
 _GLOBAL_FLAG_ONLY = {
     "--version": ("version", {}),
@@ -1573,7 +1582,7 @@ def _strip_model_flag(argv: list[str]) -> tuple[list[str], str | None]:
     Subcommands in `NO_MODEL_SUBCOMMANDS` are left alone: for those, a
     bare positional model name is the operand, not a redundant scope.
     """
-    if not argv or argv[0] in NO_MODEL_SUBCOMMANDS:
+    if not argv or (argv[0] in NO_MODEL_SUBCOMMANDS and argv[0] not in MODEL_AFTER_SUBCOMMAND):
         return argv, None
     stripped: list[str] = []
     dropped: str | None = None
@@ -1608,7 +1617,10 @@ def _passthrough(argv: list[str]) -> tuple[str, dict[str, Any]]:
     """
     subcommand = argv[0] if argv else ""
     args: dict[str, Any] = {"argv": list(argv)}
-    if subcommand in NO_MODEL_SUBCOMMANDS or subcommand.startswith("-"):
+    if subcommand in MODEL_AFTER_SUBCOMMAND:
+        args["include_model"] = False
+        args["model_after_subcommand"] = True
+    elif subcommand in NO_MODEL_SUBCOMMANDS or subcommand.startswith("-"):
         args["include_model"] = False
     if subcommand in _PROMPTING_SUBCOMMANDS and not (_NO_PROMPT_SPELLINGS & set(argv)):
         args["add_no_prompt"] = True

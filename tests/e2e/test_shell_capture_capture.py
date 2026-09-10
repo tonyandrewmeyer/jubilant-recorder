@@ -111,7 +111,12 @@ def test_two_statuses_around_a_deploy_produce_an_assertion(
     """
     assert _juju(shim_env, "status", "-m", model).returncode == 0
     assert _juju(shim_env, "deploy", "ubuntu", "-m", model).returncode == 0
-    assert _juju(shim_env, "wait-for", "application", "ubuntu", "--timeout", "20m").returncode == 0
+    assert (
+        _juju(
+            shim_env, "wait-for", "application", "ubuntu", "-m", model, "--timeout", "20m"
+        ).returncode
+        == 0
+    )
     assert _juju(shim_env, "status", "-m", model).returncode == 0
 
     out = tmp_path / "test_asserts.py"
@@ -157,7 +162,12 @@ def test_the_generated_test_replays_green(model: str, shim_env: dict[str, str], 
     """
     assert _juju(shim_env, "status", "-m", model).returncode == 0
     assert _juju(shim_env, "deploy", "ubuntu", "-m", model).returncode == 0
-    assert _juju(shim_env, "wait-for", "application", "ubuntu", "--timeout", "20m").returncode == 0
+    assert (
+        _juju(
+            shim_env, "wait-for", "application", "ubuntu", "-m", model, "--timeout", "20m"
+        ).returncode
+        == 0
+    )
     assert _juju(shim_env, "status", "-m", model).returncode == 0
     assert _juju(shim_env, "config", "ubuntu", "-m", model).returncode == 0
     assert _juju(shim_env, "exec", "--unit", "ubuntu/0", "-m", model, "--", "true").returncode == 0

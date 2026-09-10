@@ -17,6 +17,10 @@ needs in order to run at all:
   parse error instead of running.
 * ``--no-prompt`` for the subcommands that otherwise wait on stdin for a
   confirmation nobody is there to give.
+* an explicit ``--model`` for the command groups whose *subcommands* take
+  one even though the group does not (``juju wait-for application``), since
+  ``juju.cli()`` can only insert it in the one position that does not work
+  there.
 """
 
 from __future__ import annotations
@@ -35,6 +39,10 @@ def emit(event: dict[str, Any], indent: int) -> str:
         argv = [argv[0], "--no-prompt", *argv[1:]]
 
     parts = [repr(a) for a in argv]
+    if args.get("model_after_subcommand"):
+        # Read the model off the instance at test time — `temp_model()` names
+        # it, and codegen cannot.
+        parts.extend([repr("--model"), "juju.model"])
     if args.get("include_model") is False:
         parts.append("include_model=False")
     return " " * indent + f"juju.cli({', '.join(parts)})"
