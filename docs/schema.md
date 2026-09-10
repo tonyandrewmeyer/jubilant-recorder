@@ -609,18 +609,25 @@ The cost is file size: a pretty-printed 100-event session log is ~150–200 KB,
 versus ~50 KB minified. This is acceptable — session logs are ephemeral
 development artefacts, not shipped to production.
 
-### One file per session
+### One file per session — with one exception
 
-The session log is written as a complete document at `stop`/`run` completion,
-not streamed line-by-line. This is simpler than JSONL (no partial-read
-complexity in consumers) and consistent with the use case (post-hoc codegen,
-not real-time streaming), unlike tools that need incremental ingestion and so
-stream events as JSONL instead.
+The scripted and libjuju front-ends write the session log as a complete JSON
+document when the recording context exits. That is simpler than JSONL (no
+partial-read complexity in consumers) and matches the use case: post-hoc
+codegen over a bounded, finished session, not real-time streaming.
 
-If the recorder process is killed mid-session before `stop` is called, any
-partial log is written to `session-<id>.partial.json` alongside the final file
-name. Consumers can detect incomplete sessions via the missing `recorded_at`
-field.
+**Shell capture is JSONL, and has to be.** Its events come from separate
+processes — one PATH-shim invocation per `juju` command, one `jtr
+_hook_event` per prompt — that have no shared in-memory state and may
+overlap between terminals when a session is shared. Appending one JSON
+object per line under an `flock` is the only shape that survives that;
+rewriting a whole document per command would lose events to the last
+writer. `jtr` therefore names its logs `*.jsonl`, and `jtr generate` wraps
+the lines back into a session document before handing them to the tagger.
+
+A shell-capture log is readable at any moment, including mid-session
+(`jtr tail` reads it live). A scripted log only exists once the context
+exits: if that process is killed first, there is no log.
 
 ---
 
@@ -693,10 +700,10 @@ generated test. The mapping is:
 
 | `kind` | Generated jubilant pattern |
 |---|---|
-| `unit_status` | `juju.status().apps[app].units[unit].workload_status` |
+| `unit_status` | `juju.status().apps[app].units[unit].workload_status.current`, or a loop / `any(…)` over `units.values()` when no unit is named |
 | `unit_count` | `len(juju.status().apps[app].units)` |
 | `action_result` | `juju.run(…).success` / `.results[key]` |
-| `config_value` | `juju.config(app, keys=[key])[key]` |
+| `config_value` | `juju.config(app)[key]` (or the variable the preceding `config_get` was bound to) |
 | `relation_exists` | membership check over `juju.status()` |
 | `relation_absent` | membership check (negated) over `juju.status()` |
 | `user_checkpoint` | `# checkpoint: <label>` comment |
@@ -987,7 +994,7 @@ checkpoint.
 
 | Alternative | Reason rejected |
 |---|---|
-| JSONL (one event per line) | (B) and (C) need random access to the full session for sequence analysis (e.g. inferring `wait_for_idle` placement). A single document is simpler for both consumers. JSONL is the right shape for streaming telemetry that needs incremental ingestion; session logs are bounded and complete before (B) runs. |
+| JSONL (one event per line), everywhere | (B) and (C) need random access to the full session for sequence analysis (e.g. inferring `wait_for_idle` placement), and a single document is simpler for both. Rejected as the *universal* shape, not as a shape: shell capture writes JSONL because its events come from separate processes and there is no other way to append safely — see §"One file per session". Both are wrapped into the same session document before the tagger sees them. |
 | Minified JSON | Makes `git diff session.json` useless. Session logs are debugging artefacts; diff-friendliness matters more than bytes. |
 | Separate before/after snapshot files | Adds directory management complexity for no benefit. Keeping everything in one file means one artefact to move, share, or archive. |
 | Embedding jubilant's full `Status` object verbatim | Full `juju status` output includes relation databags and machine tables. Each snapshot is ~10–30 KB for a realistic model; capturing before+after for 20 operations = ~1 MB of credential-bearing data per session. The lightweight subset is sufficient for (B)'s rule set, and keeps the session log size manageable. The projection is explicit in the field mapping table above. |
