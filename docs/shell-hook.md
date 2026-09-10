@@ -164,6 +164,29 @@ Redaction is a safety net, not a guarantee. **Read a session log before you
 commit it or attach it to a bug report.** See the note on secrets in the
 [README](../README.md#session-logs-and-secrets).
 
+## Kubernetes
+
+Everything above works the same on a Kubernetes model. The commands that
+only exist there translate too: `scale-application` (as `juju.cli(...)` —
+jubilant has no absolute-scale method), `remove-unit --num-units` because
+Kubernetes units are not individually named, `ssh`/`scp --container` to
+reach a workload container, and `trust --scope cluster`.
+
+A recorded session mixing the two lanes reads as you would expect:
+
+```python
+def test_k8s_session():
+    with jubilant.temp_model() as juju:
+        juju.status()
+        # context: kubectl get namespaces
+        juju.deploy("snappass-test")
+        # context: kubectl get pods -n my-model
+        juju.wait(lambda status: jubilant.all_active(status, "snappass-test"))
+        juju.status()
+        for _u in juju.status().apps["snappass-test"].units.values():
+            assert _u.workload_status.current == "active"
+```
+
 ## Sharing a session between terminals
 
 ```bash
