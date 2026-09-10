@@ -148,6 +148,20 @@ class RecordingJuju(jubilant.Juju):
         )
         self._session_log.append_event(event)
 
+    def _begin_op(self) -> dict[str, Any] | None:
+        """Open a typed operation: flush the last untyped call, then snapshot.
+
+        Order matters and is easy to get wrong. `_emit_event` clears
+        `_pending_capture`, because the argv `_cli()` captured belongs to
+        the operation being emitted — but a `wait()` or `status()` whose own
+        `_cli()` runs under suppression would then clear a capture left by
+        an *earlier* untyped call, dropping it. Flushing here, before the
+        operation starts, means each capture is either claimed by the
+        operation that made it or written out ahead of the next one.
+        """
+        self._flush_pending_capture()
+        return self._take_snapshot()
+
     def _take_snapshot(self) -> dict[str, Any] | None:
         self._suppress_recording += 1
         try:
@@ -201,7 +215,7 @@ class RecordingJuju(jubilant.Juju):
         args: dict[str, Any] | None = None,
         result: dict[str, Any] | None = None,
     ) -> None:
-        snap = self._take_snapshot()
+        snap = self._begin_op()
         now = datetime.now(UTC)
         event = EventEnvelope(
             seq=self._session_log.next_seq(),
@@ -237,7 +251,7 @@ class RecordingJuju(jubilant.Juju):
         to: Any = None,
         trust: bool = False,
     ) -> None:
-        snap_before = self._take_snapshot()
+        snap_before = self._begin_op()
         start_ts = datetime.now(UTC)
         exc = None
         try:
@@ -303,7 +317,7 @@ class RecordingJuju(jubilant.Juju):
             raise exc
 
     def integrate(self, app1: str, app2: str, *, via: Any = None) -> None:
-        snap_before = self._take_snapshot()
+        snap_before = self._begin_op()
         start_ts = datetime.now(UTC)
         exc = None
         try:
@@ -328,7 +342,7 @@ class RecordingJuju(jubilant.Juju):
             raise exc
 
     def remove_relation(self, app1: str, app2: str, *, force: bool = False) -> None:
-        snap_before = self._take_snapshot()
+        snap_before = self._begin_op()
         start_ts = datetime.now(UTC)
         exc = None
         try:
@@ -361,7 +375,7 @@ class RecordingJuju(jubilant.Juju):
         reset: Any = (),
     ) -> Any:
         is_get = values is None and not reset
-        snap_before = self._take_snapshot()
+        snap_before = self._begin_op()
         start_ts = datetime.now(UTC)
         exc = None
         config_result = None
@@ -396,7 +410,7 @@ class RecordingJuju(jubilant.Juju):
         *,
         wait: float | None = None,
     ) -> jubilant.Task:
-        snap_before = self._take_snapshot()
+        snap_before = self._begin_op()
         start_ts = datetime.now(UTC)
         exc = None
         task = None
@@ -430,7 +444,7 @@ class RecordingJuju(jubilant.Juju):
         return task  # type: ignore[return-value]
 
     def status(self) -> Status:
-        snap_before = self._take_snapshot()
+        snap_before = self._begin_op()
         start_ts = datetime.now(UTC)
         exc = None
         jubilant_status = None
@@ -457,7 +471,7 @@ class RecordingJuju(jubilant.Juju):
         timeout: float | None = None,
         successes: int = 3,
     ) -> Status:
-        snap_before = self._take_snapshot()
+        snap_before = self._begin_op()
         start_ts = datetime.now(UTC)
         exc = None
         result_status = None
@@ -496,7 +510,7 @@ class RecordingJuju(jubilant.Juju):
     def remove_application(
         self, *app: str, destroy_storage: bool = False, force: bool = False
     ) -> None:
-        snap_before = self._take_snapshot()
+        snap_before = self._begin_op()
         start_ts = datetime.now(UTC)
         exc = None
         try:
@@ -528,7 +542,7 @@ class RecordingJuju(jubilant.Juju):
         num_units: int = 1,
         to: Any = None,
     ) -> None:
-        snap_before = self._take_snapshot()
+        snap_before = self._begin_op()
         start_ts = datetime.now(UTC)
         exc = None
         try:

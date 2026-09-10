@@ -118,3 +118,51 @@ def test_a_secret_in_an_untyped_call_is_redacted(tmp_path: Path, fake_juju: str)
         lambda juju: juju.ssh("ubuntu/0", "curl", "https://u:pw@example.com/"),
     )
     assert "u:pw@example.com" not in json.dumps(log)
+
+
+def test_an_untyped_call_before_a_wait_is_not_swallowed(tmp_path: Path) -> None:
+    """`wait()` runs its own `_cli()` under suppression.
+
+    So the argv it clears when it emits its typed event is not its own — it
+    would be the previous untyped call's, dropped on the floor. Each capture
+    is flushed at the start of the next operation instead.
+    """
+    status_json = json.dumps(
+        {
+            "model": {
+                "name": "m",
+                "type": "iaas",
+                "controller": "c",
+                "cloud": "localhost",
+                "version": "3.6.28",
+            },
+            "machines": {},
+            "applications": {},
+            "storage": {},
+            "controller": {"timestamp": "10:00:00"},
+        }
+    )
+    fake = tmp_path / "fake-juju"
+    fake.write_text(f"#!/bin/sh\ncat <<'EOF'\n{status_json}\nEOF\n")
+    fake.chmod(0o755)
+
+    log_path = tmp_path / "session.json"
+    with RecordingJuju.start(log_path, model="m", cli_binary=str(fake)) as juju:
+        juju.trust("ubuntu")
+        juju.wait(lambda _s: True, successes=1)
+
+    events = json.loads(log_path.read_text())["events"]
+    assert [e["op"] for e in events] == ["shell", "wait_for_idle"]
+    assert events[0]["args"]["argv"][0] == "trust"
+
+
+def test_an_untyped_call_before_a_gesture_is_not_swallowed(tmp_path: Path, fake_juju: str) -> None:
+    from jubilant_recorder import checkpoint
+
+    log_path = tmp_path / "session.json"
+    with RecordingJuju.start(log_path, model="m", cli_binary=fake_juju) as juju:
+        juju.trust("ubuntu")
+        checkpoint("trusted")
+
+    events = json.loads(log_path.read_text())["events"]
+    assert [e["op"] for e in events] == ["shell", "checkpoint"]
