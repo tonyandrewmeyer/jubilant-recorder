@@ -21,3 +21,10 @@ going unnoticed.
 Each `*_live.py` script expects an existing Juju controller and model. They
 are *not* unit tests; they are reference invocations of the recording API.
 For automated coverage against a real controller, see `tests/e2e/`.
+
+Two directories hold the other two recording modes:
+
+| Directory | Mode |
+|---|---|
+| [`libjuju/`](libjuju/) | A libjuju driver script, the session it recorded, and the test generated from it. |
+| [`pytest_operator/`](pytest_operator/) | A small `pytest-operator` suite, for running the migration path (`pytest --jtr-out=...`) end to end. |
