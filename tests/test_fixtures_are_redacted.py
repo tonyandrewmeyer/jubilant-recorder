@@ -39,6 +39,17 @@ CREDENTIAL_PATTERNS = [
         "json-token",
         re.compile(r'"[^"]*token[^"]*"\s*:\s*"(?!<redacted:)[^"]+"', re.IGNORECASE),
     ),
+    # The key set `jubilant_recorder.redaction` itself treats as sensitive.
+    # `credential` was missing here and present there, which is how a
+    # controller password in an `Admin.Login` payload got past this guard.
+    (
+        "json-credential",
+        re.compile(r'"[^"]*credential[^"]*"\s*:\s*"(?!<redacted:)[^"]+"', re.IGNORECASE),
+    ),
+    (
+        "json-secret",
+        re.compile(r'"[^"]*secret[^"]*"\s*:\s*"(?!<redacted:)[^"]+"', re.IGNORECASE),
+    ),
     ("bearer", re.compile(r"Authorization:\s*Bearer\s+(?!<redacted:)\S", re.IGNORECASE)),
 ]
 

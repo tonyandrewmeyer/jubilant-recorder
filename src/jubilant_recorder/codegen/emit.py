@@ -61,6 +61,7 @@ def generate(
         test_name=test_name or _DEFAULT_TEST_NAME,
         needs_pytest=needs_pytest,
         pre_existing_apps=preamble.pre_existing_apps(first_snapshot),
+        cross_model_models=cli_translate.cross_model_models(events),
     )
     return "\n".join([*pre.lines(), *body_lines]) + "\n"
 
@@ -95,7 +96,14 @@ def generate_module(
         events = session.get("events", []) or []
         if position == 0 and events:
             pre_existing = preamble.pre_existing_apps(events[0].get("model_snapshot_before"))
-        blocks.append([*preamble.test_header(name, pre_existing), *body_lines])
+        blocks.append(
+            [
+                *preamble.test_header(
+                    name, pre_existing, cli_translate.cross_model_models(events)
+                ),
+                *body_lines,
+            ]
+        )
     lines = list(preamble.module_header())
     for block in blocks:
         lines.extend(block)

@@ -99,9 +99,31 @@ import os
 from datetime import UTC, datetime
 from typing import Any
 
+from jubilant_recorder.redaction import redact_payload
+
 # ---------------------------------------------------------------------------
 # Facade → op mapping tables
 # ---------------------------------------------------------------------------
+
+
+def _redacted_params(params: dict[str, Any]) -> dict[str, Any]:
+    """Scrub an unmapped RPC's raw parameters before they reach the log.
+
+    Bucket-3 events carry the facade's parameters verbatim, because there is
+    nothing else useful to say about a call we cannot map. Verbatim includes
+    whatever the facade takes, and facades take credentials: `Admin.Login`
+    carries the controller password in `credentials`, and wrote it to disk
+    in plaintext until this existed. The bucket-1 extractors redact what
+    they know about (`Secrets.CreateSecrets` content); bucket 3, by
+    definition, knows nothing about its payload, so it gets the general
+    recursive pass instead.
+    """
+    try:
+        return redact_payload(dict(params))[0]
+    except Exception:
+        # A payload that will not walk is one we cannot vouch for.
+        return {"_redacted": "raw parameters could not be scrubbed"}
+
 
 _INTERNAL_FACADE_METHODS: frozenset[tuple[str, str]] = frozenset(
     {
@@ -126,6 +148,15 @@ _INTERNAL_FACADE_METHODS: frozenset[tuple[str, str]] = frozenset(
         ("Pinger", "Ping"),
         ("Controller", "WatchAllModels"),
         ("ModelManager", "WatchModelSummaries"),
+        # Connection handshake. `Model.connect()` sends one of these per
+        # connection — a cross-model session makes several — and its params
+        # carry the controller password in `credentials`. Recording it wrote
+        # that password to the session log and rendered it into the generated
+        # test as a `# TODO: manual step` block. Redaction now catches the
+        # value as well (see `_redacted_params`), but a login is not a step
+        # the user performed and does not belong in the log at all.
+        ("Admin", "Login"),
+        ("Admin", "RedirectInfo"),
     }
 )
 
@@ -980,7 +1011,11 @@ def correlate(
                 "seq": seq,
                 "op": "_todo",
                 "ts": ts,
-                "args": {"_raw_facade": facade, "_raw_method": method, "_raw_params": params},
+                "args": {
+                    "_raw_facade": facade,
+                    "_raw_method": method,
+                    "_raw_params": _redacted_params(params),
+                },
                 "result": {},
                 "model_snapshot_before": snap_before,
                 "model_snapshot_after": snap_after,

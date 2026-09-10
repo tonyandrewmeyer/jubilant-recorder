@@ -15,8 +15,9 @@ needs in order to run at all:
   ``juju.cli()`` inserts ``--model <model>`` after the first argument by
   default; doing that to ``juju whoami`` makes the step fail on a flag
   parse error instead of running.
-* ``--no-prompt`` for the subcommands that otherwise wait on stdin for a
-  confirmation nobody is there to give.
+* the confirmation-skipping flag for the subcommands that otherwise wait on
+  stdin for an answer nobody is there to give — ``--no-prompt`` for most,
+  ``--yes`` for the two that spell it that way.
 * an explicit ``--model`` for the command groups whose *subcommands* take
   one even though the group does not (``juju wait-for application``), since
   ``juju.cli()`` can only insert it in the one position that does not work
@@ -35,8 +36,9 @@ def emit(event: dict[str, Any], indent: int) -> str:
     if not argv:
         raise ValueError("cli_passthrough event missing argv")
 
-    if args.get("add_no_prompt"):
-        argv = [argv[0], "--no-prompt", *argv[1:]]
+    skip_flag = args.get("prompt_skip_flag")
+    if skip_flag:
+        argv = [argv[0], str(skip_flag), *argv[1:]]
 
     parts = [repr(a) for a in argv]
     if args.get("model_after_subcommand"):

@@ -271,3 +271,61 @@ def test_revoke_secret_renders_the_comma_joined_list_the_cli_takes() -> None:
 
     line = secret_revoke.emit({"args": {"identifier": "secret:abc", "app": ["a", "b"]}}, 8)
     assert line.strip() == "juju.cli(\"revoke-secret\", 'secret:abc', 'a,b')"
+
+
+# --- the connection handshake ---
+
+
+def test_admin_login_is_internal() -> None:
+    """`Model.connect()` sends one per connection, and it is not a step.
+
+    A cross-model session makes several, and each rendered as a `# TODO:
+    manual step` block in the generated test — carrying, in its raw
+    parameters, the controller password.
+    """
+    from jubilant_recorder.extensions.libjuju.correlate import _is_internal
+
+    assert _is_internal("Admin", "Login")
+    assert _is_internal("Admin", "RedirectInfo")
+
+
+def test_an_unmapped_rpc_has_its_parameters_scrubbed() -> None:
+    """Bucket 3 records parameters verbatim, and facades take credentials."""
+    from jubilant_recorder.extensions.libjuju.correlate import _redacted_params
+
+    scrubbed = _redacted_params(
+        {
+            "auth-tag": "user-admin",
+            "client-version": "3.6.1.3",
+            "credentials": "9fd8bc6a4af0297a4bb452ce0cf1b64e",
+        }
+    )
+    assert scrubbed["credentials"] == "<redacted:credential>"
+    assert scrubbed["auth-tag"] == "user-admin"
+
+
+def test_an_unmapped_rpc_that_cannot_be_scrubbed_is_dropped() -> None:
+    """A payload we cannot walk is one we cannot vouch for.
+
+    The tap normalises everything to plain dicts before this, so it should
+    never happen — which is exactly why the failure mode has to be "emit
+    nothing" rather than "emit the payload".
+    """
+    from jubilant_recorder.extensions.libjuju.correlate import _redacted_params
+
+    class NotAMapping:
+        def keys(self):
+            raise RuntimeError("no")
+
+    assert "_redacted" in _redacted_params(NotAMapping())  # type: ignore[arg-type]
+
+
+def test_a_bucket_three_event_carries_the_scrubbed_parameters() -> None:
+    """End to end through `correlate`, not just the helper."""
+    rpcs = [
+        _rpc("Weird", "Method", {"password": "hunter2", "harmless": "yes"}),
+    ]
+    events = correlate(rpcs, [])
+    (event,) = [e for e in events if e["op"] == "_todo"]
+    assert event["args"]["_raw_params"]["password"] == "<redacted:password>"
+    assert event["args"]["_raw_params"]["harmless"] == "yes"

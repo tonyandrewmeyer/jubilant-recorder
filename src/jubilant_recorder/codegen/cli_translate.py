@@ -633,8 +633,23 @@ def _classify_secrets(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
 # ---------------------------------------------------------------------------
 
 
+_OFFER_VALUED = frozenset({"--controller"})
+
+
 def _classify_offer(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
-    parsed = _parse(rest)
+    """``juju offer [model.]app:endpoint [name]`` -> ``juju.offer(...)``.
+
+    The dotted ``model.app`` form is accepted, and has to be: `juju offer`
+    takes no ``--model``, so naming the model in the app is the only way to
+    offer from a model you are not switched to — which is the normal
+    cross-model case. `Juju.offer()` documents the same spelling
+    (``juju.offer('mymodel.mysql', endpoint='db')``), so it passes straight
+    through. Refusing it sent every real CMR offer to ``juju.cli``.
+
+    The model named there is the *recording's*, and the generated test does
+    not create it — see ``codegen/preamble.py``'s cross-model note.
+    """
+    parsed = _parse(rest, aliases={"-c": "--controller"}, valued=_OFFER_VALUED)
     if parsed is None or not parsed.positionals or len(parsed.positionals) > 2:
         return None
     spec = parsed.positionals[0]
@@ -642,14 +657,21 @@ def _classify_offer(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
     if ":" not in spec:
         return None
     app_part, _, endpoints_part = spec.partition(":")
-    if not app_part or "." in app_part:
-        return None  # dotted model-qualified app
+    if not app_part:
+        return None
     endpoints = [e for e in endpoints_part.split(",") if e]
     if not endpoints:
         return None
     args: dict[str, Any] = {"app": app_part, "endpoints": endpoints}
     if offer_name:
         args["offer_name"] = offer_name
+    controller = _last(parsed.flags.get("--controller"))
+    if controller:
+        if "." not in app_part:
+            # `Juju.offer()` raises ValueError for this combination, and juju
+            # itself has nothing to resolve the controller against.
+            return None
+        args["controller"] = controller
     return "create_offer", args
 
 
@@ -676,8 +698,19 @@ def _classify_offers(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
     return "list_offers", {}
 
 
+# Unlike `destroy-model` and friends, `juju remove-offer` really does take
+# `-y`/`--yes`. `--no-prompt` is what the others spell it; this one does not
+# have that, which is why it is not in `_PROMPTING_SUBCOMMANDS`.
+_REMOVE_OFFER_BOOLEAN = frozenset({"--force", "-y", "--yes"})
+
+
 def _classify_remove_offer(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
-    parsed = _parse(rest, boolean=frozenset({"--force"}))
+    parsed = _parse(
+        rest,
+        aliases={"-y": "--yes"},
+        valued=frozenset({"--controller"}),
+        boolean=_REMOVE_OFFER_BOOLEAN,
+    )
     if parsed is None or not parsed.positionals:
         return None
     args: dict[str, Any] = {"offer_urls": list(parsed.positionals)}
@@ -1528,26 +1561,31 @@ NO_MODEL_SUBCOMMANDS = frozenset(
     }
 )
 
-# Subcommands that ask for interactive confirmation unless told not to.
-# A generated test runs unattended, so the passthrough adds ``--no-prompt``
-# when the recorded argv did not already carry it (or its ``-y``/``--yes``
-# spelling) — without it the test hangs on stdin rather than failing.
-_PROMPTING_SUBCOMMANDS = frozenset(
-    {
-        "destroy-controller",
-        "destroy-model",
-        "kill-controller",
-        "remove-application",
-        "remove-cloud",
-        "remove-credential",
-        "remove-machine",
-        "remove-offer",
-        "remove-saas",
-        "remove-unit",
-        "remove-user",
-        "unregister",
-    }
-)
+# Subcommands that ask for interactive confirmation, and the flag each one
+# takes to skip it. A generated test runs unattended, so the passthrough adds
+# that flag when the recorded argv did not already carry it — without it the
+# test hangs on stdin rather than failing.
+#
+# It is a mapping rather than a set because juju does not spell it one way:
+# most take `--no-prompt`, but `remove-offer` and `remove-user` take
+# `-y`/`--yes` and have no `--no-prompt` at all, so injecting the wrong one
+# turns a hang into a flag-parse error. `remove-cloud`, `remove-credential`
+# and `remove-saas` are deliberately absent: they take neither, because they
+# do not prompt.
+#
+# Verified against `juju help <subcommand>` on 3.6.28; the check lives in
+# tests/codegen/test_flag_tables_are_real.py.
+PROMPT_SKIP_FLAGS: dict[str, str] = {
+    "destroy-controller": "--no-prompt",
+    "destroy-model": "--no-prompt",
+    "kill-controller": "--no-prompt",
+    "remove-application": "--no-prompt",
+    "remove-machine": "--no-prompt",
+    "remove-offer": "--yes",
+    "remove-unit": "--no-prompt",
+    "remove-user": "--yes",
+    "unregister": "--no-prompt",
+}
 _NO_PROMPT_SPELLINGS = frozenset({"--no-prompt", "-y", "--yes"})
 
 # Command groups whose *subcommands* take `--model` even though the group
@@ -1625,8 +1663,9 @@ def _passthrough(argv: list[str]) -> tuple[str, dict[str, Any]]:
         args["model_after_subcommand"] = True
     elif subcommand in NO_MODEL_SUBCOMMANDS or subcommand.startswith("-"):
         args["include_model"] = False
-    if subcommand in _PROMPTING_SUBCOMMANDS and not (_NO_PROMPT_SPELLINGS & set(argv)):
-        args["add_no_prompt"] = True
+    skip_flag = PROMPT_SKIP_FLAGS.get(subcommand)
+    if skip_flag is not None and not (_NO_PROMPT_SPELLINGS & set(argv)):
+        args["prompt_skip_flag"] = skip_flag
     return "cli_passthrough", args
 
 
@@ -1699,6 +1738,47 @@ def classify(
 
 
 _MODEL_LIFECYCLE_OPS = frozenset({"add_model", "destroy_model", "switch_model"})
+
+
+# `[<controller>:][<user>/]<model>.<offer-name>` — juju's offer URL. The
+# model is the part before the dot in the last segment.
+_OFFER_URL_RE = re.compile(r"^(?:[\w.-]+:)?(?:[\w.-]+/)?(?P<model>[\w-]+)\.(?P<offer>[\w-]+)$")
+# Subcommands whose positionals carry an offer URL or a dotted model.app.
+_CROSS_MODEL_SUBCOMMANDS = frozenset({"offer", "consume", "show-offer", "remove-offer"})
+
+
+def cross_model_models(events: list[dict[str, Any]]) -> tuple[str, ...]:
+    """Models a session referenced through an offer URL, other than its own.
+
+    A generated test opens one `jubilant.temp_model()`. Every cross-model
+    step names a *second* model — the one the offer lives in — which the
+    test does not create, so the step only works while that model still
+    exists and still publishes the offer. The calls are emitted (they are
+    the right calls), and `preamble` says so once at the top rather than
+    leaving the reader to find out by running it.
+
+    Returns the model names, sorted, or an empty tuple for a session with no
+    cross-model steps — which is nearly all of them, and which emits
+    nothing.
+    """
+    own = session_model(events)
+    found: set[str] = set()
+    for event in events:
+        args = event.get("args") or {}
+        if event.get("op") != "shell" or args.get("source") not in ("shim", "jubilant"):
+            continue
+        argv = [str(a) for a in (args.get("argv") or [])]
+        if not argv or _ALIASES.get(argv[0], argv[0]) not in _CROSS_MODEL_SUBCOMMANDS:
+            continue
+        for token in argv[1:]:
+            if token.startswith("-"):
+                continue
+            # `offer` takes `model.app:endpoint`; the URL forms have no colon.
+            candidate = token.partition(":")[0] if argv[0] == "offer" else token
+            match = _OFFER_URL_RE.match(candidate)
+            if match and match.group("model") != own:
+                found.add(match.group("model"))
+    return tuple(sorted(found))
 
 
 def session_model(events: list[dict[str, Any]]) -> str | None:

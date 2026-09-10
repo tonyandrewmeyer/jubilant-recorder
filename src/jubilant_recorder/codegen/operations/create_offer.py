@@ -25,6 +25,9 @@ def emit(event: dict[str, Any], indent: int) -> str:
         parts.append(f"endpoint={endpoint_names[0]!r}")
     else:
         parts.append(f"endpoint={endpoint_names!r}")
+    controller = args.get("controller")
+    if controller:
+        parts.append(f"controller={controller!r}")
     offer_name = args.get("offer_name")
     if offer_name and offer_name != app:
         parts.append(f"name={offer_name!r}")

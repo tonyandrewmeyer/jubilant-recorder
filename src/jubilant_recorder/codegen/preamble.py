@@ -54,6 +54,7 @@ class Preamble:
     test_name: str
     needs_pytest: bool = False
     pre_existing_apps: tuple[str, ...] = ()
+    cross_model_models: tuple[str, ...] = ()
 
     def lines(self) -> list[str]:
         # `import pytest` is emitted only when the body needs it (a
@@ -73,12 +74,36 @@ class Preamble:
         ]
         if self.pre_existing_apps:
             lines.extend(self._non_empty_model_comment())
+        if self.cross_model_models:
+            lines.extend(cross_model_lines(self.cross_model_models, BODY_INDENT))
         return lines
 
     def _non_empty_model_comment(self) -> list[str]:
         return _non_empty_model_lines(
             self.pre_existing_apps, BODY_INDENT, "jubilant.temp_model() above"
         )
+
+
+def cross_model_lines(models: tuple[str, ...], indent: int) -> list[str]:
+    """Warn that the offers this test consumes live in a model it does not make.
+
+    A cross-model relation needs two models. A generated test opens one —
+    `jubilant.temp_model()` — so the offer URLs below name a model that is
+    the *recording's*, not the test's. The calls themselves are right, and
+    they work while that model exists and still publishes the offer; they
+    fail with "offer not found" otherwise. Emitted once, listing the models,
+    rather than beside each call: a CMR session touches the same model four
+    or five times and the repetition would bury the steps.
+    """
+    pad = " " * indent
+    named = ", ".join(models)
+    plural = "models" if len(models) > 1 else "model"
+    return [
+        f"{pad}# NOTE: the cross-model steps below reference offers in {plural} {named},",
+        f"{pad}# which this test does not create — jubilant.temp_model() gives it one",
+        f"{pad}# model of its own. They work while that {plural.rstrip('s')} exists and still",
+        f'{pad}# publishes the offer, and fail with "offer not found" otherwise.',
+    ]
 
 
 def empty_body_filler(indent: int = BODY_INDENT) -> str:
@@ -114,7 +139,11 @@ def module_header(*, needs_pytest: bool = True) -> list[str]:
     ]
 
 
-def test_header(test_name: str, pre_existing_apps: tuple[str, ...] = ()) -> list[str]:
+def test_header(
+    test_name: str,
+    pre_existing_apps: tuple[str, ...] = (),
+    cross_model_models: tuple[str, ...] = (),
+) -> list[str]:
     """Build the `def <name>(juju):` line for one test in a multi-test module.
 
     ``pre_existing_apps`` is only ever passed for the *first* test in the
@@ -130,6 +159,8 @@ def test_header(test_name: str, pre_existing_apps: tuple[str, ...] = ()) -> list
         lines.extend(
             _non_empty_model_lines(pre_existing_apps, FIXTURE_BODY_INDENT, "the `juju` fixture")
         )
+    if cross_model_models:
+        lines.extend(cross_model_lines(cross_model_models, FIXTURE_BODY_INDENT))
     return lines
 
 

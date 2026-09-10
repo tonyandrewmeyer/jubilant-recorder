@@ -65,6 +65,12 @@ CLAIMED: dict[str, tuple[frozenset[str], frozenset[str], dict[str, str]]] = {
     "trust": (ct._TRUST_VALUED, ct._TRUST_BOOLEAN, {}),
     "update-secret": (ct._UPDATE_SECRET_VALUED, ct._UPDATE_SECRET_BOOLEAN, {}),
     "wait-for": (ct._WAIT_FOR_VALUED, ct._WAIT_FOR_BOOLEAN, {}),
+    "offer": (ct._OFFER_VALUED, frozenset(), {"-c": "--controller"}),
+    "remove-offer": (
+        frozenset({"--controller"}),
+        ct._REMOVE_OFFER_BOOLEAN,
+        {"-y": "--yes"},
+    ),
 }
 
 
@@ -104,6 +110,30 @@ def test_the_logging_flags_are_global_apart_from_two_commands() -> None:
         f"the set of commands without juju's logging flags changed: {sorted(without)}"
     )
     assert set(ct._GLOBAL_BOOLEAN) | set(ct._GLOBAL_VALUED) >= _LOGGING_FLAGS
+
+
+@pytest.mark.parametrize("subcommand", sorted(ct.PROMPT_SKIP_FLAGS))
+def test_the_injected_prompt_flag_exists_on_the_subcommand(subcommand: str) -> None:
+    """The passthrough injects this flag, so juju had better accept it.
+
+    juju does not spell it one way: most take `--no-prompt`, `remove-offer`
+    and `remove-user` take `-y`/`--yes` and have no `--no-prompt` at all,
+    and `remove-cloud`/`remove-credential`/`remove-saas` take neither
+    because they do not prompt. Injecting the wrong one turns a hang into a
+    flag-parse error, which is how the mapping came to be a mapping.
+    """
+    flag = ct.PROMPT_SKIP_FLAGS[subcommand]
+    assert flag in JUJU_FLAGS[subcommand], (
+        f"`juju {subcommand}` has no {flag} — it is either spelled differently "
+        f"there, or the command does not prompt and needs removing from the map"
+    )
+
+
+def test_no_non_prompting_subcommand_gets_a_flag_injected() -> None:
+    """The three that take neither spelling must not be in the map."""
+    for subcommand in ("remove-cloud", "remove-credential", "remove-saas"):
+        assert subcommand not in ct.PROMPT_SKIP_FLAGS
+        assert not ({"--no-prompt", "--yes", "-y"} & JUJU_FLAGS[subcommand])
 
 
 def test_every_classified_subcommand_has_captured_flags() -> None:

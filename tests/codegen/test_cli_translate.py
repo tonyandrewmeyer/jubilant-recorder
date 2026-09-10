@@ -252,8 +252,10 @@ def test_remove_application_no_prompt_is_not_carried() -> None:
 def test_remove_application_dry_run_falls_through_to_cli() -> None:
     """A dry run changed nothing, so replaying it as a real removal is wrong."""
     args = _cli("remove-application", "my-charm", "--dry-run")
-    # It still needs `--no-prompt`: an unattended test cannot answer a prompt.
-    assert args["add_no_prompt"] is True
+    # It still needs the confirmation flag: an unattended test cannot answer
+    # a prompt. `remove-application` spells it `--no-prompt`; some spell it
+    # `--yes`, which is why the map is a map.
+    assert args["prompt_skip_flag"] == "--no-prompt"
 
 
 # --- integrate/relate, remove-relation ---
@@ -507,13 +509,22 @@ def test_offer_multi_endpoint_and_name() -> None:
     )
 
 
-def test_offer_dotted_model_falls_through_to_cli() -> None:
-    args = _cli("offer", "othermodel.my-charm:db")
+def test_offer_takes_a_dotted_model_because_it_has_to() -> None:
+    """`juju offer` has no `--model`, so the model goes in the app name.
+
+    That is the normal cross-model shape, and `Juju.offer()` documents the
+    same spelling. Refusing it sent every real CMR offer to `juju.cli`.
+    """
+    assert _c("offer", "othermodel.my-charm:db") == (
+        "create_offer",
+        {"app": "othermodel.my-charm", "endpoints": ["db"]},
+    )
+
+
+def test_offer_controller_without_a_dotted_model_falls_through_to_cli() -> None:
+    """`Juju.offer()` raises ValueError for that combination."""
+    args = _cli("offer", "my-charm:db", "-c", "mycontroller")
     assert args["include_model"] is False  # `juju offer` rejects --model
-
-
-def test_offer_controller_flag_falls_through_to_cli() -> None:
-    _cli("offer", "my-charm:db", "-c", "mycontroller")
 
 
 def test_consume() -> None:

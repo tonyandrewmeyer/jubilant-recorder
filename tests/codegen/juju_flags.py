@@ -227,6 +227,26 @@ JUJU_FLAGS: dict[str, frozenset[str]] = {
             "-n",
         }
     ),
+    "destroy-controller": frozenset(
+        {
+            "--debug",
+            "--destroy-all-models",
+            "--destroy-storage",
+            "--force",
+            "--help",
+            "--logging-config",
+            "--model-timeout",
+            "--no-browser-login",
+            "--no-prompt",
+            "--no-wait",
+            "--quiet",
+            "--release-storage",
+            "--show-log",
+            "--verbose",
+            "-B",
+            "-h",
+        }
+    ),
     "destroy-model": frozenset(
         {
             "--debug",
@@ -325,6 +345,22 @@ JUJU_FLAGS: dict[str, frozenset[str]] = {
             "--via",
             "-h",
             "-m",
+        }
+    ),
+    "kill-controller": frozenset(
+        {
+            "--debug",
+            "--help",
+            "--logging-config",
+            "--no-browser-login",
+            "--no-prompt",
+            "--quiet",
+            "--show-log",
+            "--timeout",
+            "--verbose",
+            "-B",
+            "-h",
+            "-t",
         }
     ),
     "model-config": frozenset(
@@ -455,6 +491,60 @@ JUJU_FLAGS: dict[str, frozenset[str]] = {
             "-m",
         }
     ),
+    "remove-cloud": frozenset(
+        {
+            "--client",
+            "--controller",
+            "--debug",
+            "--help",
+            "--logging-config",
+            "--no-browser-login",
+            "--quiet",
+            "--show-log",
+            "--target-controller",
+            "--verbose",
+            "-B",
+            "-c",
+            "-h",
+        }
+    ),
+    "remove-credential": frozenset(
+        {
+            "--client",
+            "--controller",
+            "--debug",
+            "--force",
+            "--help",
+            "--logging-config",
+            "--no-browser-login",
+            "--quiet",
+            "--show-log",
+            "--verbose",
+            "-B",
+            "-c",
+            "-h",
+        }
+    ),
+    "remove-machine": frozenset(
+        {
+            "--debug",
+            "--dry-run",
+            "--force",
+            "--help",
+            "--keep-instance",
+            "--logging-config",
+            "--model",
+            "--no-browser-login",
+            "--no-prompt",
+            "--no-wait",
+            "--quiet",
+            "--show-log",
+            "--verbose",
+            "-B",
+            "-h",
+            "-m",
+        }
+    ),
     "remove-offer": frozenset(
         {
             "--controller",
@@ -554,6 +644,23 @@ JUJU_FLAGS: dict[str, frozenset[str]] = {
             "-B",
             "-h",
             "-m",
+        }
+    ),
+    "remove-user": frozenset(
+        {
+            "--controller",
+            "--debug",
+            "--help",
+            "--logging-config",
+            "--no-browser-login",
+            "--quiet",
+            "--show-log",
+            "--verbose",
+            "--yes",
+            "-B",
+            "-c",
+            "-h",
+            "-y",
         }
     ),
     "resume-relation": frozenset(
@@ -834,6 +941,18 @@ JUJU_FLAGS: dict[str, frozenset[str]] = {
             "-B",
             "-h",
             "-m",
+        }
+    ),
+    "unregister": frozenset(
+        {
+            "--debug",
+            "--help",
+            "--logging-config",
+            "--no-prompt",
+            "--quiet",
+            "--show-log",
+            "--verbose",
+            "-h",
         }
     ),
     "update-secret": frozenset(
