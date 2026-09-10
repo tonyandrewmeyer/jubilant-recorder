@@ -144,6 +144,7 @@ Available calls:
 | `checkpoint(name, *, comment=None)` | Inject a checkpoint event. Renders as a `# checkpoint: <name>` comment in the generated test, used to delineate phases. |
 | `assert_status(app=None, status=None, message=None, *, unit=None)` | Snapshot model status and emit an explicit `assert juju.status()…workload_status == <status>` line. With no args, emits a `# TODO: tighten this assertion` placeholder. |
 | `assert_action_result(action_id, *, key=None, value=None)` | Attach an assertion to the most recent `juju.run(...)` event. Pass `"latest"` as `action_id`; codegen renders `assert result_<seq>.results[<key>] == <value>`. |
+| `assert_config(app, *, key, value)` | Read an application's config and assert one key. The tagger only proposes a config assertion when it sees a value *change*, which misses "I set this once and want the test to check it stayed set". |
 
 All gesture calls require an active `RecordingJuju.start(...)` context. Calling
 one outside raises `RuntimeError`.

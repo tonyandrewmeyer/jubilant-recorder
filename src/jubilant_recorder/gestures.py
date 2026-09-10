@@ -123,3 +123,32 @@ def assert_action_result(
             "expected_results": expected_results,
         },
     }
+
+
+def assert_config(app: str, *, key: str, value: Any) -> None:
+    """Read an application's config and assert one key's value.
+
+    The deterministic tagger only proposes a config assertion when it sees a
+    value *change* between two reads, which misses the common case: you set
+    something once and want the test to check it stayed set. This says so
+    explicitly.
+
+    Renders as a `juju.config(...)` read followed by an assert on the key::
+
+        assert_config("my-charm", key="log-level", value="debug")
+
+    The session log's `config_value` tag shape and its codegen path already
+    existed — `docs/schema.md` has documented this gesture since the schema
+    was written — but nothing user-facing produced one.
+    """
+    session = _require_session()
+    session._inject_gesture_event(
+        op="config_get",
+        gesture={
+            "kind": "assert_config",
+            "label": None,
+            "params": {"app": app, "key": key, "value": value},
+        },
+        args={"app": app, "keys": [key]},
+        result={"values": {key: value}},
+    )

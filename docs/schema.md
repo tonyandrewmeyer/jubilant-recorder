@@ -480,7 +480,7 @@ element is an assertion that (B) decided should appear in the generated test.
 | `unit_status` | Unit `workload_status` differs between before/after snapshots, or user called `recorder.assert_status()` | `app` (string), `unit` (string \| null — null means all units), `expected` (string) | `assert juju.status().apps["<app>"].units["<unit>"].workload_status == "<expected>"` |
 | `unit_count` | Unit count in an app changed (deploy, scale, remove_application) | `app` (string), `expected` (integer) | `assert len(juju.status().apps["<app>"].units) == <expected>` |
 | `action_result` | Op is `run` and result has non-empty `results` dict | `unit` (string), `action` (string), `expected_success` (bool), `expected_results` (object — only keys layer (B) considers stable) | `result = juju.run(…); assert result.success == True; assert result.results["key"] == "val"` |
-| `config_value` | Op is `config_get` and keys differ from a prior `config_get` for the same app, or user called `recorder.assert_config()` | `app` (string), `key` (string), `expected` (string \| int \| bool \| float) | `assert juju.config("<app>", keys=["<key>"])["<key>"] == <expected>` |
+| `config_value` | Op is `config_get` and keys differ from a prior `config_get` for the same app, or user called `recorder.assert_config()` | `app` (string), `key` (string), `expected` (string \| int \| bool \| float) | `assert juju.config("<app>")["<key>"] == <expected>` |
 | `relation_exists` | A relation appears in `model_snapshot_after.relations` but not in `model_snapshot_before.relations` | `endpoint_a` (string), `endpoint_b` (string) | `assert any(…)` over `juju.status()` relation list |
 | `relation_absent` | A relation appears in `model_snapshot_before.relations` but not in `model_snapshot_after.relations` (op is `remove_integration`) | `endpoint_a` (string), `endpoint_b` (string) | `assert not any(…)` over `juju.status()` relation list |
 | `user_checkpoint` | User called `recorder.checkpoint("label")` | `label` (string) | `# checkpoint: <label>` comment in generated test |
@@ -562,7 +562,7 @@ corresponding `assertions` entry with `source: "gesture"`.
 | `checkpoint` | `recorder.checkpoint("label")` | (none) | Marks a logical step boundary. Emits a `user_checkpoint` assertion tag. |
 | `assert_status` | `recorder.assert_status("my-charm", "active")` | `app` (string), `unit` (string \| null), `status` (string) | Emits a `unit_status` assertion tag. `unit` is null when asserting all units in the app. |
 | `assert_action_result` | `recorder.assert_action_result(result, success=True, **kv)` | `success` (bool \| null), `expected_results` (object) | Emits an `action_result` tag. Applied to the innermost enclosing `run` event. |
-| `assert_config` | `recorder.assert_config("my-charm", key="log-level", value="info")` | `app` (string), `key` (string), `value` | Emits a `config_value` assertion tag. |
+| `assert_config` | `assert_config("my-charm", key="log-level", value="info")` | `app` (string), `key` (string), `value` | Emits a `config_value` assertion tag. |
 
 Gestures are **not** jubilant operations — they do not invoke the juju CLI. The
 event that carries a gesture has `op: "checkpoint"` or sits alongside a real

@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from importlib.metadata import PackageNotFoundError, version
 
-from jubilant_recorder.gestures import assert_action_result, assert_status, checkpoint
+from jubilant_recorder.gestures import (
+    assert_action_result,
+    assert_config,
+    assert_status,
+    checkpoint,
+)
 from jubilant_recorder.recording_juju import RecordingJuju
 from jubilant_recorder.session_log import SessionLog
 
@@ -18,6 +23,7 @@ __all__ = [
     "SessionLog",
     "__version__",
     "assert_action_result",
+    "assert_config",
     "assert_status",
     "checkpoint",
 ]

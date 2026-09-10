@@ -413,3 +413,23 @@ def test_tag_rejects_a_label_that_is_not_a_step_name(tmp_path) -> None:
     result = _jtr("tag", "not; a label", env=env)
     assert result.returncode == 1
     assert "invalid tag label" in result.stderr
+
+
+def test_the_event_cap_is_announced_once_not_once_per_command(tmp_path, monkeypatch) -> None:
+    """The sentinel used to be appended per command, past the cap.
+
+    So a long session past the limit wrote one `cap_reached` per prompt and
+    nothing else — growing the log the cap exists to bound.
+    """
+    from jubilant_recorder.jtr_cli import _EVENT_CAP, _hook_event_impl
+
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
+    log = tmp_path / "s.jsonl"
+    log.write_text("\n".join('{"op": "shell_context"}' for _ in range(_EVENT_CAP + 1)) + "\n")
+
+    for _ in range(5):
+        _hook_event_impl("sess", "kubectl get pods", 0, 0, str(log))
+
+    ops = [json.loads(line)["op"] for line in log.read_text().splitlines() if line.strip()]
+    assert ops.count("cap_reached") == 1
+    assert ops[-1] == "cap_reached"

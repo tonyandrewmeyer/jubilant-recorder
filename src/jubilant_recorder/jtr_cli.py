@@ -523,6 +523,23 @@ def _cmd_override(args: argparse.Namespace, kind: str) -> int:
     return 0
 
 
+# How many events the shell-hook lane records before it stops. The shim
+# lane is not capped: a `juju` command is always a step in the test, while
+# the hook lane records context that a long session produces a lot of.
+_EVENT_CAP = 1000
+
+
+def _already_capped(lines: list[str]) -> bool:
+    """Whether this log already carries its `cap_reached` sentinel."""
+    for line in reversed(lines):
+        try:
+            if json.loads(line).get("op") == "cap_reached":
+                return True
+        except Exception:
+            continue
+    return False
+
+
 def _matches_any(patterns: list[str], cmd: str) -> bool:
     """Whether any of *patterns* (regular expressions) matches *cmd*.
 
@@ -587,22 +604,28 @@ def _hook_event_impl(
         if not Path(log_path).exists():
             return
 
-        # Check cap
+        # Stop recording once the log reaches its cap, and say so exactly
+        # once. Appending the sentinel on every subsequent command grew the
+        # log the cap exists to bound — a long session past the limit wrote
+        # one `cap_reached` per prompt and nothing else.
         try:
-            line_count = sum(1 for line in Path(log_path).read_text().splitlines() if line.strip())
-            if line_count > 1000:
-                cap_event = {
-                    "seq": None,
-                    "op": "cap_reached",
-                    "ts": _now_ts(),
-                    "args": {},
-                    "result": {},
-                    "model_snapshot_before": None,
-                    "model_snapshot_after": None,
-                    "assertions": [],
-                    "gesture": None,
-                }
-                _append_jsonl_event(log_path, cap_event)
+            lines = [line for line in Path(log_path).read_text().splitlines() if line.strip()]
+            if len(lines) > _EVENT_CAP:
+                if not _already_capped(lines):
+                    _append_jsonl_event(
+                        log_path,
+                        {
+                            "seq": None,
+                            "op": "cap_reached",
+                            "ts": _now_ts(),
+                            "args": {},
+                            "result": {},
+                            "model_snapshot_before": None,
+                            "model_snapshot_after": None,
+                            "assertions": [],
+                            "gesture": None,
+                        },
+                    )
                 return
         except Exception:
             pass
