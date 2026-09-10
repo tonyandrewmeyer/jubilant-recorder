@@ -181,9 +181,7 @@ def test_run_action_no_params() -> None:
 
 def test_wait_for_idle_with_args(wait_for_idle_event: dict[str, Any]) -> None:
     line = wait_for_idle.emit(wait_for_idle_event, indent=8)
-    assert (
-        line == "        juju.wait(lambda s: jubilant.all_active(s, *['my-charm']), timeout=300)"
-    )
+    assert line == "        juju.wait(lambda s: jubilant.all_active(s, 'my-charm'), timeout=300)"
 
 
 def test_wait_for_idle_bare() -> None:

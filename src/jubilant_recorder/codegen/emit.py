@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, TypeAlias
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Mapping, Sequence
 
 from jubilant_recorder.codegen import (
     assertions,
@@ -20,9 +20,11 @@ from jubilant_recorder.codegen.operations import EMITTERS
 SessionLog: TypeAlias = dict[str, Any]
 
 _DEFAULT_TEST_NAME = "test_recorded_session"
-# `session_end` is an in-band sentinel appended by `jtr stop`; it marks the
-# end of the log, not a step for the user to translate.
-_SKIP_OPS = frozenset({"checkpoint", "session_end"})
+# `session_end` is an in-band sentinel appended by `jtr stop`; `config_override`
+# records a `jtr include`/`exclude`/`redact` the operator typed mid-session.
+# Neither is a step for the user to translate, and rendering them through the
+# fallback emitter buried the real steps in JSON.
+_SKIP_OPS = frozenset({"checkpoint", "session_end", "config_override"})
 
 
 def generate(
@@ -42,6 +44,66 @@ def generate(
     existed — nothing here is load-bearing for correctness.
     """
     indent = preamble.BODY_INDENT
+    body_lines, needs_pytest = _body(log, indent, overlay)
+    if not _has_statement(body_lines):
+        body_lines.append(preamble.empty_body_filler(indent))
+
+    events = log.get("events", []) or []
+    first_snapshot = events[0].get("model_snapshot_before") if events else None
+    pre = preamble.Preamble(
+        test_name=test_name or _DEFAULT_TEST_NAME,
+        needs_pytest=needs_pytest,
+        pre_existing_apps=preamble.pre_existing_apps(first_snapshot),
+    )
+    return "\n".join([*pre.lines(), *body_lines]) + "\n"
+
+
+def generate_module(
+    sessions: Sequence[tuple[str, SessionLog]],
+    *,
+    overlay: Mapping[int, Mapping[str, str]] | None = None,
+) -> str:
+    """Generate one test module holding a test per recorded session.
+
+    This is the shape a migrated pytest-operator suite needs. Its tests
+    share a module-scoped `ops_test` fixture and run in order against one
+    model, each building on what the last left behind, so the jubilant
+    equivalent is a module-scoped `juju` fixture and a series of tests that
+    take it — not a series of independent `temp_model()` blocks, which
+    would hand every test after the first an empty model.
+
+    ``sessions`` pairs each test's name with its own session log, in the
+    order the tests ran.
+    """
+    indent = preamble.FIXTURE_BODY_INDENT
+    blocks: list[list[str]] = []
+    any_pytest = False
+    for name, session in sessions:
+        body_lines, needs_pytest = _body(session, indent, overlay)
+        any_pytest = any_pytest or needs_pytest
+        if not _has_statement(body_lines):
+            body_lines.append(preamble.empty_body_filler(indent))
+        events = session.get("events", []) or []
+        first_snapshot = events[0].get("model_snapshot_before") if events else None
+        blocks.append(
+            [
+                *preamble.test_header(name, preamble.pre_existing_apps(first_snapshot)),
+                *body_lines,
+            ]
+        )
+    del any_pytest  # the fixture decorator always needs pytest imported
+    lines = list(preamble.module_header())
+    for block in blocks:
+        lines.extend(block)
+    return "\n".join(lines) + "\n"
+
+
+def _body(
+    log: SessionLog,
+    indent: int,
+    overlay: Mapping[int, Mapping[str, str]] | None,
+) -> tuple[list[str], bool]:
+    """Render one session's events as body lines, and whether pytest is needed."""
     pad = " " * indent
 
     events = log.get("events", []) or []
@@ -98,6 +160,9 @@ def generate(
         if op == "note":
             body_lines.append(ctx.render_note(event, indent))
             continue
+        if op == "cap_reached":
+            body_lines.append(ctx.render_cap_reached(event, indent))
+            continue
         if op == "tag":
             # Tag labels are buffered and emitted as "# step:" before the
             # next non-skipped jubilant op.
@@ -131,6 +196,7 @@ def generate(
             continue
 
         run_var: str | None = None
+        config_get_var: str | None = None
         block_start = len(body_lines)
         if op in _SKIP_OPS:
             pass
@@ -138,7 +204,15 @@ def generate(
             run_var = (annotation or {}).get("var_name") or f"result_{event.get('seq')}"
             body_lines.append(EMITTERS["run"](event, indent, var_name=run_var))
         elif op == "config_get":
-            config_get_var = (annotation or {}).get("var_name") or f"config_{event.get('seq')}"
+            # Bind a variable only when an assertion is going to read it.
+            # An unconditional `config_7 = juju.config('ubuntu')` is an
+            # unused local, which every linter the user runs will flag in a
+            # file they did not write.
+            config_get_var = (annotation or {}).get("var_name")
+            if config_get_var is None and any(
+                t.get("kind") == "config_value" for t in _collected_tags(event)
+            ):
+                config_get_var = f"config_{event.get('seq')}"
             body_lines.append(EMITTERS["config_get"](event, indent, var_name=config_get_var))
         elif op in EMITTERS:
             body_lines.append(EMITTERS[op](event, indent))
@@ -150,7 +224,7 @@ def generate(
             body_lines.append(fallback.emit(event, indent))
 
         for tag in _collected_tags(event):
-            rendered = assertions.emit(tag, indent, run_var=run_var)
+            rendered = assertions.emit(tag, indent, run_var=run_var, config_var=config_get_var)
             if rendered:
                 body_lines.append(rendered)
 
@@ -160,16 +234,7 @@ def generate(
             for i in range(block_start, len(body_lines)):
                 body_lines[i] = ctx.comment_out_failed(event, body_lines[i], indent)
 
-    if not _has_statement(body_lines):
-        body_lines.append(preamble.empty_body_filler())
-
-    first_snapshot = events[0].get("model_snapshot_before") if events else None
-    pre = preamble.Preamble(
-        test_name=test_name or _DEFAULT_TEST_NAME,
-        needs_pytest=needs_pytest,
-        pre_existing_apps=preamble.pre_existing_apps(first_snapshot),
-    )
-    return "\n".join([*pre.lines(), *body_lines]) + "\n"
+    return body_lines, needs_pytest
 
 
 def _collected_tags(event: dict[str, Any]) -> list[dict[str, Any]]:

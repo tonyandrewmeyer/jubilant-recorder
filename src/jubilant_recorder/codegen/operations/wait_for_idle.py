@@ -18,7 +18,11 @@ def emit(event: dict[str, Any], indent: int) -> str:
     apps = args.get("apps")
     parts: list[str] = []
     if apps:
-        parts.append(f"lambda s: jubilant.all_active(s, *{apps!r})")
+        # Spell the app names out rather than unpacking a list literal:
+        # `all_active(s, *['a', 'b'])` and `all_active(s, 'a', 'b')` do the
+        # same thing, and only one of them reads like code someone wrote.
+        rendered = ", ".join(repr(a) for a in apps)
+        parts.append(f"lambda s: jubilant.all_active(s, {rendered})")
     else:
         parts.append("jubilant.all_active")
     timeout = args.get("timeout")

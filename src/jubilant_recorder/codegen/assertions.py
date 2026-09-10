@@ -5,8 +5,19 @@ from __future__ import annotations
 from typing import Any
 
 
-def emit(tag: dict[str, Any], indent: int, *, run_var: str | None = None) -> str:
-    """Emit the source line for one assertion tag."""
+def emit(
+    tag: dict[str, Any],
+    indent: int,
+    *,
+    run_var: str | None = None,
+    config_var: str | None = None,
+) -> str:
+    """Emit the source line for one assertion tag.
+
+    ``run_var``/``config_var`` name the variable the preceding
+    ``juju.run()``/``juju.config()`` call was bound to, when it was bound to
+    one; the assertion then reads that value instead of fetching it again.
+    """
     kind = tag.get("kind", "")
     pad = " " * indent
     if kind == "unit_status":
@@ -16,7 +27,7 @@ def emit(tag: dict[str, Any], indent: int, *, run_var: str | None = None) -> str
     if kind == "action_result":
         return _emit_action_result(tag, pad, run_var=run_var)
     if kind == "config_value":
-        return _emit_config_value(tag, pad)
+        return _emit_config_value(tag, pad, config_var=config_var)
     if kind == "relation_exists":
         return _emit_relation(tag, pad, negated=False)
     if kind == "relation_absent":
@@ -76,11 +87,20 @@ def _emit_action_result(tag: dict[str, Any], pad: str, *, run_var: str | None) -
     return "\n".join(lines)
 
 
-def _emit_config_value(tag: dict[str, Any], pad: str) -> str:
+def _emit_config_value(tag: dict[str, Any], pad: str, *, config_var: str | None = None) -> str:
+    """Emit a config-value assertion.
+
+    jubilant's ``config(app, *, app_config=False)`` has no ``keys``
+    parameter — it always returns the whole mapping — so the emitted call
+    used to be a ``TypeError`` waiting in the generated test. Index the
+    mapping instead, reading the variable the preceding ``config_get``
+    bound when there is one rather than fetching the config twice.
+    """
     app = tag["app"]
     key = tag["key"]
     expected = tag["expected"]
-    return f"{pad}assert juju.config({app!r}, keys=[{key!r}])[{key!r}] == {expected!r}"
+    source = config_var or f"juju.config({app!r})"
+    return f"{pad}assert {source}[{key!r}] == {expected!r}"
 
 
 def _emit_relation(tag: dict[str, Any], pad: str, *, negated: bool) -> str:

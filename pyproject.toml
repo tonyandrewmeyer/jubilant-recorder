@@ -41,6 +41,13 @@ dev = [
     "pyright>=1.1",
 ]
 
+[project.entry-points.pytest11]
+# Registered so that `pytest --jtr-record=...` works in an existing suite
+# with no conftest edit — migrating a charm's tests should not require
+# touching the tests being migrated. The plugin installs nothing and hooks
+# nothing unless one of its options is passed.
+jubilant_recorder = "jubilant_recorder.pytest_plugin"
+
 [project.scripts]
 jubilant-recorder = "jubilant_recorder.cli:main"
 jtr = "jubilant_recorder.jtr_cli:main"

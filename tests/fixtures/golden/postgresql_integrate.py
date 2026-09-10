@@ -15,7 +15,7 @@ def test_postgresql_integrate():
             assert _u.workload_status.current == 'active'
         for _u in juju.status().apps['postgresql'].units.values():
             assert _u.workload_status.current == 'active'
-        juju.wait(lambda s: jubilant.all_active(s, *['postgresql']))
+        juju.wait(lambda s: jubilant.all_active(s, 'postgresql'))
         assert juju.status().apps['postgresql'].units['postgresql/0'].workload_status.current == 'active'
-        juju.wait(lambda s: jubilant.all_active(s, *['data-integrator']))
+        juju.wait(lambda s: jubilant.all_active(s, 'data-integrator'))
         assert juju.status().apps['data-integrator'].units['data-integrator/0'].workload_status.current == 'active'

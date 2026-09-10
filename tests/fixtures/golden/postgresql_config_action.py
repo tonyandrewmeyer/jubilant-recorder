@@ -21,9 +21,9 @@ def test_postgresql_config_action():
         result_7 = juju.run('data-integrator/0', 'get-credentials')
         assert result_7.success
         assert result_7.results['ok'] == 'True'
-        juju.wait(lambda s: jubilant.all_active(s, *['postgresql']))
+        juju.wait(lambda s: jubilant.all_active(s, 'postgresql'))
         assert juju.status().apps['postgresql'].units['postgresql/0'].workload_status.current == 'active'
-        juju.wait(lambda s: jubilant.all_active(s, *['data-integrator']))
+        juju.wait(lambda s: jubilant.all_active(s, 'data-integrator'))
         assert juju.status().apps['data-integrator'].units['data-integrator/0'].workload_status.current == 'active'
         # TODO: manual step — codegen can't represent failed session.error: assert_action_result() got an unexpected keyword argument 'unit'
         # attempted: session.error()

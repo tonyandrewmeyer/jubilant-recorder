@@ -85,7 +85,7 @@ def test_assert_status_gesture_emits_explicit_assert_not_delta() -> None:
     )
     src = codegen.generate(log)
     ast.parse(src)
-    assert "juju.wait(lambda s: jubilant.all_active(s, *['my-charm']))" in src
+    assert "juju.wait(lambda s: jubilant.all_active(s, 'my-charm'))" in src
     assert (
         "assert juju.status().apps['my-charm']"
         ".units['my-charm/0'].workload_status.current == 'active'"

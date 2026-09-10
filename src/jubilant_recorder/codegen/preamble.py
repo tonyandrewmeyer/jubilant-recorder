@@ -24,6 +24,9 @@ import dataclasses
 from typing import Any
 
 BODY_INDENT = 8
+# A test that takes the module-scoped `juju` fixture has one less level of
+# nesting than one that opens `temp_model()` itself.
+FIXTURE_BODY_INDENT = 4
 
 
 def pre_existing_apps(snapshot: dict[str, Any] | None) -> tuple[str, ...]:
@@ -73,17 +76,65 @@ class Preamble:
         return lines
 
     def _non_empty_model_comment(self) -> list[str]:
-        pad = " " * BODY_INDENT
-        present = ", ".join(self.pre_existing_apps)
-        return [
-            f"{pad}# NOTE: this session was recorded against a model that already had",
-            f"{pad}# applications deployed ({present}). jubilant.temp_model() above gives",
-            f"{pad}# this test a fresh, empty model instead, so that pre-existing state is",
-            f"{pad}# NOT recreated here — set it up by hand if the recorded operations",
-            f"{pad}# below assumed it was already present.",
-        ]
+        return _non_empty_model_lines(
+            self.pre_existing_apps, BODY_INDENT, "jubilant.temp_model() above"
+        )
 
 
-def empty_body_filler() -> str:
+def empty_body_filler(indent: int = BODY_INDENT) -> str:
     """Return the body used when a session recorded no operations."""
-    return " " * BODY_INDENT + "pass"
+    return " " * indent + "pass"
+
+
+def module_header(*, needs_pytest: bool = True) -> list[str]:
+    """Build the imports and module-scoped `juju` fixture for a multi-test module.
+
+    A pytest-operator suite shares one model across every test in a module:
+    its `ops_test` fixture is module-scoped, so `test_deploy` sets up what
+    `test_scale` then acts on. Generating each recorded test as its own
+    `jubilant.temp_model()` block would give each one an empty model and
+    every test after the first would fail on state it never created.
+
+    The jubilant idiom for the same thing is a module-scoped fixture, so
+    that is what a multi-test module gets. `needs_pytest` is always true in
+    practice — the fixture decorator needs it — and is a parameter only so
+    the single-test `Preamble` and this share one convention.
+    """
+    imports = ["import jubilant"]
+    if needs_pytest:
+        imports.append("import pytest")
+    return [
+        *imports,
+        "",
+        "",
+        '@pytest.fixture(scope="module")',
+        "def juju():",
+        "    with jubilant.temp_model() as juju:",
+        "        yield juju",
+    ]
+
+
+def test_header(test_name: str, pre_existing_apps: tuple[str, ...] = ()) -> list[str]:
+    """Build the `def <name>(juju):` line for one test in a multi-test module."""
+    # Two blank lines before a top-level def, as PEP 8 and every formatter
+    # the reader runs over this file will expect.
+    lines = ["", "", f"def {test_name}(juju: jubilant.Juju):"]
+    if pre_existing_apps:
+        lines.extend(
+            _non_empty_model_lines(pre_existing_apps, FIXTURE_BODY_INDENT, "the `juju` fixture")
+        )
+    return lines
+
+
+def _non_empty_model_lines(
+    pre_existing_apps: tuple[str, ...], indent: int, source: str
+) -> list[str]:
+    pad = " " * indent
+    present = ", ".join(pre_existing_apps)
+    return [
+        f"{pad}# NOTE: this session was recorded against a model that already had",
+        f"{pad}# applications deployed ({present}). {source} gives",
+        f"{pad}# this test a fresh, empty model instead, so that pre-existing state is",
+        f"{pad}# NOT recreated here — set it up by hand if the recorded operations",
+        f"{pad}# below assumed it was already present.",
+    ]

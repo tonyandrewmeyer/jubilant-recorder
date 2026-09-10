@@ -270,3 +270,28 @@ def test_tail_filters_select_lanes() -> None:
 
     # The end sentinel always gets through, or `jtr tail` never returns.
     assert _tail_wanted({"op": "session_end"}, jubilant_only=True, context_only=False)
+
+
+def test_notes_are_redacted(tmp_path, monkeypatch) -> None:
+    """A note is free text the operator typed, so it can carry a credential.
+
+    It was the one thing in shell capture that redaction never touched.
+    """
+    import argparse
+
+    from jubilant_recorder.jtr_cli import _state_file, cmd_note
+
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
+    log = tmp_path / "s.jsonl"
+    log.write_text("")
+    monkeypatch.setenv("JTR_SESSION", "sess")
+    monkeypatch.setenv("JTR_LOG", str(log))
+    state = _state_file("sess")
+    state.parent.mkdir(parents=True, exist_ok=True)
+    state.write_text(json.dumps({"overrides": {"redact": [r"cust-\d+"]}}))
+
+    cmd_note(argparse.Namespace(text="token=hunter2 for cust-4711"))
+
+    text = json.loads(log.read_text().strip())["args"]["text"]
+    assert "hunter2" not in text
+    assert "cust-4711" not in text

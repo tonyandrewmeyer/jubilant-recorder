@@ -95,6 +95,21 @@ def render_note(event: dict[str, Any], indent: int = 8) -> str:
     return f"{pad}# note: {text}"
 
 
+def render_cap_reached(event: dict[str, Any], indent: int = 8) -> str:
+    """Produce the marker for a session that hit the shell hook's event cap.
+
+    Rendering it through the fallback emitter printed an empty JSON payload
+    under a `# TODO: manual step` heading, which says neither what happened
+    nor what to do about it.
+    """
+    del event
+    pad = " " * indent
+    return (
+        f"{pad}# NOTE: the recording hit its event cap here — anything the operator did\n"
+        f"{pad}# after this point was not recorded, and is not in this test."
+    )
+
+
 def render_status_comment(event: dict[str, Any], indent: int = 8) -> str | None:
     """Produce `# juju status: ...` summary from status op's model_snapshot_after.
 
@@ -200,6 +215,9 @@ def interleave_context(events: list[dict[str, Any]], indent: int = 8) -> tuple[l
             }
         if op == "note":
             body_lines.append(render_note(event, indent))
+            continue
+        if op == "cap_reached":
+            body_lines.append(render_cap_reached(event, indent))
             continue
         if op == "tag":
             pending_tag = event.get("args", {}).get("label")

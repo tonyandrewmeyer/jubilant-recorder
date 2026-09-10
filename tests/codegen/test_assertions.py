@@ -86,10 +86,25 @@ def test_config_value() -> None:
         "strict": False,
         "source": "delta",
     }
+    # `Juju.config()` has no `keys` parameter — it returns the whole
+    # mapping — so an emitted `keys=[...]` was a TypeError in the generated
+    # test rather than an assertion.
     line = assertions.emit(tag, indent=8)
-    assert line == (
-        "        assert juju.config('my-charm', keys=['log-level'])['log-level'] == 'info'"
-    )
+    assert line == "        assert juju.config('my-charm')['log-level'] == 'info'"
+
+
+def test_config_value_reads_a_bound_variable_when_there_is_one() -> None:
+    """Saves fetching the config a second time to assert on it."""
+    tag = {
+        "kind": "config_value",
+        "app": "my-charm",
+        "key": "log-level",
+        "expected": "info",
+        "strict": False,
+        "source": "delta",
+    }
+    line = assertions.emit(tag, indent=8, config_var="config_3")
+    assert line == "        assert config_3['log-level'] == 'info'"
 
 
 def test_relation_exists() -> None:

@@ -40,16 +40,22 @@ def test_deploy_only(deploy_log: dict[str, Any]) -> None:
 
 
 def test_config_get_appears(config_get_log: dict[str, Any]) -> None:
+    """With no assertion reading it, the read is a call, not a binding.
+
+    Binding it unconditionally left an unused local in a file the user did
+    not write, which every linter they run then flags.
+    """
     src = generate(config_get_log)
     _parses(src)
-    assert "config_10 = juju.config('my-charm')" in src
+    assert "juju.config('my-charm')" in src
+    assert "config_10 = " not in src
     assert "# TODO: manual step" not in src
 
 
 def test_libjuju_orphan_deltas_dropped_silently(orphan_deltas_log: dict[str, Any]) -> None:
     src = generate(orphan_deltas_log)
     _parses(src)
-    assert "config_10 = juju.config('my-charm')" in src
+    assert "juju.config('my-charm')" in src
     assert "_libjuju_orphan_deltas" not in src
     assert "# TODO: manual step" not in src
 
@@ -158,6 +164,34 @@ def test_config_get_and_orphan_session_fixture_parses() -> None:
     src = generate(log)
     _parses(src)
     assert "juju.deploy(" in src
-    assert "config_2 = juju.config('my-charm')" in src
+    assert "juju.config('my-charm')" in src
     assert "_libjuju_orphan_deltas" not in src
     assert "# TODO: manual step" not in src
+
+
+def test_config_get_binds_a_variable_when_an_assertion_reads_it() -> None:
+    """The binding is emitted exactly when something needs the value."""
+    event = {
+        "seq": 3,
+        "op": "config_get",
+        "ts": "2026-09-10T10:00:00.000Z",
+        "args": {"app": "my-charm"},
+        "result": {"values": {"log-level": "debug"}},
+        "model_snapshot_before": None,
+        "model_snapshot_after": None,
+        "assertions": [
+            {
+                "kind": "config_value",
+                "app": "my-charm",
+                "key": "log-level",
+                "expected": "debug",
+                "strict": False,
+                "source": "delta",
+            }
+        ],
+        "gesture": None,
+    }
+    src = generate({"schema_version": 1, "session_id": "s", "events": [event]})
+    _parses(src)
+    assert "config_3 = juju.config('my-charm')" in src
+    assert "assert config_3['log-level'] == 'debug'" in src

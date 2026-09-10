@@ -16,7 +16,7 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
-from jubilant_recorder import __version__, codegen, shim_snapshots, tagger
+from jubilant_recorder import __version__, codegen, redaction, shim_snapshots, tagger
 from jubilant_recorder.shim import juju_shim
 
 _SHELL_INIT_BEGIN_MARKER = "# BEGIN jtr shell-init"
@@ -380,6 +380,27 @@ def cmd_tail(args: argparse.Namespace) -> int:
         return 0
 
 
+def _session_overrides(session_id: str, kind: str) -> list[str]:
+    """Read one of the per-session `jtr include`/`exclude`/`redact` lists."""
+    state_file = _state_file(session_id)
+    if not state_file.exists():
+        return []
+    try:
+        state = json.loads(state_file.read_text())
+    except Exception:
+        return []
+    return list((state.get("overrides") or {}).get(kind) or [])
+
+
+def _redact(session_id: str, text: str) -> str:
+    """Apply the shared rules plus this session's `jtr redact` patterns."""
+    text = redaction.redact_string(text)[0]
+    for pattern in _session_overrides(session_id, "redact"):
+        with contextlib.suppress(re.error):
+            text = re.sub(pattern, "<redacted>", text)
+    return text
+
+
 def cmd_note(args: argparse.Namespace) -> int:
     """Attach a free-text note to the session."""
     session_id = os.environ.get("JTR_SESSION")
@@ -387,7 +408,11 @@ def cmd_note(args: argparse.Namespace) -> int:
     if not session_id or not log_path:
         print("jtr: no active session.", file=sys.stderr)
         return 1
-    text = args.text
+    # Notes are free text the operator typed, so they are exactly as likely
+    # to carry a credential or a customer identifier as a command line is —
+    # and they were the one thing in shell capture that redaction never
+    # touched.
+    text = _redact(session_id, args.text)
     if len(text) > 500:
         text = text[:499] + "…"
     event = {
@@ -543,19 +568,8 @@ def _hook_event_impl(
                 return
 
         # Read per-session overrides
-        include_list: list[str] = []
-        exclude_list: list[str] = []
-        redact_list: list[str] = []
-        state_file = _state_file(session_id)
-        if state_file.exists():
-            try:
-                state = json.loads(state_file.read_text())
-                overrides = state.get("overrides") or {}
-                include_list = overrides.get("include") or []
-                exclude_list = overrides.get("exclude") or []
-                redact_list = overrides.get("redact") or []
-            except Exception:
-                pass
+        include_list = _session_overrides(session_id, "include")
+        exclude_list = _session_overrides(session_id, "exclude")
 
         # Apply include/exclude overrides. Both are regular expressions
         # matched against the whole command line — `jtr exclude 'kubectl
@@ -568,11 +582,7 @@ def _hook_event_impl(
         if not _matches_any(include_list, cmd) and basename not in _CONTEXT_ALLOWLIST:
             return
 
-        # Apply redaction
-        redacted_cmd = cmd
-        for pat_str in redact_list:
-            with contextlib.suppress(Exception):
-                redacted_cmd = re.sub(pat_str, "<redacted>", redacted_cmd)
+        redacted_cmd = _redact(session_id, cmd)
 
         if not Path(log_path).exists():
             return
