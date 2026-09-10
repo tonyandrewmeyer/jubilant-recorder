@@ -89,7 +89,12 @@ def generate(
                 body_lines.append(ctx.render_shell(event, indent))
                 continue
             op, translated_args = translated
-            event = {**event, "op": op, "args": translated_args}
+            event = {
+                **event,
+                "op": op,
+                "args": translated_args,
+                "_shim_argv": (event.get("args") or {}).get("argv") or [],
+            }
         if op == "note":
             body_lines.append(ctx.render_note(event, indent))
             continue
@@ -126,6 +131,7 @@ def generate(
             continue
 
         run_var: str | None = None
+        block_start = len(body_lines)
         if op in _SKIP_OPS:
             pass
         elif op == "run":
@@ -147,6 +153,12 @@ def generate(
             rendered = assertions.emit(tag, indent, run_var=run_var)
             if rendered:
                 body_lines.append(rendered)
+
+        # A recorded `juju` command that failed must not become a live call
+        # that claims it worked — see ctx.comment_out_failed.
+        if "_shim_argv" in event:
+            for i in range(block_start, len(body_lines)):
+                body_lines[i] = ctx.comment_out_failed(event, body_lines[i], indent)
 
     if not _has_statement(body_lines):
         body_lines.append(preamble.empty_body_filler())

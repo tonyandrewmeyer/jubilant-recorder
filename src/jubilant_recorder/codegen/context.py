@@ -36,6 +36,37 @@ def render_shell(event: dict[str, Any], indent: int = 8) -> str:
     return "\n".join(lines)
 
 
+def comment_out_failed(event: dict[str, Any], block: str, indent: int) -> str:
+    """Comment out a translated shim call whose recorded run failed.
+
+    A shell-capture session is a person exploring, so it routinely contains
+    commands that did not work — a typo, a charm name that does not exist,
+    a `juju status` run before the model was made. Emitting those as live
+    jubilant calls would produce a test that fails for reasons the recorded
+    session already knew about, and the reader would have to work out which
+    of the failures were meaningful.
+
+    So they are kept, commented out, with the exit code that was recorded.
+    Nothing is lost, the test runs, and the one thing the reader needs to
+    decide — "did I mean to do that?" — is the thing put in front of them.
+
+    This is deliberately gentler than the `pytest.skip` that
+    `codegen.unrepresentable` gives a failed *scripted* operation: there,
+    the recording script itself raised, so the session stopped meaning what
+    it says from that point on. Here the operator saw the error, shrugged,
+    and typed the next thing.
+    """
+    exit_code = (event.get("result") or {}).get("exit_code")
+    if not isinstance(exit_code, int) or exit_code == 0:
+        return block
+    argv = (event.get("_shim_argv") or []) or (event.get("args") or {}).get("argv") or []
+    pad = " " * indent
+    typed = " ".join(str(a) for a in argv)
+    header = f"{pad}# `juju {typed}` exited {exit_code} when recorded — left commented out:"
+    body = "\n".join(f"{pad}# {line.strip()}" for line in block.splitlines() if line.strip())
+    return f"{header}\n{body}" if body else header
+
+
 def _render_shell_like(event: dict[str, Any], indent: int, *, prefix: str) -> str:
     pad = " " * indent
     args = event.get("args") or {}
@@ -161,7 +192,12 @@ def interleave_context(events: list[dict[str, Any]], indent: int = 8) -> tuple[l
                 body_lines.append(render_shell(event, indent))
                 continue
             op, translated_args = translated
-            event = {**event, "op": op, "args": translated_args}
+            event = {
+                **event,
+                "op": op,
+                "args": translated_args,
+                "_shim_argv": (event.get("args") or {}).get("argv") or [],
+            }
         if op == "note":
             body_lines.append(render_note(event, indent))
             continue
@@ -191,6 +227,7 @@ def interleave_context(events: list[dict[str, Any]], indent: int = 8) -> tuple[l
             continue
 
         run_var: str | None = None
+        block_start = len(body_lines)
         if op in _SKIP_OPS:
             pass
         elif op == "run":
@@ -209,5 +246,10 @@ def interleave_context(events: list[dict[str, Any]], indent: int = 8) -> tuple[l
             rendered = assertions_mod.emit(tag, indent, run_var=run_var)
             if rendered:
                 body_lines.append(rendered)
+
+        # See emit.generate(); mirrored here for the same reason.
+        if "_shim_argv" in event:
+            for i in range(block_start, len(body_lines)):
+                body_lines[i] = comment_out_failed(event, body_lines[i], indent)
 
     return body_lines, needs_pytest

@@ -221,10 +221,25 @@ def test_remove_application_multi() -> None:
     assert _c("remove-application", "a", "b") == ("remove_application", {"app": ["a", "b"]})
 
 
-def test_remove_application_force_falls_through_to_cli() -> None:
-    args = _cli("remove-application", "my-charm", "--force")
-    # `juju remove-application` prompts unless told not to, and nothing is
-    # there to answer it in a test run.
+def test_remove_application_force_and_storage() -> None:
+    assert _c("remove-application", "my-charm", "--force", "--destroy-storage") == (
+        "remove_application",
+        {"app": "my-charm", "destroy_storage": True, "force": True},
+    )
+
+
+def test_remove_application_no_prompt_is_not_carried() -> None:
+    """`remove_application()` always passes `--no-prompt` itself."""
+    assert _c("remove-application", "my-charm", "--no-prompt") == (
+        "remove_application",
+        {"app": "my-charm"},
+    )
+
+
+def test_remove_application_dry_run_falls_through_to_cli() -> None:
+    """A dry run changed nothing, so replaying it as a real removal is wrong."""
+    args = _cli("remove-application", "my-charm", "--dry-run")
+    # It still needs `--no-prompt`: an unattended test cannot answer a prompt.
     assert args["add_no_prompt"] is True
 
 

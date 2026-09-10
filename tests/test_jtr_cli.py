@@ -210,3 +210,63 @@ def test_shell_init_zsh_does_not_register_into_arrays() -> None:
     result = _run_jtr("shell-init", "--shell", "zsh", "--no-path-shim")
     assert "preexec_functions" not in result.stdout
     assert "precmd_functions" not in result.stdout
+
+
+# --- include / exclude / tail filters ---
+
+
+def test_include_exclude_are_regexes_over_the_command_line(tmp_path, monkeypatch) -> None:
+    """`jtr include 'terraform .*'` is the documented shape.
+
+    Both lists were compared against the *basename* before, so every
+    documented example (all of which are patterns, not bare words) silently
+    did nothing.
+    """
+    from jubilant_recorder.jtr_cli import _hook_event_impl, _state_file
+
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
+    log = tmp_path / "s.jsonl"
+    log.write_text("")
+    state = _state_file("sess")
+    state.parent.mkdir(parents=True, exist_ok=True)
+    state.write_text(
+        json.dumps(
+            {
+                "overrides": {
+                    "include": [r"terraform .*"],
+                    "exclude": [r"kubectl logs .*"],
+                    "redact": [],
+                }
+            }
+        )
+    )
+
+    def record(cmd: str) -> None:
+        _hook_event_impl("sess", cmd, 0, 0, str(log))
+
+    record("terraform apply -auto-approve")  # included by pattern
+    record("kubectl logs pod/x")  # excluded by pattern
+    record("kubectl get pods")  # on the default allowlist
+    record("cargo build")  # not allowlisted, not included
+
+    recorded = [json.loads(line)["args"]["argv"][0] for line in log.read_text().splitlines()]
+    assert recorded == ["terraform apply -auto-approve", "kubectl get pods"]
+
+
+def test_tail_filters_select_lanes() -> None:
+    """Both flags were on the parser but never read."""
+    from jubilant_recorder.jtr_cli import _tail_wanted
+
+    juju_event = {"op": "shell"}
+    context_event = {"op": "shell_context"}
+    note = {"op": "note"}
+
+    assert _tail_wanted(juju_event, jubilant_only=True, context_only=False)
+    assert not _tail_wanted(context_event, jubilant_only=True, context_only=False)
+    assert not _tail_wanted(note, jubilant_only=True, context_only=False)
+
+    assert not _tail_wanted(juju_event, jubilant_only=False, context_only=True)
+    assert _tail_wanted(context_event, jubilant_only=False, context_only=True)
+
+    # The end sentinel always gets through, or `jtr tail` never returns.
+    assert _tail_wanted({"op": "session_end"}, jubilant_only=True, context_only=False)

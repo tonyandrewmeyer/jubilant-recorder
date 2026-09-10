@@ -16,7 +16,7 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
-from jubilant_recorder import __version__, codegen
+from jubilant_recorder import __version__, codegen, shim_snapshots, tagger
 from jubilant_recorder.shim import juju_shim
 
 _SHELL_INIT_BEGIN_MARKER = "# BEGIN jtr shell-init"
@@ -311,6 +311,27 @@ def cmd_status(args: argparse.Namespace) -> int:
     return 0
 
 
+# Ops the shell hook records for the *surrounding* commands (kubectl, lxc,
+# charmcraft), as opposed to the juju operations the test is made of.
+_CONTEXT_OPS = frozenset({"shell_context", "note", "tag", "config_override", "cap_reached"})
+
+
+def _tail_wanted(event: dict, *, jubilant_only: bool, context_only: bool) -> bool:
+    """Apply `jtr tail`'s `--jubilant-only`/`--context-only` filters.
+
+    Both flags existed on the parser but were never read, so `jtr tail
+    --jubilant-only` printed the context lines it promised to hide.
+    """
+    op = event.get("op", "")
+    if op == "session_end":
+        return True
+    if jubilant_only:
+        return op not in _CONTEXT_OPS
+    if context_only:
+        return op in _CONTEXT_OPS
+    return True
+
+
 def cmd_tail(args: argparse.Namespace) -> int:
     """Follow the active session's events."""
     session_id = os.environ.get("JTR_SESSION")
@@ -319,6 +340,13 @@ def cmd_tail(args: argparse.Namespace) -> int:
         print("jtr: no active session.")
         return 1
     as_json = getattr(args, "json", False)
+    jubilant_only = getattr(args, "jubilant_only", False)
+    context_only = getattr(args, "context_only", False)
+    if jubilant_only and context_only:
+        print(
+            "jtr tail: --jubilant-only and --context-only are mutually exclusive.", file=sys.stderr
+        )
+        return 1
     seen = 0
     try:
         while True:
@@ -332,6 +360,10 @@ def cmd_tail(args: argparse.Namespace) -> int:
                 try:
                     event = json.loads(line)
                 except Exception:
+                    continue
+                if not _tail_wanted(event, jubilant_only=jubilant_only, context_only=context_only):
+                    if event.get("op") == "session_end":
+                        return 0
                     continue
                 if as_json:
                     print(json.dumps(event))
@@ -466,6 +498,22 @@ def _cmd_override(args: argparse.Namespace, kind: str) -> int:
     return 0
 
 
+def _matches_any(patterns: list[str], cmd: str) -> bool:
+    """Whether any of *patterns* (regular expressions) matches *cmd*.
+
+    A pattern that does not compile is skipped rather than raised: it came
+    from a `jtr include`/`jtr exclude` typed mid-session, and a bad one
+    should cost the user that rule, not their whole recording.
+    """
+    for pattern in patterns:
+        try:
+            if re.search(pattern, cmd):
+                return True
+        except re.error:
+            continue
+    return False
+
+
 def _hook_event_impl(
     session_id: str,
     cmd: str,
@@ -509,10 +557,15 @@ def _hook_event_impl(
             except Exception:
                 pass
 
-        # Apply include/exclude overrides
-        if basename in include_list:
-            pass  # explicitly allowed
-        elif basename in exclude_list or basename not in _CONTEXT_ALLOWLIST:
+        # Apply include/exclude overrides. Both are regular expressions
+        # matched against the whole command line — `jtr exclude 'kubectl
+        # logs .*'` is the documented shape, and a bare word like
+        # `terraform` still works because it matches as a substring. They
+        # were compared against the basename before, so every documented
+        # example silently did nothing.
+        if _matches_any(exclude_list, cmd):
+            return
+        if not _matches_any(include_list, cmd) and basename not in _CONTEXT_ALLOWLIST:
             return
 
         # Apply redaction
@@ -587,7 +640,14 @@ def cmd_hook_event(args: argparse.Namespace) -> int:
 
 
 def cmd_generate(args: argparse.Namespace) -> int:
-    """Generate a jubilant test from the session."""
+    """Generate a jubilant test from the session.
+
+    Runs the same pipeline as ``jubilant-recorder generate``: snapshot
+    synthesis from the shim's captured ``juju status`` output, then the
+    assertion tagger, then codegen. Before this, ``jtr generate`` called
+    codegen alone, so a shell-recorded test came out with no assertions in
+    it at all — the one thing that distinguishes a test from a script.
+    """
     session_log = getattr(args, "session_log", None) or os.environ.get("JTR_LOG")
     if not session_log:
         print("jtr generate: no --session-log given and $JTR_LOG is not set.", file=sys.stderr)
@@ -606,8 +666,20 @@ def cmd_generate(args: argparse.Namespace) -> int:
         return 1
     session_id = (events[0].get("args") or {}).get("session_id") or "unknown"
     wrapped = {"schema_version": "1.0", "session_id": session_id, "events": events}
+    wrapped = shim_snapshots.attach_status_snapshots(wrapped)
+
+    use_ai = getattr(args, "ai", False)
+    proposer = polisher = None
+    if use_ai:
+        from jubilant_recorder.cli import _make_ai_components
+
+        proposer, polisher = _make_ai_components(True, model=getattr(args, "ai_model", None))
+    annotated = tagger.tag(wrapped, proposer=proposer)
+
     test_name = getattr(args, "name", None) or "test_recorded_session"
-    source = codegen.generate(wrapped, test_name=test_name)
+    source = codegen.generate(annotated, test_name=test_name)
+    if use_ai:
+        source = codegen.ai_polish.polish(source, annotated, polisher=polisher)
     out = getattr(args, "out", None)
     if out:
         Path(out).write_text(source)
@@ -761,6 +833,14 @@ def main() -> None:
         "--out", help="Write the generated test to this path instead of stdout."
     )
     p_generate.add_argument("--name", help="Test function name (default: test_recorded_session).")
+    p_generate.add_argument(
+        "--ai",
+        action="store_true",
+        help="Also run the LLM assertion and polish passes (needs OPENROUTER_API_KEY).",
+    )
+    p_generate.add_argument(
+        "--ai-model", dest="ai_model", help="OpenRouter model for the --ai passes."
+    )
 
     # shim / shim install
     p_shim = sub.add_parser("shim", help="Manage the jtr juju PATH shim.")

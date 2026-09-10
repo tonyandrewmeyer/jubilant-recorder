@@ -431,12 +431,30 @@ def _classify_refresh(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
 # ---------------------------------------------------------------------------
 
 
+_REMOVE_APP_BOOLEAN = frozenset(
+    {"--no-prompt", "-y", "--yes", "--destroy-storage", "--force", "--no-wait", "--dry-run"}
+)
+
+
 def _classify_remove_application(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
-    parsed = _parse(rest)
+    parsed = _parse(
+        rest,
+        aliases={"-y": "--no-prompt", "--yes": "--no-prompt"},
+        boolean=_REMOVE_APP_BOOLEAN,
+    )
     if parsed is None or not parsed.positionals:
         return None
+    if parsed.flags.get("--dry-run"):
+        return None  # a dry run changed nothing; it is not a step to replay
     apps = parsed.positionals
-    return "remove_application", {"app": apps[0] if len(apps) == 1 else apps}
+    args: dict[str, Any] = {"app": apps[0] if len(apps) == 1 else apps}
+    if parsed.flags.get("--destroy-storage"):
+        args["destroy_storage"] = True
+    if parsed.flags.get("--force"):
+        args["force"] = True
+    # `--no-prompt` is not carried: jubilant's `remove_application()` always
+    # passes it, since a library call has no terminal to prompt at.
+    return "remove_application", args
 
 
 # ---------------------------------------------------------------------------
