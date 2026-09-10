@@ -216,7 +216,7 @@ There is a third mode that records plain `juju` commands typed at a prompt. It h
 
 That is a correction to what this section used to say. It claimed anything driven non-interactively records zero events whether the hook works or not; measured again, the discriminator is the pty and not the person. `script -qec` fires the hooks whether bash-preexec is sourced from an rcfile or typed by hand, and only piping into `bash -i` records nothing.
 
-**Verified 2026-09-07**, both lanes, via `--auto`:
+**Verified 2026-09-10**, both lanes, via `--auto`:
 
 ```output
 4 events, 3 shell events
@@ -230,10 +230,11 @@ Both `juju` invocations through the shim with the right argv, and the `kubectl` 
 
 `--auto` does not retire the manual path. It cannot rule out a difference between this harness and a real login shell, and a person at a prompt remains the stronger evidence — it means the weaker evidence is available every time rather than once a week.
 
-Two limits on that result, both worth knowing before this mode goes on stage:
+One limit worth knowing before this mode goes on stage: **`jtr shim install` is a required step**, and is in the script's printed sequence. `jtr shell-init` puts `~/.local/share/jtr/shims` on PATH but does not create it. Skip it and `juju` resolves to the real binary: every command works perfectly and the log holds nothing but a `session_end`, which reads exactly like the bash-preexec registration bug and is not it.
 
-- **It verifies the shim lane, not the hook lane.** The shim is pure PATH resolution and does not need a prompt cycle, so this run says nothing about whether `preexec`/`precmd` fire — no context command was typed. If the demo shows `kubectl` or `charmcraft` being recorded alongside `juju`, add one to the sequence and re-run the check first.
-- **`jtr shim install` is a required step**, and is in the script's printed sequence. `jtr shell-init` puts `~/.local/share/jtr/shims` on PATH but does not create it. Skip it and `juju` resolves to the real binary: every command works perfectly and the log holds nothing but a `session_end`, which reads exactly like the bash-preexec registration bug and is not it.
+There used to be a second limit here, saying this run verified the shim lane and not the hook lane because no context command was typed. That stopped being true when `--auto` grew the `kubectl` line above, and the bullet outlived it.
+
+What the shim records has grown too. It runs the real binary as a child rather than `exec`-ing it, so it knows the exit code — a command that failed during recording is commented out of the generated test rather than emitted as a line claiming it worked. And every `juju status` is a sampling point: the shim captures `juju status --format=json` alongside it, which is what lets the tagger derive assertions from a session nobody scripted. Set `JTR_NO_SNAPSHOT=1` to turn that off and lose them.
 
 ## 6. Migrating a pytest-operator suite
 
