@@ -295,3 +295,121 @@ def test_notes_are_redacted(tmp_path, monkeypatch) -> None:
     text = json.loads(log.read_text().strip())["args"]["text"]
     assert "hunter2" not in text
     assert "cust-4711" not in text
+
+
+# --- pause / resume / attach / status, end to end through the real CLI ---
+
+
+def _jtr(*args: str, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, "-m", "jubilant_recorder.jtr_cli", *args],
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+
+def _clean_env(tmp_path) -> dict[str, str]:
+    env = {k: v for k, v in os.environ.items() if not k.startswith("JTR_")}
+    env["XDG_CACHE_HOME"] = str(tmp_path / "cache")
+    return env
+
+
+def _exports(stdout: str) -> dict[str, str]:
+    out = {}
+    for line in stdout.splitlines():
+        if line.startswith("export ") and "=" in line:
+            key, _, value = line[len("export ") :].partition("=")
+            out[key] = value
+    return out
+
+
+def test_pause_and_resume_toggle_the_shim_off_and_on(tmp_path) -> None:
+    """The documented way to step out of a recording without ending it.
+
+    Both subcommands print shell exports, and the shim reads `JTR_PAUSED`
+    from the environment — so the pair only works if what they print is
+    what the shim looks for.
+    """
+    env = _clean_env(tmp_path)
+    started = _exports(_jtr("start", "s", env=env).stdout)
+    env = {**env, **started}
+
+    assert _jtr("pause", env=env).stdout.strip() == "export JTR_PAUSED=1"
+    assert _jtr("resume", env=env).stdout.strip() == "export JTR_PAUSED="
+
+
+def test_pause_outside_a_session_is_a_no_op(tmp_path) -> None:
+    result = _jtr("pause", env=_clean_env(tmp_path))
+    assert result.returncode == 0
+    assert result.stdout == ""
+
+
+def test_attach_finds_a_shared_session(tmp_path) -> None:
+    """`jtr start --shared` in one terminal, `jtr attach` in another."""
+    env = _clean_env(tmp_path)
+    started = _exports(_jtr("start", "shared-one", "--shared", env=env).stdout)
+
+    # A second terminal: no JTR_* in its environment at all.
+    attached = _exports(_jtr("attach", env=env).stdout)
+    assert attached["JTR_SESSION"] == started["JTR_SESSION"]
+    assert attached["JTR_LOG"] == started["JTR_LOG"]
+
+
+def test_attach_without_a_shared_session_says_so(tmp_path) -> None:
+    result = _jtr("attach", env=_clean_env(tmp_path))
+    assert result.returncode == 1
+    assert "no shared session" in result.stderr
+
+
+def test_status_reports_the_session_and_its_event_count(tmp_path) -> None:
+    env = _clean_env(tmp_path)
+    started = _exports(_jtr("start", "counted", env=env).stdout)
+    env = {**env, **started}
+    _jtr("note", "first", env=env)
+    _jtr("note", "second", env=env)
+
+    payload = json.loads(_jtr("status", "--json", env=env).stdout)
+    assert payload["active"] is True
+    assert payload["session_name"] == "counted"
+    assert payload["event_count"] == 2
+    assert payload["paused"] is False
+
+
+def test_status_outside_a_session_reports_inactive(tmp_path) -> None:
+    payload = json.loads(_jtr("status", "--json", env=_clean_env(tmp_path)).stdout)
+    assert payload == {"active": False}
+
+
+def test_starting_a_second_session_is_refused(tmp_path) -> None:
+    """Two sessions in one shell would write into whichever log won."""
+    env = _clean_env(tmp_path)
+    env.update(_exports(_jtr("start", "first", env=env).stdout))
+    result = _jtr("start", "second", env=env)
+    assert result.returncode == 1
+    assert "already active" in result.stderr
+
+
+def test_stop_appends_the_end_sentinel(tmp_path) -> None:
+    env = _clean_env(tmp_path)
+    started = _exports(_jtr("start", "ending", env=env).stdout)
+    env = {**env, **started}
+    _jtr("note", "something", env=env)
+    _jtr("stop", env=env)
+
+    from pathlib import Path as _Path
+
+    ops = [
+        json.loads(line)["op"]
+        for line in _Path(started["JTR_LOG"]).read_text().splitlines()
+        if line.strip()
+    ]
+    assert ops == ["note", "session_end"]
+
+
+def test_tag_rejects_a_label_that_is_not_a_step_name(tmp_path) -> None:
+    env = _clean_env(tmp_path)
+    env.update(_exports(_jtr("start", "tagged", env=env).stdout))
+    result = _jtr("tag", "not; a label", env=env)
+    assert result.returncode == 1
+    assert "invalid tag label" in result.stderr
