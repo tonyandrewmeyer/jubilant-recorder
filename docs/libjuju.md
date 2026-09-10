@@ -60,6 +60,26 @@ Only each test's **call** phase is recorded. Setup and teardown are where
 pytest-operator makes and destroys the model, which is the fixture's job in
 the generated file rather than a step in every test.
 
+### Cross-model relations
+
+The whole `ApplicationOffers` surface translates —
+`create_offer`, `list_offers`, `get_consume_details`, `consume`,
+`remove_saas`, `remove_offer` — and so does the argv equivalent (`juju
+offer`, including the dotted `model.app` form, which is the only way to
+offer from a model you are not switched to).
+
+What no recording can fix is that a cross-model relation needs two models
+and a generated test opens one. The offer URLs it emits name the model the
+session recorded against, so the steps work while that model still exists
+and publishes the offer, and fail with "offer not found" otherwise. The
+generated test says so, once, at the top:
+
+```python
+    # NOTE: the cross-model steps below reference offers in model cmr-offer,
+    # which this test does not create — jubilant.temp_model() gives it one
+    # model of its own.
+```
+
 ### Kubernetes and machine models
 
 Juju's CLI forks on the cloud type, and the recorder follows it:

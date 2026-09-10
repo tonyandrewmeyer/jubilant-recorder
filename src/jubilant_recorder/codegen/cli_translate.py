@@ -1746,6 +1746,16 @@ _OFFER_URL_RE = re.compile(r"^(?:[\w.-]+:)?(?:[\w.-]+/)?(?P<model>[\w-]+)\.(?P<o
 # Subcommands whose positionals carry an offer URL or a dotted model.app.
 _CROSS_MODEL_SUBCOMMANDS = frozenset({"offer", "consume", "show-offer", "remove-offer"})
 
+# Typed ops whose args carry an offer URL. The libjuju front-end produces
+# these directly, without ever going through an argv, so a session recorded
+# that way needs reading here as well or it gets no warning at all.
+_CROSS_MODEL_OP_FIELDS: dict[str, tuple[str, ...]] = {
+    "consume": ("offer_url",),
+    "get_consume_details": ("offer_urls",),
+    "remove_offer": ("offer_urls",),
+    "create_offer": ("app",),
+}
+
 
 def cross_model_models(events: list[dict[str, Any]]) -> tuple[str, ...]:
     """Models a session referenced through an offer URL, other than its own.
@@ -1765,7 +1775,16 @@ def cross_model_models(events: list[dict[str, Any]]) -> tuple[str, ...]:
     found: set[str] = set()
     for event in events:
         args = event.get("args") or {}
-        if event.get("op") != "shell" or args.get("source") not in ("shim", "jubilant"):
+        op = str(event.get("op") or "")
+        for field in _CROSS_MODEL_OP_FIELDS.get(op, ()):
+            value = args.get(field)
+            for candidate in [value] if isinstance(value, str) else list(value or []):
+                # `create_offer`'s app may be a dotted `model.app`; the URL
+                # fields are already the whole reference.
+                match = _OFFER_URL_RE.match(str(candidate).partition(":")[0])
+                if match and match.group("model") != own:
+                    found.add(match.group("model"))
+        if op != "shell" or args.get("source") not in ("shim", "jubilant"):
             continue
         argv = [str(a) for a in (args.get("argv") or [])]
         if not argv or _ALIASES.get(argv[0], argv[0]) not in _CROSS_MODEL_SUBCOMMANDS:

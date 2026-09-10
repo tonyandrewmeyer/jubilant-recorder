@@ -141,3 +141,50 @@ def test_the_session_own_model_is_not_treated_as_foreign() -> None:
         _shim(2, ["offer", "mine.postgresql:database", "o"]),
     ]
     assert cli_translate.cross_model_models(events) == ()
+
+
+# --- the libjuju front-end reaches these ops without an argv ---
+
+
+def _typed(seq: int, op: str, args: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "seq": seq,
+        "op": op,
+        "ts": "2026-09-10T10:00:00.000Z",
+        "args": args,
+        "result": {},
+        "model_snapshot_before": None,
+        "model_snapshot_after": None,
+        "assertions": [],
+        "gesture": None,
+    }
+
+
+def test_a_libjuju_recorded_session_is_warned_about_too() -> None:
+    """It produces typed ops directly, never an argv to scan."""
+    src = generate(
+        _wrap(
+            [
+                _typed(1, "consume", {"offer_url": OFFER_URL, "application_alias": "ljpg"}),
+                _typed(
+                    2, "integrate", {"app1_endpoint": "data-integrator", "app2_endpoint": "ljpg"}
+                ),
+                _typed(3, "remove_offer", {"offer_urls": [OFFER_URL], "force": True}),
+            ]
+        )
+    )
+    assert "# NOTE: the cross-model steps below reference offers in model cmr-offer" in src
+    assert f"juju.consume('{OFFER_URL}', 'ljpg')" in src
+
+
+def test_an_offer_with_no_model_name_warns_about_nothing() -> None:
+    """libjuju's `create_offer` carries a model UUID, which is not a name.
+
+    The correlator drops it rather than fabricating a dotted form, so there
+    is no second model to warn about — the offer replays from the test's own.
+    """
+    src = generate(
+        _wrap([_typed(1, "create_offer", {"app": "postgresql", "endpoints": ["database"]})])
+    )
+    assert "# NOTE: the cross-model" not in src
+    assert "juju.offer('postgresql', endpoint='database')" in src

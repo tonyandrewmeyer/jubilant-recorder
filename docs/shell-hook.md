@@ -187,6 +187,20 @@ def test_k8s_session():
             assert _u.workload_status.current == "active"
 ```
 
+## Cross-model relations
+
+`juju offer`, `consume`, `offers`, `show-offer`, `remove-saas`,
+`remove-offer` and `suspend`/`resume-relation` all translate. `juju offer`
+takes no `--model`, so the model goes in the app name
+(`juju offer othermodel.postgresql:database`) — that dotted form is
+translated too, because it is the only way to offer from a model you are
+not switched to.
+
+A generated test opens one `temp_model()`, though, and a cross-model
+relation needs two. The offer URLs name the model you recorded against,
+which the test does not create, so it says so once at the top rather than
+letting you find out by running it.
+
 ## Sharing a session between terminals
 
 ```bash
