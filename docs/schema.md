@@ -477,13 +477,13 @@ element is an assertion that (B) decided should appear in the generated test.
 
 | Kind | When emitted | Kind-specific fields | Codegen output |
 |---|---|---|---|
-| `unit_status` | Unit `workload_status` differs between before/after snapshots, or user called `recorder.assert_status()` | `app` (string), `unit` (string \| null — null means all units), `expected` (string) | `assert juju.status().apps["<app>"].units["<unit>"].workload_status == "<expected>"` |
+| `unit_status` | Unit `workload_status` differs between before/after snapshots, or user called `assert_status()` | `app` (string), `unit` (string \| null — null means all units), `expected` (string), `scope` (`"all"` \| `"any"`, when `unit` is null) | With a unit: `assert juju.status().apps["<app>"].units["<unit>"].workload_status.current == "<expected>"`. Without one: a `for _u in …units.values(): assert …` loop for `scope: "all"`, or `assert any(…)` for `scope: "any"`. A recorded unit *name* is an artefact of the recording, not a fact about the replay, so the delta rule never emits one. |
 | `unit_count` | Unit count in an app changed (deploy, scale, remove_application) | `app` (string), `expected` (integer) | `assert len(juju.status().apps["<app>"].units) == <expected>` |
 | `action_result` | Op is `run` and result has non-empty `results` dict | `unit` (string), `action` (string), `expected_success` (bool), `expected_results` (object — only keys layer (B) considers stable) | `result = juju.run(…); assert result.success == True; assert result.results["key"] == "val"` |
-| `config_value` | Op is `config_get` and keys differ from a prior `config_get` for the same app, or user called `recorder.assert_config()` | `app` (string), `key` (string), `expected` (string \| int \| bool \| float) | `assert juju.config("<app>")["<key>"] == <expected>` |
+| `config_value` | Op is `config_get` and keys differ from a prior `config_get` for the same app, or user called `assert_config()` | `app` (string), `key` (string), `expected` (string \| int \| bool \| float) | `assert juju.config("<app>")["<key>"] == <expected>` |
 | `relation_exists` | A relation appears in `model_snapshot_after.relations` but not in `model_snapshot_before.relations` | `endpoint_a` (string), `endpoint_b` (string) | `assert any(…)` over `juju.status()` relation list |
 | `relation_absent` | A relation appears in `model_snapshot_before.relations` but not in `model_snapshot_after.relations` (op is `remove_integration`) | `endpoint_a` (string), `endpoint_b` (string) | `assert not any(…)` over `juju.status()` relation list |
-| `user_checkpoint` | User called `recorder.checkpoint("label")` | `label` (string) | `# checkpoint: <label>` comment in generated test |
+| `user_checkpoint` | User called `checkpoint("label")` | `label` (string) | `# checkpoint: <label>` comment in generated test |
 
 ### Kind-specific field reference
 
@@ -494,6 +494,7 @@ element is an assertion that (B) decided should appear in the generated test.
 | `app` | string | Application name. |
 | `unit` | string \| null | Unit name. Null means "all units in the app". |
 | `expected` | string | Workload status enum value. |
+| `scope` | string | `"all"` when every unit of the app held the status, `"any"` when only some did. Read only when `unit` is null. |
 
 **`unit_count`**
 
@@ -559,16 +560,22 @@ corresponding `assertions` entry with `source: "gesture"`.
 
 | Kind | User call | `params` fields | Notes |
 |---|---|---|---|
-| `checkpoint` | `recorder.checkpoint("label")` | (none) | Marks a logical step boundary. Emits a `user_checkpoint` assertion tag. |
-| `assert_status` | `recorder.assert_status("my-charm", "active")` | `app` (string), `unit` (string \| null), `status` (string) | Emits a `unit_status` assertion tag. `unit` is null when asserting all units in the app. |
-| `assert_action_result` | `recorder.assert_action_result(result, success=True, **kv)` | `success` (bool \| null), `expected_results` (object) | Emits an `action_result` tag. Applied to the innermost enclosing `run` event. |
+| `checkpoint` | `checkpoint("label")` | (none) | Marks a logical step boundary. Emits a `user_checkpoint` assertion tag. |
+| `assert_status` | `assert_status("my-charm", "active")` | `app` (string), `unit` (string \| null), `status` (string) | Emits a `unit_status` assertion tag. `unit` is null when asserting all units in the app. |
+| `assert_action_result` | `assert_action_result("latest", key="ok", value="True")` | `unit` (string), `action` (string), `success` (bool), `expected_results` (object) | Emits an `action_result` tag. Attached to the most recent `run` event in the log. |
 | `assert_config` | `assert_config("my-charm", key="log-level", value="info")` | `app` (string), `key` (string), `value` | Emits a `config_value` assertion tag. |
 
-Gestures are **not** jubilant operations — they do not invoke the juju CLI. The
-event that carries a gesture has `op: "checkpoint"` or sits alongside a real
-op. In all cases `model_snapshot_before` and `model_snapshot_after` are both
-the same snapshot taken at the moment the gesture was called (no model change
-occurred).
+Gestures are **not** jubilant operations — they do not invoke the juju CLI.
+The event that carries one is either synthesised for the gesture
+(`checkpoint`; `wait_for_idle` for `assert_status`; `config_get` for
+`assert_config`) or an existing event the gesture attaches to
+(`assert_action_result` finds the last `run`). On a synthesised event
+`model_snapshot_before` and `model_snapshot_after` are the same snapshot,
+taken at the moment the gesture was called: no model change occurred.
+
+Every gesture requires an active `RecordingJuju.start(...)` context and
+raises `RuntimeError` outside one — a gesture with nowhere to go is a
+mistake worth surfacing, not a no-op.
 
 ---
 
@@ -1014,7 +1021,7 @@ reason the format looks like this.
    `pytest.skip` or `# TODO: failed op` comment for these. `result.error`
    carries the message as a string.
 
-4. **Gesture injection point.** Gesture calls (`recorder.assert_status()` etc.)
+4. **Gesture injection point.** Gesture calls (`assert_status()` etc.)
    happen between jubilant operations, not inside them. The recorder should emit
    a synthetic event with a gesture-appropriate `op` (e.g. `op: "checkpoint"`)
    rather than attaching the gesture to the adjacent jubilant call. This keeps
