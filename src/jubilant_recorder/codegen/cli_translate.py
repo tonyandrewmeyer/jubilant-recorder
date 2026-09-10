@@ -322,17 +322,15 @@ def _classify_deploy(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
 # config / config_get / config_unset
 # ---------------------------------------------------------------------------
 
-_CONFIG_ALIASES = {"-m": "--model"}
-_CONFIG_VALUED = frozenset({"--file", "--reset", "--model"})
-_CONFIG_EXCEPTED = frozenset({"--file", "--model"})
+_CONFIG_VALUED = frozenset({"--file", "--reset"})
 
 
 def _classify_config(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
-    parsed = _parse(rest, aliases=_CONFIG_ALIASES, valued=_CONFIG_VALUED)
+    parsed = _parse(rest, valued=_CONFIG_VALUED)
     if parsed is None or not parsed.positionals:
         return None
-    if _CONFIG_EXCEPTED & parsed.flags.keys():
-        return None  # --file / --model — file content, or cross-model
+    if parsed.flags.get("--file"):
+        return None  # the values are in a file, not in argv
 
     app = parsed.positionals[0]
     rest_pos = parsed.positionals[1:]
@@ -1602,7 +1600,8 @@ def _strip_model_flag(argv: list[str]) -> tuple[list[str], str | None]:
             dropped = argv[i + 1]
             i += 2
             continue
-        if tok.startswith("--model="):
+        if tok.startswith(("--model=", "-m=")):
+            # juju's flag parser accepts the `=` form for both spellings.
             dropped = tok.partition("=")[2]
             i += 1
             continue

@@ -153,6 +153,19 @@ def test_config_at_directive_falls_through_to_cli() -> None:
     _cli("config", "my-charm", "log-level=@path")
 
 
+def test_config_model_flag_with_an_equals_is_also_stripped() -> None:
+    """juju's flag parser takes `-m=x` and `--model=x` as well as `-m x`."""
+    for flag in ("-m=othermodel", "--model=othermodel"):
+        assert _c("config", flag, "my-charm", "log-level=debug") == (
+            "config",
+            {
+                "app": "my-charm",
+                "values": {"log-level": "debug"},
+                "recorded_model": "othermodel",
+            },
+        )
+
+
 def test_config_model_flag_is_stripped_and_recorded() -> None:
     """A `-m` scope is dropped, not passed through.
 
