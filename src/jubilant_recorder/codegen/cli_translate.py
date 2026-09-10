@@ -599,11 +599,20 @@ def _classify_remove_secret(rest: list[str]) -> tuple[str, dict[str, Any]] | Non
 
 
 def _classify_grant_secret(rest: list[str]) -> tuple[str, dict[str, Any]] | None:
+    """``juju grant-secret ID app[,app...]`` -> ``juju.grant_secret(...)``.
+
+    The CLI takes its applications comma-joined in one argument;
+    ``Juju.grant_secret()`` takes ``str | Iterable[str]``. Split so a grant
+    to several applications reads as the list it is.
+    """
     parsed = _parse(rest)
     if parsed is None or len(parsed.positionals) != 2:
         return None
-    identifier, app = parsed.positionals
-    return "secret_grant", {"identifier": identifier, "app": app}
+    identifier, app_arg = parsed.positionals
+    apps = [a for a in app_arg.split(",") if a]
+    if not apps:
+        return None
+    return "secret_grant", {"identifier": identifier, "app": apps[0] if len(apps) == 1 else apps}
 
 
 _SECRETS_ALIASES = {"-o": "--format"}

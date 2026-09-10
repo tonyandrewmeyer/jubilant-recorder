@@ -243,3 +243,31 @@ def test_without_the_initial_snapshot_only_the_new_unit_is_seen() -> None:
     deltas = [_unit_delta("ubuntu/1", "ubuntu", "active", ts=0.2)]
     events = correlate(rpcs, deltas)
     assert list(events[0]["model_snapshot_after"]["apps"]["ubuntu"]["units"]) == ["ubuntu/1"]
+
+
+# --- multi-application secret grants ---
+
+
+def test_grant_secret_keeps_every_application() -> None:
+    """`applications[0]` silently discarded the rest of a multi-app grant.
+
+    Both targets can express the whole list — `Juju.grant_secret()` takes
+    `str | Iterable[str]`, and `juju revoke-secret` takes a comma-joined
+    list — so the narrowing lost information neither of them needed to.
+    """
+    args = _extract_args(
+        "Secrets", "GrantSecret", {"uri": "secret:abc", "applications": ["a", "b"]}
+    )
+    assert args == {"identifier": "secret:abc", "app": ["a", "b"]}
+
+
+def test_grant_secret_to_one_application_stays_a_string() -> None:
+    args = _extract_args("Secrets", "GrantSecret", {"uri": "secret:abc", "applications": ["a"]})
+    assert args == {"identifier": "secret:abc", "app": "a"}
+
+
+def test_revoke_secret_renders_the_comma_joined_list_the_cli_takes() -> None:
+    from jubilant_recorder.codegen.operations import secret_revoke
+
+    line = secret_revoke.emit({"args": {"identifier": "secret:abc", "app": ["a", "b"]}}, 8)
+    assert line.strip() == "juju.cli(\"revoke-secret\", 'secret:abc', 'a,b')"

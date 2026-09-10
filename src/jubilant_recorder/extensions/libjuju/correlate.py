@@ -607,20 +607,19 @@ def _extract_args(facade: str, method: str, params: dict[str, Any]) -> dict[str,
             "revision": revisions[0] if revisions else None,
         }
 
-    if key == ("Secrets", "GrantSecret"):
-        apps = params.get("applications") or []
+    if key in (("Secrets", "GrantSecret"), ("Secrets", "RevokeSecret")):
+        # ``GrantRevokeSecretArg`` — one wire shape for both.
+        #
+        # Every application is kept, not just the first. The extractor used
+        # to take ``applications[0]``, which silently discarded the rest of
+        # a multi-application grant; both targets can express the whole
+        # list (``Juju.grant_secret()`` takes ``str | Iterable[str]``, and
+        # ``juju revoke-secret`` takes a comma-joined list), so narrowing
+        # here lost information neither of them needed to lose.
+        apps = [str(a) for a in (params.get("applications") or [])]
         return {
             "identifier": params.get("uri") or "",
-            "app": apps[0] if apps else "",
-        }
-
-    if key == ("Secrets", "RevokeSecret"):
-        # ``GrantRevokeSecretArg`` — same wire shape as ``GrantSecret``
-        # (see SECRETS-GAPS.md).
-        apps = params.get("applications") or []
-        return {
-            "identifier": params.get("uri") or "",
-            "app": apps[0] if apps else "",
+            "app": apps[0] if len(apps) == 1 else apps,
         }
 
     if key == ("Secrets", "ListSecrets"):

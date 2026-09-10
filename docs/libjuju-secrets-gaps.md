@@ -34,10 +34,14 @@ was verified against `juju 3.6.27` rather than assumed — the `SetCharm`
 lesson (its naive mapping `juju set-charm` is not a real subcommand in
 modern Juju; the target is `juju refresh --switch`).
 
-**Known limitation, inherited from `secret_grant`:** the extractor takes the
-first entry of the RPC's `applications` list, so a multi-application revoke
-records only its first target. The CLI accepts a comma-joined list, so this
-is a correlator-side narrowing, not a CLI one.
+**Closed 2026-09-10: the multi-application narrowing.** The extractor used
+to take the first entry of the RPC's `applications` list, so a
+multi-application grant or revoke recorded only its first target. Both
+targets could always express the whole list — `Juju.grant_secret()` takes
+`str | Iterable[str]`, and `juju revoke-secret` takes a comma-joined
+list — so the narrowing lost information neither of them needed to lose.
+The extractor keeps every application now, and the same split is applied
+to `juju grant-secret ID app1,app2` on the argv surface.
 
 **Remaining future simplification (not a blocker).** If jubilant later grows
 a typed `revoke_secret()`, swap the `juju.cli(...)` call in

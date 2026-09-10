@@ -17,11 +17,12 @@ def emit(event: dict[str, Any], indent: int) -> str:
     ``juju.grant_secret()`` directly only because that method happens to exist.
 
     ``juju revoke-secret <ID>|<name> <application>[,<application>...]``
-    (verified against juju 3.6.27).  The recorded ``app`` is the first
-    application in the RPC's list, matching ``secret_grant``'s own extractor —
-    a multi-application revoke records only its first target.
+    (verified against juju 3.6.27).  A multi-application revoke is rendered
+    as the comma-joined list the CLI accepts; the correlator no longer
+    narrows it to the first target.
     """
     args = event["args"]
     identifier = args.get("identifier") or ""
     app = args.get("app") or ""
-    return " " * indent + f'juju.cli("revoke-secret", {identifier!r}, {app!r})'
+    apps = ",".join(app) if isinstance(app, list) else app
+    return " " * indent + f'juju.cli("revoke-secret", {identifier!r}, {apps!r})'

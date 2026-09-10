@@ -357,3 +357,16 @@ def test_wait_for_drops_a_recorded_model_before_adding_its_own() -> None:
     src = _src("wait-for", "unit", "ubuntu/0", "-m", "prod-cluster", "--query", "x")
     assert "prod-cluster" not in src
     assert "'--model', juju.model" in src
+
+
+def test_grant_secret_to_several_applications() -> None:
+    """The CLI joins them with commas; `Juju.grant_secret()` takes an iterable."""
+    assert _c("grant-secret", "mine", "a,b") == (
+        "secret_grant",
+        {"identifier": "mine", "app": ["a", "b"]},
+    )
+    assert "juju.grant_secret('mine', ['a', 'b'])" in _src("grant-secret", "mine", "a,b")
+
+
+def test_grant_secret_to_one_application_stays_a_string() -> None:
+    assert "juju.grant_secret('mine', 'a')" in _src("grant-secret", "mine", "a")
