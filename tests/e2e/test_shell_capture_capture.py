@@ -145,3 +145,36 @@ def test_the_model_flag_does_not_reach_the_generated_test(
     source = out.read_text()
     assert model not in source
     assert "juju.status()" in source
+
+
+def test_the_generated_test_replays_green(model: str, shim_env: dict[str, str], tmp_path: Path):
+    """The generated test is the product. Run it, and require it to pass.
+
+    Everything else here checks the log holds the right thing. This is the
+    only check that the jubilant calls the log turns into are ones jubilant
+    will actually accept — a plausible-looking kwarg that does not exist
+    reads fine and raises TypeError.
+    """
+    assert _juju(shim_env, "status", "-m", model).returncode == 0
+    assert _juju(shim_env, "deploy", "ubuntu", "-m", model).returncode == 0
+    assert _juju(shim_env, "wait-for", "application", "ubuntu", "--timeout", "20m").returncode == 0
+    assert _juju(shim_env, "status", "-m", model).returncode == 0
+    assert _juju(shim_env, "config", "ubuntu", "-m", model).returncode == 0
+    assert _juju(shim_env, "exec", "--unit", "ubuntu/0", "-m", model, "--", "true").returncode == 0
+
+    generated = tmp_path / "test_replay_from_shell.py"
+    _jtr("generate", "--session-log", shim_env["JTR_LOG"], "--out", str(generated), env=shim_env)
+
+    # The generated test opens its own `temp_model()`, so it needs nothing
+    # from the fixture model beyond a working controller.
+    proc = subprocess.run(
+        [sys.executable, "-m", "pytest", str(generated), "-v", "--no-header"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        encoding="utf-8",
+        timeout=2400,
+    )
+    assert proc.returncode == 0, (
+        f"the generated test did not pass:\n{proc.stdout}\n{proc.stderr}\n"
+        f"--- generated source ---\n{generated.read_text()}"
+    )

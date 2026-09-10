@@ -13,7 +13,9 @@ rather than assumed, since neither is a dependency of this package.
 from __future__ import annotations
 
 import ast
+import importlib.util
 import json
+import os
 import subprocess
 import sys
 from typing import TYPE_CHECKING
@@ -27,8 +29,17 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.e2e
 
-pytest.importorskip("juju", reason="needs the libjuju extra")
-pytest.importorskip("pytest_operator", reason="needs pytest-operator")
+# Skipping here would report a green run that tested nothing, the same way a
+# missing controller would — so `JTR_E2E_REQUIRE` (set in CI) makes a missing
+# dependency a failure rather than a skip. See `tests/e2e/conftest.py`.
+for _module, _hint in (
+    ("juju", "needs the libjuju extra"),
+    ("pytest_operator", "needs pytest-operator"),
+):
+    if importlib.util.find_spec(_module) is None:
+        if os.environ.get("JTR_E2E_REQUIRE"):
+            pytest.fail(f"JTR_E2E_REQUIRE is set but {_module} is not importable: {_hint}")
+        pytest.skip(_hint, allow_module_level=True)
 
 _SUITE = f'''
 import pytest
@@ -111,9 +122,54 @@ def test_records_a_real_pytest_operator_suite(tmp_path: Path, juju_controller: s
 
 
 def _env() -> dict[str, str]:
-    import os
-
     env = dict(os.environ)
     env.pop("JTR_SESSION", None)
     env.pop("JTR_LOG", None)
     return env
+
+
+def test_the_migrated_module_replays_green(tmp_path: Path, juju_controller: str):
+    """Record a suite, then run what came out of it.
+
+    The claim the migration path makes is "a decent starting point", and a
+    starting point that does not run is not one. This does not check the
+    module covers what the original covered — it cannot, the assertions the
+    original made never reached the wire — only that everything it does
+    contain works.
+    """
+    suite_dir = tmp_path / "suite"
+    (suite_dir / "tests" / "integration").mkdir(parents=True)
+    (suite_dir / "tests" / "integration" / "test_charm.py").write_text(_SUITE)
+    (suite_dir / "pytest.ini").write_text(_CONFIG)
+    out = tmp_path / "test_migrated.py"
+
+    record = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "tests/integration/test_charm.py",
+            "-q",
+            "-p",
+            "no:cacheprovider",
+            f"--jtr-out={out}",
+        ],
+        cwd=suite_dir,
+        capture_output=True,
+        encoding="utf-8",
+        timeout=2400,
+        env={**_env(), "PYTHONPATH": str(REPO_ROOT / "src")},
+    )
+    assert record.returncode == 0, f"{record.stdout}\n{record.stderr}"
+
+    replay = subprocess.run(
+        [sys.executable, "-m", "pytest", str(out), "-v", "--no-header"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        encoding="utf-8",
+        timeout=2400,
+    )
+    assert replay.returncode == 0, (
+        f"the migrated module did not pass:\n{replay.stdout}\n{replay.stderr}\n"
+        f"--- generated source ---\n{out.read_text()}"
+    )

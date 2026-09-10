@@ -32,8 +32,12 @@ jobs:
             path: tests/e2e/test_run_mode.py
           - name: shell capture
             path: tests/e2e/test_shell_capture_mode.py
+          - name: shell capture (what is captured)
+            path: tests/e2e/test_shell_capture_capture.py
           - name: libjuju
             path: tests/e2e/test_libjuju_mode.py
+          - name: pytest-operator migration
+            path: tests/e2e/test_pytest_plugin_mode.py
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -60,7 +64,10 @@ jobs:
       - name: End-to-end tests
         env:
           JTR_E2E_REQUIRE: "1"
-        run: uv run --extra dev --extra libjuju pytest "${{ matrix.path }}" --e2e -v
+        run: |
+          uv run --extra dev --extra libjuju \
+            --with pytest-operator --with pytest-asyncio \
+            pytest "${{ matrix.path }}" --e2e -v
 
       - name: Juju status on failure
         if: failure()
