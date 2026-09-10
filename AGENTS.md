@@ -16,7 +16,10 @@ the resulting session log.
     unless one of its options is passed.
 - `tests/` — pytest suite. No real Juju required; tests use fixtures.
   `tests/e2e/` is the exception: those need a controller and are deselected
-  unless you pass `--e2e`. They are what proves a generated test *runs*.
+  unless you pass `--e2e`. They are what proves a generated test *runs*, and
+  they run against both a machine cloud and Kubernetes — juju's CLI forks on
+  the cloud type, so one of them alone leaves half the translations
+  unexercised. The suite picks its charm from the controller's cloud.
 - `examples/` — sample recording scripts, plus a libjuju driver and a
   pytest-operator suite for the two non-scripted modes.
 - `docs/` — schema reference, demo, and per-mode guides.

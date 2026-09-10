@@ -60,6 +60,19 @@ Only each test's **call** phase is recorded. Setup and teardown are where
 pytest-operator makes and destroys the model, which is the fixture's job in
 the generated file rather than a step in every test.
 
+### Kubernetes and machine models
+
+Juju's CLI forks on the cloud type, and the recorder follows it:
+`scale-application` where a machine model would use `add-unit`,
+`remove-unit --num-units` because Kubernetes units are not individually
+named, `--container` on `ssh`/`scp` to reach a workload container, and
+`trust --scope cluster`. All of them translate; the `juju status --format
+json` a Kubernetes model prints (no machines, units carrying
+`provider-id`/`address`) snapshots the same way a machine one does.
+
+`tests/e2e/` runs against both, and picks its charm from the controller's
+cloud — `ubuntu` on a machine model, `snappass-test` on Kubernetes.
+
 ### What you get, and what you have to add
 
 A starting point, not a finished suite. The recorder sees what each test

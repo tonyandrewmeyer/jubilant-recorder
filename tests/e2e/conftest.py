@@ -17,6 +17,7 @@ import os
 import shutil
 import subprocess
 import uuid
+import warnings
 from pathlib import Path
 from typing import NoReturn
 
@@ -127,6 +128,13 @@ def model(juju_controller: str):
 
     Named per-test so a failed run leaves something identifiable behind, and
     destroyed with --force so a stuck unit cannot wedge the whole suite.
+
+    Teardown is best-effort and never fails the test. `--no-wait` means
+    "do not wait for each step", not "return immediately": juju still polls
+    until the model is gone, and on Kubernetes an empty model has been seen
+    take longer than ten minutes to finish (namespace finalisers, not
+    anything the test did). Turning that into an ERROR on a test that
+    passed reports a controller's mood as a product failure.
     """
     name = f"jtr-e2e-{uuid.uuid4().hex[:8]}"
     # -c explicitly: there may be no current controller (see juju_controller).
@@ -134,18 +142,29 @@ def model(juju_controller: str):
     try:
         yield name
     finally:
-        subprocess.run(
-            [
-                "juju",
-                "destroy-model",
-                "--no-prompt",
-                "--force",
-                "--no-wait",
-                f"{juju_controller}:{name}",
-            ],
+        _destroy_model_best_effort(f"{juju_controller}:{name}")
+
+
+def _destroy_model_best_effort(qualified_name: str) -> None:
+    """Ask juju to destroy a model, and carry on regardless of the answer."""
+    try:
+        proc = subprocess.run(
+            ["juju", "destroy-model", "--no-prompt", "--force", "--no-wait", qualified_name],
             capture_output=True,
             encoding="utf-8",
-            timeout=600,
+            timeout=180,
+        )
+    except subprocess.TimeoutExpired:
+        warnings.warn(
+            f"{qualified_name} did not finish destroying in 180s; it is still going "
+            f"in the background and the next run's `juju models` will show it",
+            stacklevel=2,
+        )
+        return
+    if proc.returncode != 0:
+        warnings.warn(
+            f"could not destroy {qualified_name}: {proc.stderr.strip()}",
+            stacklevel=2,
         )
 
 

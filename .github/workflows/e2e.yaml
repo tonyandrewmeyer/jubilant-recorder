@@ -19,25 +19,32 @@ concurrency:
 
 jobs:
   e2e:
-    name: ${{ matrix.name }}
+    name: ${{ matrix.cloud }} — ${{ matrix.suite }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     strategy:
       fail-fast: false
+      # A genuine cross product of both keys, rather than `include:` entries
+      # merged onto a base key — GitHub applies an `include` object to every
+      # combination it does not conflict with, which for several objects all
+      # setting the same key is not the cross product it looks like.
+      #
+      # Both clouds, because juju forks on the cloud type in ways the
+      # recorder has to follow: `scale-application` versus `add-unit`,
+      # `remove-unit`'s `--num-units`, the `--container` flags, `trust
+      # --scope cluster`, and the shape of `juju status --format json`. A
+      # machine-only run leaves every one of those unexercised. The suite
+      # picks its charm from the controller's cloud — see the `test_charm`
+      # fixture in tests/e2e/conftest.py.
       matrix:
-        include:
-          - name: scripted
-            path: tests/e2e/test_scripted_mode.py
-          - name: run subcommand
-            path: tests/e2e/test_run_mode.py
-          - name: shell capture
-            path: tests/e2e/test_shell_capture_mode.py
-          - name: shell capture (what is captured)
-            path: tests/e2e/test_shell_capture_capture.py
-          - name: libjuju
-            path: tests/e2e/test_libjuju_mode.py
-          - name: pytest-operator migration
-            path: tests/e2e/test_pytest_plugin_mode.py
+        cloud: [machine, microk8s]
+        suite:
+          - test_scripted_mode
+          - test_run_mode
+          - test_shell_capture_mode
+          - test_shell_capture_capture
+          - test_libjuju_mode
+          - test_pytest_plugin_mode
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -50,7 +57,7 @@ jobs:
       - name: Provision Juju
         run: |
           sudo snap install --classic concierge
-          sudo concierge prepare -p machine
+          sudo concierge prepare -p ${{ matrix.cloud }}
 
       # The e2e fixtures skip when they cannot find a controller, which would
       # otherwise let a broken provisioning step report a green, empty run.
@@ -67,7 +74,7 @@ jobs:
         run: |
           uv run --extra dev --extra libjuju \
             --with pytest-operator --with pytest-asyncio \
-            pytest "${{ matrix.path }}" --e2e -v
+            pytest "tests/e2e/${{ matrix.suite }}.py" --e2e -v
 
       - name: Juju status on failure
         if: failure()
