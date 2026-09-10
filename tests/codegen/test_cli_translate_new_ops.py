@@ -370,3 +370,15 @@ def test_grant_secret_to_several_applications() -> None:
 
 def test_grant_secret_to_one_application_stays_a_string() -> None:
     assert "juju.grant_secret('mine', 'a')" in _src("grant-secret", "mine", "a")
+
+
+def test_show_model_naming_the_session_model_drops_the_argument() -> None:
+    """That model does not exist in the generated test; the current one does."""
+    src = generate(_wrap([_shim(1, ["add-model", "demo"]), _shim(2, ["show-model", "demo"])]))
+    assert "juju.show_model()" in src
+    assert "juju.show_model('demo')" not in src
+
+
+def test_show_model_naming_another_model_keeps_it() -> None:
+    src = generate(_wrap([_shim(1, ["add-model", "demo"]), _shim(2, ["show-model", "other"])]))
+    assert "juju.show_model('other')" in src

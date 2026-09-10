@@ -1696,6 +1696,11 @@ def classify(
     is_own = session_model is not None and op_args.get("model") == session_model
     if op in _MODEL_LIFECYCLE_OPS and is_own:
         op_args["is_session_model"] = True
+    elif op == "show_model" and is_own:
+        # `juju show-model demo` names the model by hand. In the generated
+        # test that model does not exist; the equivalent question is "show
+        # me the model I am in", which is `show_model()` with no argument.
+        op_args.pop("model", None)
     return op, op_args
 
 
