@@ -12,7 +12,7 @@ juju version && uv run jubilant-recorder --help 2>&1 | head -12
 ```
 
 ```output
-4.0.14-genericlinux-amd64
+3.6.28-genericlinux-amd64
 usage: jubilant-recorder [-h] [--version] {start,stop,run,generate} ...
 
 Record a jubilant session and generate a pytest integration test.
@@ -64,11 +64,11 @@ time uv run python examples/demo_record.py && echo '--- session log ---' && pyth
 
 ```output
 
-real	1m17.362s
-user	0m5.066s
-sys	0m2.573s
+real	0m57.644s
+user	0m4.910s
+sys	0m2.018s
 --- session log ---
-8 events, 4.0.14-genericlinux-amd64
+8 events, 3.6.28-genericlinux-amd64
 ```
 
 ## 2. The generated test
@@ -90,13 +90,13 @@ def test_recorded_session():
         juju.wait(jubilant.all_active, timeout=900)
         for _u in juju.status().apps['ubuntu'].units.values():
             assert _u.workload_status.current == 'active'
-        juju.wait(lambda s: jubilant.all_active(s, *['ubuntu']))
+        juju.wait(lambda s: jubilant.all_active(s, 'ubuntu'))
         for _u in juju.status().apps['ubuntu'].units.values():
             assert _u.workload_status.current == 'active'
         # checkpoint: deployed
         juju.config('ubuntu', values={'hostname': 'demo-host'})
         juju.wait(jubilant.all_active, timeout=300)
-        juju.wait(lambda s: jubilant.all_active(s, *['ubuntu']))
+        juju.wait(lambda s: jubilant.all_active(s, 'ubuntu'))
         for _u in juju.status().apps['ubuntu'].units.values():
             assert _u.workload_status.current == 'active'
         # checkpoint: reconfigured
@@ -125,11 +125,21 @@ OPENROUTER_API_KEY=$(cat ~/.jtr.key) uv run jubilant-recorder generate session.j
 ```
 
 ```output
-16a17,20
+4c4,5
+< def test_recorded_session():
+---
+> def test_ubuntu_deploy_config_reaches_active_status():
+>     """Deploys ubuntu, waits for active status, then verifies config changes keep it active."""
+16a18,21
 >         assert any(
 >             _u.workload_status.current == 'active'
 >             for _u in juju.status().apps['ubuntu'].units.values()
 >         )
+20c25
+<         # checkpoint: reconfigured
+---
+>         # checkpoint: reconfigured
+\ No newline at end of file
 (diff exit 1: 0 means --ai changed nothing at all)
 ```
 
@@ -192,7 +202,10 @@ def test_recorded_session():
         juju.deploy('ch:amd64/noble/ubuntu', app='ubuntu')
         assert len(juju.status().apps['ubuntu'].units) == 1
         juju.wait(jubilant.all_active)
-        config_3 = juju.config('ubuntu')
+        juju.config('ubuntu')
+        for _u in juju.status().apps['ubuntu'].units.values():
+            assert _u.workload_status.current == 'active'
+        assert len(juju.status().apps['ubuntu'].units) == 1
 ```
 
 ## 5. The shell hook
@@ -221,6 +234,111 @@ Two limits on that result, both worth knowing before this mode goes on stage:
 
 - **It verifies the shim lane, not the hook lane.** The shim is pure PATH resolution and does not need a prompt cycle, so this run says nothing about whether `preexec`/`precmd` fire — no context command was typed. If the demo shows `kubectl` or `charmcraft` being recorded alongside `juju`, add one to the sequence and re-run the check first.
 - **`jtr shim install` is a required step**, and is in the script's printed sequence. `jtr shell-init` puts `~/.local/share/jtr/shims` on PATH but does not create it. Skip it and `juju` resolves to the real binary: every command works perfectly and the log holds nothing but a `session_end`, which reads exactly like the bash-preexec registration bug and is not it.
+
+## 6. Migrating a pytest-operator suite
+
+This is what libjuju mode is for. A charm has an integration suite written against python-libjuju, and translating it to jubilant by hand is a day of careful work. Run the suite you already have, with one extra flag.
+
+```bash
+cat examples/pytest_operator/tests/integration/test_charm.py | sed -n '22,40p'
+```
+
+```output
+PEER = "ubuntu-peer"
+
+
+@pytest.mark.abort_on_fail
+async def test_deploy(ops_test: OpsTest):
+    """Deploy the applications under test."""
+    await asyncio.gather(
+        ops_test.model.deploy(APP, application_name=APP, num_units=1, base="ubuntu@24.04"),
+        ops_test.model.deploy(APP, application_name=PEER, num_units=1, base="ubuntu@24.04"),
+    )
+    await ops_test.model.wait_for_idle(apps=[APP, PEER], status="active", timeout=900)
+    assert ops_test.model.applications[APP].status == "active"
+
+
+async def test_read_config(ops_test: OpsTest):
+    """Read an application's configuration."""
+    config = await ops_test.model.applications[APP].get_config()
+    logger.info("%s config keys: %s", APP, sorted(config))
+    assert isinstance(config, dict)
+```
+
+Nothing about the suite changes - no conftest edit, no import. The plugin ships with jubilant-recorder and registers itself with pytest, hooking nothing unless one of its options is passed.
+
+```bash
+cd examples/pytest_operator && time uv run --with pytest-operator --with pytest-asyncio --with-editable ../.. pytest tests/integration -q --jtr-out=/tmp/test_migrated.py 2>&1 | tail -4
+```
+
+```output
+.....                                                                    [100%]
+jubilant-recorder: wrote /tmp/test_migrated.py
+
+5 passed in 192.12s (0:03:12)
+
+real	3m15.033s
+user	0m3.795s
+sys	0m5.617s
+```
+
+Each test in the suite becomes a test in the output, in the order they ran, sharing a module-scoped juju fixture. That is not decoration: pytest-operator's own ops_test fixture is module-scoped too, so its tests run in order against one model and each builds on what the last left behind. A temp_model() per test would hand every test after the first an empty model.
+
+```bash
+cat /tmp/test_migrated.py
+```
+
+```output
+import jubilant
+import pytest
+
+
+@pytest.fixture(scope="module")
+def juju():
+    with jubilant.temp_model() as juju:
+        yield juju
+
+
+def test_deploy(juju: jubilant.Juju):
+    juju.deploy('ch:amd64/noble/ubuntu', app='ubuntu')
+    assert len(juju.status().apps['ubuntu'].units) == 1
+    juju.deploy('ch:amd64/noble/ubuntu', app='ubuntu-peer')
+    assert len(juju.status().apps['ubuntu-peer'].units) == 1
+    juju.wait(jubilant.all_active)
+    for _u in juju.status().apps['ubuntu'].units.values():
+        assert _u.workload_status.current == 'active'
+    for _u in juju.status().apps['ubuntu-peer'].units.values():
+        assert _u.workload_status.current == 'active'
+
+
+def test_read_config(juju: jubilant.Juju):
+    juju.config('ubuntu')
+
+
+def test_scale_up(juju: jubilant.Juju):
+    juju.add_unit('ubuntu', num_units=1)
+    # TODO: manual step — codegen can't represent mixed unit statuses for ubuntu: ubuntu/0=active, ubuntu/1=waiting
+    juju.wait(jubilant.all_active)
+    for _u in juju.status().apps['ubuntu'].units.values():
+        assert _u.workload_status.current == 'active'
+
+
+def test_scale_down(juju: jubilant.Juju):
+    juju.remove_unit('ubuntu/1')
+    assert len(juju.status().apps['ubuntu'].units) == 1
+    for _u in juju.status().apps['ubuntu'].units.values():
+        assert _u.workload_status.current == 'active'
+    for _u in juju.status().apps['ubuntu-peer'].units.values():
+        assert _u.workload_status.current == 'active'
+    assert len(juju.status().apps['ubuntu'].units) == 1
+    assert len(juju.status().apps['ubuntu-peer'].units) == 1
+
+
+def test_remove_peer(juju: jubilant.Juju):
+    juju.remove_application('ubuntu-peer')
+```
+
+A starting point, not a finished suite. The recorder sees what each test *did* to the model; it cannot see what the test meant, and a test's own assertions live in Python that never reaches the wire - `assert ops_test.model.applications[x].status == "active"` is a comparison on a locally cached object, not an RPC. What survives automatically is the sequence of operations plus whatever the delta tagger can derive from the model actually changing. Read the file and expect to add the checks back; it is still a much shorter job than starting from the original.
 
 ## Rehearsing
 

@@ -56,7 +56,8 @@ def test_recorded_session():
         # checkpoint: deployed
 ```
 
-The [full walkthrough](docs/demo.md) shows all three recording modes end to end.
+The [full walkthrough](docs/demo.md) shows all three recording modes end to
+end, including migrating a `pytest-operator` suite.
 
 ## Install
 
