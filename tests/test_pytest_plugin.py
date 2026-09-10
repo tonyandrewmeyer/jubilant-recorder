@@ -99,3 +99,33 @@ def test_a_failing_test_is_still_recorded(pytester: pytest.Pytester) -> None:
     result.assert_outcomes(failed=1)
     log = json.loads((sessions / "test_deploy.json").read_text())
     assert log["events"] or log.get("schema_version")
+
+
+def test_a_recorder_failure_does_not_fail_the_test(pytester: pytest.Pytester) -> None:
+    """The worst thing a migration tool can do is turn a passing suite red.
+
+    A wire shape the correlator had not seen once did exactly that in a live
+    run, so a recording failure is now reported as a warning and the test
+    keeps its own result.
+    """
+    pytester.makeconftest(
+        """
+        import pytest
+        from jubilant_recorder.extensions.libjuju import recording
+
+        @pytest.fixture(autouse=True)
+        def break_the_recorder(monkeypatch):
+            def boom(self, log, exc):
+                raise AttributeError("'str' object has no attribute 'get'")
+            monkeypatch.setattr(recording.RecordingLibjuju, "_flush_to_log", boom)
+        """
+    )
+    pytester.makepyfile(
+        test_charm="""
+        def test_deploy():
+            assert True
+        """
+    )
+    result = pytester.runpytest(f"--jtr-record={pytester.path / 'sessions'}")
+    result.assert_outcomes(passed=1)
+    result.stdout.fnmatch_lines(["*recording failed and was discarded*"])

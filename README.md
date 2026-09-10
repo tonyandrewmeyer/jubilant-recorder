@@ -77,10 +77,41 @@ uv add 'jubilant-recorder[libjuju]'
 |---|---|---|
 | **Scripted** — wrap `jubilant.Juju` in `RecordingJuju` | you are writing the deployment in Python anyway | below |
 | **Shell capture** — `jtr`, a PATH shim plus a shell hook | you are working at a real prompt, typing `juju` commands | [docs/shell-hook.md](docs/shell-hook.md) |
-| **libjuju** — a tap on `Connection.rpc` | you have an existing libjuju suite to migrate | [docs/libjuju.md](docs/libjuju.md) |
+| **libjuju** — a pytest plugin tapping `Connection.rpc` | you have an existing pytest-operator suite to migrate | [docs/libjuju.md](docs/libjuju.md) |
 
 All three produce the same session-log format, so the tagger and codegen are
 shared. The schema is documented in [docs/schema.md](docs/schema.md).
+
+### Migrating a pytest-operator suite
+
+Run the suite you already have, with one extra flag, and read the jubilant
+test it writes:
+
+```bash
+pytest tests/integration --jtr-out=tests/integration/test_migrated.py
+```
+
+No conftest edit, no import: the plugin ships with `jubilant-recorder` and
+does nothing unless you pass one of its options. Each test in the suite
+becomes a test in the output, sharing a module-scoped `juju` fixture — the
+same shape `ops_test` already gives them. See
+[docs/libjuju.md](docs/libjuju.md#migrating-a-charms-integration-suite).
+
+### Recording at a prompt
+
+```bash
+jtr shim install
+jtr start my-session --output session.jsonl
+juju deploy postgresql --channel 14/stable
+juju status
+jtr stop
+jtr generate --session-log session.jsonl --out test_my_session.py
+```
+
+Every `juju` command becomes a jubilant call — the typed method where
+jubilant has one, `juju.cli(...)` where it does not. Each `juju status` you
+run is a sampling point the tagger derives assertions from. See
+[docs/shell-hook.md](docs/shell-hook.md).
 
 ## Gesture API
 
@@ -131,6 +162,11 @@ The `jubilant-recorder` command provides four subcommands:
 `jubilant-recorder run` exports `JUBILANT_RECORDER_SESSION_LOG` into the
 child process environment so user scripts can locate the active log.
 
+`jtr` is the shell-capture CLI; `jtr generate` takes the same `--ai` and
+`--ai-model` flags and runs the same tagger and codegen pipeline.
+[docs/shell-hook.md](docs/shell-hook.md) covers the rest of its
+subcommands.
+
 ## Session logs and secrets
 
 A session log records the arguments and results of every operation, which
@@ -140,7 +176,9 @@ relation data, and in shell-capture mode the command lines you typed.
 The recorder redacts as it writes: values under keys like `password`,
 `token`, `secret` and `credential`, bearer tokens, and credentials embedded
 in URLs of any scheme are replaced with a `<redacted:…>` marker. In
-shell-capture mode you can add your own patterns with `jtr redact PATTERN`.
+shell-capture mode that covers the `juju` command lines the PATH shim
+records, any output it captures, and `jtr note` text; add your own patterns
+with `jtr redact PATTERN`.
 
 Redaction is a safety net, not a guarantee. **Read a session log before you
 commit it or attach it to a bug report.**

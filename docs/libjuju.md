@@ -4,6 +4,75 @@ Records a libjuju-driven test session and emits session-log events in the same
 docs/schema.md format that `RecordingJuju` produces — so the existing tagger
 and codegen pipeline is reused unchanged.
 
+## Migrating a charm's integration suite
+
+This is what the mode is for. You have a `pytest-operator` suite written
+against python-libjuju, you want the same coverage in jubilant, and
+translating it by hand is a day's careful work.
+
+Run the suite as you always do, with one extra flag:
+
+```bash
+pytest tests/integration --jtr-out=tests/integration/test_migrated.py
+```
+
+Nothing about the suite changes — no conftest edit, no import. The plugin
+ships with `jubilant-recorder` and registers itself with pytest; it hooks
+nothing unless one of its options is passed.
+
+| Flag | Effect |
+|---|---|
+| `--jtr-out=PATH` | write the generated jubilant test module to PATH |
+| `--jtr-record=DIR` | keep the per-test session logs in DIR (implied by `--jtr-out`, which puts them next to the output) |
+| `--jtr-ai` | also run the LLM assertion and polish passes (needs `OPENROUTER_API_KEY`) |
+
+Each test function is recorded as its own session and becomes its own
+generated test, in the order pytest ran them:
+
+```python
+import jubilant
+import pytest
+
+
+@pytest.fixture(scope="module")
+def juju():
+    with jubilant.temp_model() as juju:
+        yield juju
+
+
+def test_deploy(juju: jubilant.Juju):
+    juju.deploy('postgresql', channel='14/stable')
+    juju.wait(lambda s: jubilant.all_active(s, 'postgresql'))
+
+
+def test_relate(juju: jubilant.Juju):
+    juju.deploy('data-integrator')
+    juju.integrate('postgresql', 'data-integrator')
+```
+
+The module-scoped fixture is not decoration. A pytest-operator suite's
+`ops_test` fixture is module-scoped too: its tests run in order against one
+model, each building on what the last left behind. Generating a
+`temp_model()` per test would hand every test after the first an empty
+model.
+
+Only each test's **call** phase is recorded. Setup and teardown are where
+pytest-operator makes and destroys the model, which is the fixture's job in
+the generated file rather than a step in every test.
+
+### What you get, and what you have to add
+
+A starting point, not a finished suite. The recorder sees what each test
+*did* to the model; it cannot see what the test meant, and a test's real
+assertions live in Python that never reaches the wire — `assert
+ops_test.model.applications[x].status == "active"` is a comparison on a
+locally cached object, not an RPC.
+
+What survives automatically is the sequence of operations, and whatever
+assertions the delta tagger can derive from the model actually changing.
+Read the generated file and expect to add the checks back. That is still a
+much shorter job than starting from the original.
+
 ## Architecture
 
 ```
@@ -64,9 +133,14 @@ Three buckets (see correlate.py for the full map):
 
 | Bucket | Condition | Event shape |
 |---|---|---|
-| 1 — clean | `Application.Deploy`, `AddRelation`, `DestroyRelation`, `SetConfigs`, `Get/GetConfig`, `AddUnits`, `ScaleApplications`, `DestroyApplication`; `Action.Enqueue/EnqueueOperation`; `Client.Status` | Full docs/schema.md event with op name from taxonomy |
-| 2 — lossy | `Application.SetCharm`, `Expose`, `Unexpose`, `SetConstraints`, `MergeBindings`, etc. | `op: "shell"` with `note: "libjuju <Facade>.<Method>"` (the existing codegen `# TODO` fallback) |
+| 1 — clean | `Application.Deploy`, `AddRelation`, `DestroyRelation`, `SetConfigs`, `Get/GetConfig`, `AddUnits`, `ScaleApplications`, `DestroyApplication`, `SetCharm`, `Expose`, `Unexpose`, `SetConstraints`, `MergeBindings`, …; `Action.Enqueue/EnqueueOperation`; `Client.Status`; the `Secrets.*` and `ApplicationOffers.*` families | Full docs/schema.md event with op name from taxonomy |
+| 2 — lossy | **Empty by design.** "jubilant has no client method" is not a reason to give up on an operation — `juju.cli()` answers it — so everything that used to sit here was promoted to bucket 1 and emits a real call. The branch stays live for a facade that is genuinely lossy. |
 | 3 — no mapping | Everything else | `op: "_todo"` with `note: "# TODO: manual step — libjuju <Facade>.<Method>"` and raw params attached |
+
+## Recording something other than a pytest suite
+
+`RecordingLibjuju` is the context manager the plugin uses; drive it directly
+for a one-off script.
 
 ## Usage (when a juju controller is available)
 

@@ -151,11 +151,33 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None, None, None]:
     name = _safe_test_name(item)
     log_path = directory / f"{name}.json"
     recorded = _recorded(item.config)
+    recorder = RecordingLibjuju(output_log_path=log_path, model="")
     try:
-        with RecordingLibjuju.start(log_path, model=""):
-            yield
+        recorder.__enter__()
+    except Exception as exc:  # pragma: no cover - defensive
+        _warn(item, f"could not start recording: {exc!r}")
+        yield
+        return
+    try:
+        yield
     finally:
-        recorded.append((name, log_path))
+        # A bug in the recorder must not fail the test it is recording.
+        # This is not hypothetical: a wire shape the correlator had not seen
+        # (`Application.DestroyApplication` sending bare application names)
+        # turned a passing test red, which is the worst thing a migration
+        # tool can do to the suite it is migrating. Report and carry on; the
+        # session log for that one test is lost, the run is not.
+        try:
+            recorder.__exit__(None, None, None)
+        except Exception as exc:
+            _warn(item, f"recording failed and was discarded: {exc!r}")
+        else:
+            recorded.append((name, log_path))
+
+
+def _warn(item: pytest.Item, message: str) -> None:
+    """Surface a recording problem without failing the test."""
+    item.warn(pytest.PytestWarning(f"jubilant-recorder: {message}"))
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:

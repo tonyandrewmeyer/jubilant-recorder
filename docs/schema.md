@@ -91,7 +91,22 @@ The `op` field is a closed set corresponding to jubilant's public API surface
 | `status` | `Juju.status()` | — | `snapshot` |
 | `wait_for_idle` | `Juju.wait_for_idle()` | `apps`, `timeout` | `settled_at` |
 | `remove_application` | `Juju.remove_application()` | `app` | — |
-| `shell` | (non-jubilant) | `command`, `cwd` | `returncode`, `stdout`, `stderr`, `captured` |
+| `shell` | see [`shell`](#shell) below | `argv`, `basename`, `source` | `exit_code`, `captured`, `stdout`, `status_json` |
+| `shell_context` | (none — rendered as a comment) | `argv`, `basename`, `source` | `exit_code`, `stdout` |
+| `note` | (none — rendered as a comment) | `text` | — |
+| `tag` | (none — rendered as a `# step:` comment) | `label` | — |
+
+Two more ops are written by `jtr` for its own bookkeeping and are not steps
+to translate: `config_override` (an `include`/`exclude`/`redact` the operator
+registered mid-session) and `cap_reached` (the shell hook stopped recording).
+Codegen skips the first and renders the second as a warning comment.
+
+The ops above are the ones a *recorder* writes. Codegen introduces further
+ops of its own when it translates a `shell` event's argv into a jubilant
+call — `status_call`, `add_model`, `ssh`, `refresh`, `cli_passthrough` and
+the rest of the set in `codegen/operations/__init__.py`. Those never appear
+in a session log; they exist only between `cli_translate.classify()` and the
+emitter it dispatches to.
 
 ### `deploy`
 
@@ -280,53 +295,63 @@ for the generated test.
 
 ### `shell`
 
-Records non-jubilant shell commands the user ran during the session. Captured
-only when `jubilant-recorder` is started with `--include-shell`; otherwise the
-event is recorded as a stub with `captured: false`.
+Records a `juju` command the PATH shim intercepted during a shell-capture
+session (see [shell-hook.md](shell-hook.md)). The shim records what was
+typed, what it exited with, and — for read-only subcommands — what it
+printed.
 
 ```json
 {
   "args": {
-    "command": ["juju", "ssh", "my-charm/0", "cat /var/log/syslog"],
-    "cwd": "/home/user/my-project"
-  },
-  "result": {
-    "captured": true,
-    "returncode": 0,
-    "stdout": "May 30 09:03:12 ...",
-    "stderr": ""
-  }
-}
-```
-
-Stub shape (default, no `--include-shell`):
-
-```json
-{
-  "args": {
-    "command": ["juju", "ssh", "my-charm/0", "cat /var/log/syslog"],
-    "cwd": null
+    "argv": ["deploy", "ubuntu", "--channel", "stable"],
+    "basename": "juju",
+    "source": "shim",
+    "session_id": "6f1c…"
   },
   "result": {
     "captured": false,
-    "returncode": null,
+    "exit_code": 0,
     "stdout": null,
-    "stderr": null
+    "stderr": null,
+    "stdout_truncated": false,
+    "status_json": null
   }
 }
 ```
 
 | Field | Location | Type | Notes |
 |---|---|---|---|
-| `command` | args | array of string | Full argv as a list. |
-| `cwd` | args | string \| null | Working directory at time of the call. Null in the stub. |
-| `captured` | result | boolean | False means the shell op was noted but output was not recorded. Codegen emits a `# TODO: manual step` for these. |
-| `returncode` | result | integer \| null | Process exit code, or null when `captured: false`. |
-| `stdout` | result | string \| null | Captured standard output, or null when `captured: false`. |
-| `stderr` | result | string \| null | Captured standard error, or null when `captured: false`. |
+| `argv` | args | array of string | The `juju` argv, **without** the `juju` binary itself. Redacted (see below). |
+| `basename` | args | string | Always `"juju"`: the shim is only ever installed as the juju intercept. |
+| `source` | args | string | `"shim"` for the PATH shim. Its absence marks a libjuju bucket-2 event, which shares the op name but not the shape. |
+| `session_id` | args | string | The `JTR_SESSION` the event belongs to. |
+| `captured` | result | boolean | Whether `stdout` holds the command's output. True only for the read-only subcommands in the shim's `_CAPTURE_STDOUT`. |
+| `exit_code` | result | integer \| null | The real exit status. Non-zero means codegen comments the translated call out rather than emitting a line that claims the command worked. |
+| `stdout` | result | string \| null | Captured standard output when `captured`, redacted, truncated to 64 KiB. |
+| `stdout_truncated` | result | boolean | Whether `stdout` was cut at the cap. |
+| `status_json` | result | string \| null | Raw `juju status --format=json`, captured alongside every recorded `juju status`. `shim_snapshots.attach_status_snapshots()` turns it into `model_snapshot_after`; it is the only sampling point a shell session has. |
 
-`model_snapshot_before` and `model_snapshot_after` are still captured for
-`shell` ops (the model may change as a side-effect of a `juju ssh` command).
+`model_snapshot_before`/`model_snapshot_after` are null as written by the
+shim — it sees argv, not a model — and are filled in for `status` events by
+`shim_snapshots` before tagging.
+
+**Redaction.** `argv` and `stdout` are redacted as they are written, by the
+shared rules in `jubilant_recorder.redaction` plus any pattern the operator
+registered with `jtr redact`. A `key=value` token whose key names a
+credential (`juju add-secret mine token=hunter2`) becomes
+`token=<redacted:token>`. This is a safety net, not a guarantee — read a
+session log before you share it.
+
+### `shell_context`
+
+The same shape, for commands the *shell hook* lane recorded: the
+`kubectl`/`lxc`/`charmcraft` calls surrounding the juju work. `args.source`
+is `"hook"`, `args.argv` is a single-element list holding the command line as
+typed, and codegen renders these as `# context:` comments — they are what the
+operator was doing, not a step to replay.
+
+A shim event also takes this op when `JTR_PYTHON_ACTIVE` is set, which is how
+a `juju` call made *by* a recorded Python script avoids being counted twice.
 
 ---
 
@@ -680,8 +705,11 @@ adds new public methods, one of these must happen:
 
 1. A new `op` name is added to this schema (breaking change; bump
    `schema_version`).
-2. The new method is captured as `op: "shell"` via the `--include-shell` shim
-   and the user receives a `# TODO` comment in the generated test.
+2. The scripted front-end goes on recording it as whatever op its underlying
+   `_cli()` call maps to, and shell capture keeps recording it as a `shell`
+   event, which codegen renders as `juju.cli(...)` — a real call, not a TODO.
+   Codegen picks up the typed method later by adding a classifier to
+   `codegen/cli_translate.py`, without a schema change.
 
 The recorder's `RecordingJuju` subclass and this schema must be updated in
 lockstep when jubilant's API grows.
@@ -1019,10 +1047,12 @@ reason the format looks like this.
    operations. The schema requires a synthetic `op` value for them so they fit
    the event envelope (seq, ts, snapshots).
 
-3. **`shell` op with `captured` flag.** The `--include-shell` flag captures
-   subprocess calls. The schema formalises this as a first-class op with a
-   `captured: false` stub shape so codegen always has a record of
-   non-jubilant activity, even when output wasn't captured.
+3. **`shell` op with `captured` flag.** The PATH shim records every `juju`
+   invocation, but only captures the *output* of read-only subcommands —
+   holding back a `juju deploy`'s progress until it finished would change
+   what the operator sees at their own terminal. `captured` says which of
+   the two happened, so a reader can tell "no output" from "output not
+   recorded".
 
 4. **Snapshot-level `schema_version` is independent.** Keeping the snapshot
    sub-object's version independent of the session log's own schema version
@@ -1122,6 +1152,11 @@ Codegen renders as: `# step: <label>` (inserted before the next jubilant call).
 
 ### Codegen integration (`interleave_context`)
 
+`shell` events — the PATH shim's `juju` invocations — are *not* on this
+list: they are translated into jubilant calls rather than rendered as
+comments. See [`shell`](#shell) above and
+[shell-hook.md](shell-hook.md#what-the-generated-test-looks-like).
+
 Layer (C) codegen calls `interleave_context(events, indent)` from
 `jubilant_recorder.codegen.context` instead of the original flat loop when
 the log contains any `shell_context`, `note`, or `tag` events. The function:
@@ -1147,9 +1182,13 @@ The `_hook_event` path applies a two-layer filter before writing a
 2. **Allowlist** (`_CONTEXT_ALLOWLIST`): `kubectl`, `helm`, `curl`,
    `charmcraft`, `rockcraft`, `snapcraft`, `lxc`, `lxd`, `microk8s`,
    `terraform`, `jq`, `yq`, `wget`, `http`, `k8s`. A command must be in
-   this set (or in a per-session `include` override) to be recorded.
+   this set — or match a per-session `include` **regular expression**,
+   registered with `jtr include <pattern>` — to be recorded. A per-session
+   `exclude` pattern wins over both.
 3. **Redact patterns** (per-session, via `jtr redact <regex>`): applied to
-   the full command string before writing.
+   the full command string before writing, on top of the shared
+   `jubilant_recorder.redaction` rules. `jtr note` text and the PATH shim's
+   `juju` argv go through the same pass.
 
 The `_ARGV_DENYPATS` list blocks secret-bearing invocations even if the
 basename would otherwise pass (e.g. `kubectl create secret`, `gh auth`).

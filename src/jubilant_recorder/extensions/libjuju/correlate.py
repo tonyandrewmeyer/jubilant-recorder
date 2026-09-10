@@ -143,6 +143,13 @@ _BUCKET1_MAP: dict[tuple[str, str], str] = {
     ("Application", "AddUnits"): "scale",
     ("Application", "ScaleApplications"): "scale",
     ("Application", "DestroyApplication"): "remove_application",
+    # ``model.applications[x].destroy_units(...)``. Was bucket 3 until a live
+    # pytest-operator run showed it up: jubilant has had ``remove_unit()``
+    # all along, so a scale-down became a `# TODO: manual step` for no
+    # reason. libjuju also spells it ``DestroyUnits`` on older facade
+    # versions; both are the same operation.
+    ("Application", "DestroyUnit"): "remove_unit",
+    ("Application", "DestroyUnits"): "remove_unit",
     ("Action", "Enqueue"): "run",
     ("Action", "EnqueueOperation"): "run",
     ("Client", "Status"): "status",
@@ -487,9 +494,37 @@ def _extract_args(facade: str, method: str, params: dict[str, Any]) -> dict[str,
         }
 
     if key == ("Application", "DestroyApplication"):
-        entities = params.get("applications") or [{}]
-        app_tag = entities[0].get("application-tag", "").replace("application-", "")
-        return {"app": app_tag}
+        # Two wire shapes, both seen in the wild: a list of entity dicts
+        # carrying ``application-tag``, and — what libjuju 3.6 actually
+        # sends for ``Model.remove_application()`` — a list of bare
+        # application names. Assuming the first crashed the correlator on
+        # the second, which took the *test being recorded* down with it.
+        entities = params.get("applications") or []
+        first = entities[0] if entities else ""
+        if isinstance(first, dict):
+            name = str(first.get("application-tag", "")).replace("application-", "")
+        else:
+            name = str(first).replace("application-", "")
+        return {"app": name}
+
+    if key in (("Application", "DestroyUnit"), ("Application", "DestroyUnits")):
+        entries = params.get("units") or []
+        names: list[str] = []
+        force = False
+        destroy_storage = False
+        for entry in entries:
+            if isinstance(entry, dict):
+                names.append(_unit_tag_to_name(str(entry.get("unit-tag", ""))))
+                force = force or bool(entry.get("force"))
+                destroy_storage = destroy_storage or bool(entry.get("destroy-storage"))
+            else:
+                names.append(_unit_tag_to_name(str(entry)))
+        args: dict[str, Any] = {"app_or_unit": [n for n in names if n]}
+        if force:
+            args["force"] = True
+        if destroy_storage:
+            args["destroy_storage"] = True
+        return args
 
     if key in (("Action", "Enqueue"), ("Action", "EnqueueOperation")):
         actions = params.get("actions") or [{}]
@@ -947,6 +982,59 @@ def correlate(
                         "gesture": None,
                         "duration_ms": quiet_duration * 1000,
                         "_libjuju_source": "synthesised from AllWatcher cadence",
+                    }
+                )
+
+    # Synthesise the *trailing* wait, the one after the last recorded call.
+    #
+    # The in-loop synthesis above only looks at gaps *between* two RPCs, so a
+    # session that ends on a wait — which is nearly every pytest-operator
+    # test, and every one recorded by `pytest_plugin` — lost it. The deltas
+    # the controller pushed while that wait was running became orphans, so
+    # the last snapshot never advanced past "waiting for machine" either, and
+    # the generated test came out with no assertion on the thing the test
+    # existed to check.
+    #
+    # The signal is the deltas themselves: state kept changing after the last
+    # call returned, for longer than the idle threshold, which is what
+    # waiting looks like from the wire. Those deltas are attributed to the
+    # synthesised wait rather than left orphaned, so the model snapshot ends
+    # where the test actually left it.
+    if user_rpcs and orphan_deltas:
+        last_rpc_end = _parse_iso(user_rpcs[-1].get("ts_end_iso", ""))
+        trailing = [d for d in orphan_deltas if _parse_iso(d.get("ts_iso", "")) > last_rpc_end]
+        if trailing:
+            last_arrival = max(_parse_iso(d.get("ts_iso", "")) for d in trailing)
+            quiet_duration = last_arrival - last_rpc_end
+            if quiet_duration >= idle_threshold_seconds:
+                orphan_deltas = [d for d in orphan_deltas if d not in trailing]
+                start_iso = _format_ts(datetime.fromtimestamp(last_rpc_end, tz=UTC))
+                settled_iso = _format_ts(datetime.fromtimestamp(last_arrival, tz=UTC))
+                # Snapshot both sides of the wait, not one snapshot twice:
+                # the *difference* is what the tagger turns into an
+                # assertion, and it is the whole reason to synthesise this
+                # event rather than drop the deltas. (The in-loop synthesis
+                # above uses one snapshot for both because its deltas were
+                # already attributed to the surrounding RPCs; these were
+                # not attributed to anything.)
+                before_snap = state.snapshot(start_iso)
+                for d in trailing:
+                    state.apply_delta(d)
+                trailing_snap = state.snapshot(settled_iso)
+                seq += 1
+                events.append(
+                    {
+                        "seq": seq,
+                        "op": "wait_for_idle",
+                        "ts": start_iso,
+                        "args": {"apps": None, "timeout": None},
+                        "result": {"settled_at": settled_iso},
+                        "model_snapshot_before": before_snap,
+                        "model_snapshot_after": trailing_snap,
+                        "assertions": [],
+                        "gesture": None,
+                        "duration_ms": quiet_duration * 1000,
+                        "_libjuju_source": "synthesised from trailing AllWatcher cadence",
                     }
                 )
 
