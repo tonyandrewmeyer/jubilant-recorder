@@ -72,8 +72,13 @@ jobs:
 
       # The suite is entirely fixture-driven: no Juju controller is needed.
       # The end-to-end tests that do need one live in e2e.yaml.
+      #
+      # `--extra libjuju` because the libjuju front-end and its pytest plugin
+      # have real unit tests (against a fake Connection, still no controller)
+      # and those tests skip themselves without it — which would report a
+      # green run that never touched them.
       - name: Unit tests
-        run: uv run --extra dev pytest -v
+        run: uv run --extra dev --extra libjuju pytest -v
 
   build:
     name: build

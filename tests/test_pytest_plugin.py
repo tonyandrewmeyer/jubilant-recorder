@@ -17,6 +17,11 @@ import pytest
 
 pytest_plugins = ["pytester"]
 
+# The plugin refuses to record without python-libjuju — recording is the only
+# thing it does — so these tests need the extra. `uv sync --extra dev --extra
+# libjuju` is what AGENTS.md says to run; CI runs the unit suite with both.
+pytest.importorskip("juju", reason="needs the libjuju extra")
+
 
 @pytest.fixture
 def suite(pytester: pytest.Pytester) -> pytest.Pytester:
