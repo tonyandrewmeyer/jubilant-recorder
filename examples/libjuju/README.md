@@ -9,7 +9,7 @@ works against a live juju controller.
 |---|---|
 | `record.py` | The libjuju driver script. Deploys `ubuntu`, waits for idle, reads config; the middle two calls bracket `wait_for_idle` so trailing synthesis has bracketing bucket-1 RPCs. |
 | `session.json` | Recorded SessionLog from the live run (juju 4.0.12 client, controller 3.6.23, libjuju 3.6.1.3, jubilant 1.10.0, LXD localhost). |
-| `generated_test.py` | Output of `python -m jubilant_recorder.cli generate session.json` on `session.json`. |
+| `generated_test.py` | Output of `jubilant-recorder generate session.json --name test_ubuntu_deploy`, committed verbatim (ruff does not format it) so a codegen change shows up as a diff here as well as in `tests/fixtures/golden/`. |
 
 ## Reproducing
 

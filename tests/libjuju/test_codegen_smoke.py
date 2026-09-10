@@ -605,3 +605,26 @@ def test_codegen_renders_create_offer_and_consume(tmp_path: Path) -> None:
     assert "juju.offer('postgresql', endpoint='db')" in src, src
     assert "juju.consume('admin/othermodel.postgresql')" in src, src
     assert "# TODO: manual step" not in src, src
+
+
+def test_the_committed_example_matches_what_codegen_emits() -> None:
+    """`examples/libjuju/generated_test.py` is a checked-in codegen output.
+
+    It went stale twice before anything noticed — once carrying `# TODO:
+    manual step` blocks for a `config_get` that codegen had learned to
+    render, and once with assertions codegen had stopped emitting. The same
+    treatment as `tests/fixtures/golden/`: run the pipeline, diff the file.
+
+    Regenerate with the command in `examples/libjuju/README.md`.
+    """
+    from pathlib import Path as _Path
+
+    from jubilant_recorder import quiet_window, tagger
+
+    root = _Path(__file__).resolve().parents[2] / "examples" / "libjuju"
+    log = json.loads((root / "session.json").read_text())
+    source = generate(tagger.tag(quiet_window.synthesize(log)), test_name="test_ubuntu_deploy")
+    assert source == (root / "generated_test.py").read_text(), (
+        "examples/libjuju/generated_test.py no longer matches codegen. "
+        "Regenerate it (see examples/libjuju/README.md) and review the diff."
+    )

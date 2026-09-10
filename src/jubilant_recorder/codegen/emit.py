@@ -136,6 +136,15 @@ def _body(
         # starts with an underscore but must still surface as a manual-step
         # TODO (see docs/schema.md "Diagnostic-only ops").
         if op.startswith("_libjuju"):
+            # The event is dropped, but not what the tagger derived from it.
+            # An orphan-delta trailer carries the last model state the
+            # recording saw, so it is often where the "everything reached
+            # active" assertion lands — and dropping the event took the
+            # assertion with it.
+            for tag in _collected_tags(event):
+                rendered = assertions.emit(tag, indent)
+                if rendered:
+                    body_lines.append(rendered)
             continue
 
         # New shell-hook ops: render as comments, never as jubilant calls.

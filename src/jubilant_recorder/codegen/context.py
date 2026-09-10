@@ -194,6 +194,11 @@ def interleave_context(events: list[dict[str, Any]], indent: int = 8) -> tuple[l
         # See emit.generate() for why this is scoped to `_libjuju*` rather
         # than a bare `_` (bucket-3's `_todo` must still render).
         if op.startswith("_libjuju"):
+            # See emit.generate(): the event goes, its assertions stay.
+            for tag in _collected_tags(event):
+                rendered = assertions_mod.emit(tag, indent)
+                if rendered:
+                    body_lines.append(rendered)
             continue
 
         if op == "shell_context":

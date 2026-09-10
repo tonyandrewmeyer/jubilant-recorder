@@ -77,7 +77,7 @@ reportMissingTypeStubs = false
 src = ["src", "tests"]
 # Generated codegen output, committed verbatim so a diff shows codegen moving.
 # Formatting it would make it stop matching what the generator emits.
-extend-exclude = ["tests/fixtures/golden"]
+extend-exclude = ["tests/fixtures/golden", "examples/libjuju/generated_test.py"]
 line-length = 99
 target-version = "py311"
 
@@ -134,6 +134,5 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"**/generated_test.py" = ["S101"]  # Generated example test.
 "tests/test_jtr_cli_shell_install.py" = ["S604"]  # Exercises shell install.
 "**/tests/**" = ["B011", "D", "S101", "S105", "S106", "S108", "PLR2004", "ARG", "SLF001", "N802", "N803", "N806"]

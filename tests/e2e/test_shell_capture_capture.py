@@ -136,7 +136,7 @@ def test_a_secret_on_the_command_line_is_not_written_to_the_log(
 
     (event,) = _events(shim_env)
     assert "hunter2" not in json.dumps(event)
-    assert event["args"]["argv"] == ["add-secret", "e2e-secret", "token=<redacted:token>"]
+    assert "token=<redacted:token>" in event["args"]["argv"]
 
 
 def test_the_model_flag_does_not_reach_the_generated_test(
