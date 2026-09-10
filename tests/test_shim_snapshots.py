@@ -136,6 +136,76 @@ def test_a_missing_capture_is_left_alone() -> None:
     assert log["events"][0]["model_snapshot_after"] is None
 
 
+def _k8s_status_json(*, status: str) -> str:
+    """A `juju status --format=json` payload from a Kubernetes model.
+
+    Trimmed from a real microk8s capture on juju 3.6.28. Its unit entries
+    have `address`/`provider-id`/`leader` and no `machine`, and `machines`
+    is empty — the shape a machine-cloud capture never produces, and the one
+    the shim's snapshot path had never been run against.
+    """
+    return json.dumps(
+        {
+            "model": {
+                "name": "k8sdemo",
+                "type": "caas",
+                "controller": "concierge-microk8s",
+                "cloud": "microk8s",
+                "region": "localhost",
+                "version": "3.6.28",
+                "model-status": {"current": "available"},
+                "sla": "unsupported",
+            },
+            "machines": {},
+            "applications": {
+                "snappass-test": {
+                    "charm": "snappass-test",
+                    "base": {"name": "ubuntu", "channel": "20.04"},
+                    "charm-origin": "charmhub",
+                    "charm-name": "snappass-test",
+                    "charm-rev": 9,
+                    "charm-channel": "latest/stable",
+                    "scale": 1,
+                    "provider-id": "a0623269-f9e5-4719-aaf9-76cd9e003c56",
+                    "address": "10.152.183.96",
+                    "exposed": False,
+                    "application-status": {"current": status},
+                    "units": {
+                        "snappass-test/0": {
+                            "workload-status": {"current": status, "message": "redis started"},
+                            "juju-status": {"current": "idle"},
+                            "leader": True,
+                            "address": "10.1.241.74",
+                            "provider-id": "snappass-test-0",
+                        }
+                    },
+                }
+            },
+            "storage": {},
+            "controller": {"timestamp": "18:01:07+12:00"},
+        }
+    )
+
+
+def test_a_kubernetes_status_snapshots_the_same_way() -> None:
+    """The shape differs; what the tagger needs out of it does not."""
+    log = shim_snapshots.attach_status_snapshots(
+        _log(
+            [
+                _status_event(1, _k8s_status_json(status="waiting")),
+                _status_event(2, _k8s_status_json(status="active")),
+            ]
+        )
+    )
+    unit = log["events"][1]["model_snapshot_after"]["apps"]["snappass-test"]["units"]
+    assert unit["snappass-test/0"]["workload_status"] == "active"
+    assert unit["snappass-test/0"]["workload_message"] == "redis started"
+
+    src = generate(tagger.tag(log))
+    assert "juju.status()" in src
+    assert "workload_status.current == 'active'" in src
+
+
 def test_scripted_events_are_not_touched() -> None:
     """A mixed log must be safe to pass through."""
     event = _status_event(1, _status_json(app="ubuntu", status="active"))

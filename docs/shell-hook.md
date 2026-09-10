@@ -23,8 +23,22 @@ install the shell hook but not the shim, every juju command works perfectly
 and none of them are recorded.** That is the most common way to get an empty
 log.
 
-The two lanes are independently useful. The shim alone is enough to produce
-a test; the hook only adds context comments around it.
+The two lanes are independently useful, and they produce different things.
+The shim's `juju` commands become jubilant calls. The hook's context
+commands become comments, and only comments:
+
+```python
+        # context: kubectl get pods -n my-model
+        # context: charmcraft pack
+```
+
+That is deliberate. A jubilant test drives juju, and `kubectl get pods`
+has no jubilant equivalent to translate to — the closest thing is
+`juju.ssh(unit, ..., container=…)` or `juju.exec(...)`, and which one you
+meant is a judgement the recorder cannot make for you. The hook lane's job
+is to tell you what you were doing around the juju work, so you can decide.
+
+The hook records the command line and its exit status, never its output.
 
 ## Setup
 
