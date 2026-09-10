@@ -689,7 +689,12 @@ def cmd_generate(args: argparse.Namespace) -> int:
     test_name = getattr(args, "name", None) or "test_recorded_session"
     source = codegen.generate(annotated, test_name=test_name)
     if use_ai:
-        source = codegen.ai_polish.polish(source, annotated, polisher=polisher)
+        source = codegen.ai_polish.polish(
+            source,
+            annotated,
+            polisher=polisher,
+            preserve_test_name=bool(getattr(args, "name", None)),
+        )
     out = getattr(args, "out", None)
     if out:
         Path(out).write_text(source)

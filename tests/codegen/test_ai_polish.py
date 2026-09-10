@@ -330,3 +330,32 @@ def test_an_accepted_polish_warns_about_nothing() -> None:
 
     assert "test_deploy_my_charm" in result
     assert not w
+
+
+def test_an_explicit_test_name_survives_the_polish() -> None:
+    """Naming the test is the polisher's job only when nobody else did it.
+
+    A live run against OpenRouter renamed `test_ubuntu_deploy` — passed
+    explicitly with `--name` — to `test_ubuntu_deploy_and_config_get`.
+    """
+
+    class RenamingPolisher:
+        def polish(self, code: str, session_log: dict) -> str:
+            return code.replace("def test_chosen_by_the_user(", "def test_chosen_by_the_llm(")
+
+    code = "import jubilant\n\n\ndef test_chosen_by_the_user():\n    juju.deploy('ubuntu')\n"
+    polished = ai_polish.polish(
+        code, {"events": []}, polisher=RenamingPolisher(), preserve_test_name=True
+    )
+    assert "def test_chosen_by_the_user(" in polished
+    assert "test_chosen_by_the_llm" not in polished
+
+
+def test_without_an_explicit_name_the_polisher_may_rename() -> None:
+    class RenamingPolisher:
+        def polish(self, code: str, session_log: dict) -> str:
+            return code.replace("def test_recorded_session(", "def test_deploys_ubuntu(")
+
+    code = "import jubilant\n\n\ndef test_recorded_session():\n    juju.deploy('ubuntu')\n"
+    polished = ai_polish.polish(code, {"events": []}, polisher=RenamingPolisher())
+    assert "def test_deploys_ubuntu(" in polished

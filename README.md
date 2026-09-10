@@ -207,8 +207,12 @@ After the test file is produced deterministically, a second pass sends it
 to an LLM asking for readability improvements: a meaningful test name, a
 one-line docstring per logical step, and collapsing of redundant idempotent
 calls (`status`, `wait_for_idle`). The orchestrator verifies the polished
-code still parses and preserves the behavioural juju call sequence; if not,
-it discards the polished version and returns the deterministic output.
+code still parses and preserves the behavioural juju call sequence and its
+assertions; if not, it discards the polished version and returns the
+deterministic output, and says which check discarded it.
+
+Passing `--name` opts out of the renaming half: a name you typed is a
+decision, not a placeholder.
 
 **Experimental — review the generated assertions and test name before committing.**
 

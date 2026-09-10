@@ -167,7 +167,12 @@ def cmd_generate(args: argparse.Namespace) -> int:
 
     source = codegen.generate(annotated, test_name=test_name, overlay=overlay)
     if use_ai:
-        source = codegen.ai_polish.polish(source, annotated, polisher=polisher)
+        source = codegen.ai_polish.polish(
+            source,
+            annotated,
+            polisher=polisher,
+            preserve_test_name=bool(getattr(args, "name", None)),
+        )
     if args.out:
         Path(args.out).write_text(source)
         print(str(Path(args.out).absolute()))
@@ -205,7 +210,12 @@ def cmd_run(args: argparse.Namespace) -> int:
     annotated = tagger.tag(log_doc, proposer=proposer if use_ai else None)
     source = codegen.generate(annotated, test_name=args.name or "test_recorded_session")
     if use_ai:
-        source = codegen.ai_polish.polish(source, annotated, polisher=polisher)
+        source = codegen.ai_polish.polish(
+            source,
+            annotated,
+            polisher=polisher,
+            preserve_test_name=bool(getattr(args, "name", None)),
+        )
     out_path.write_text(source)
     print(str(out_path))
     return rc

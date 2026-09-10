@@ -148,7 +148,13 @@ def _strip_code_fence(raw: str) -> str:
     return raw.strip()
 
 
-def polish(code: str, session_log: SessionLog, *, polisher: Polisher | None = None) -> str:
+def polish(
+    code: str,
+    session_log: SessionLog,
+    *,
+    polisher: Polisher | None = None,
+    preserve_test_name: bool = False,
+) -> str:
     """Run a polisher over `code`, guarding correctness.
 
     Returns the polished code if it still parses and preserves the
@@ -160,6 +166,12 @@ def polish(code: str, session_log: SessionLog, *, polisher: Polisher | None = No
     used to be silent, so a discarded polish and a model that had
     nothing to add were the same observation: `--ai` output identical to
     the deterministic output, with no way to tell which had happened.
+
+    `preserve_test_name` puts the caller's function name back after the
+    polish. Naming the test is one of the three things the polish pass is
+    asked to do, and it is usually an improvement — but when the user
+    passed `--name` they have already decided, and silently overriding a
+    name someone typed is not a polish.
     """
     polisher = polisher or StubPolisher()
     polished = polisher.polish(code, session_log)
@@ -195,7 +207,29 @@ def polish(code: str, session_log: SessionLog, *, polisher: Polisher | None = No
             stacklevel=2,
         )
         return code
+    if preserve_test_name:
+        polished = _restore_test_name(code, polished)
     return polished
+
+
+def _restore_test_name(original: str, polished: str) -> str:
+    """Rename the polished test function back to the original's name."""
+    original_name = _first_test_name(original)
+    polished_name = _first_test_name(polished)
+    if not original_name or not polished_name or original_name == polished_name:
+        return polished
+    return polished.replace(f"def {polished_name}(", f"def {original_name}(", 1)
+
+
+def _first_test_name(code: str) -> str | None:
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return None
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef) and node.name.startswith("test"):
+            return node.name
+    return None
 
 
 def behaviour_preserved(original: str, polished: str) -> bool:
