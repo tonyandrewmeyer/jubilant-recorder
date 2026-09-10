@@ -134,6 +134,8 @@ def interleave_context(events: list[dict[str, Any]], indent: int = 8) -> tuple[l
     """
     from jubilant_recorder.codegen.emit import _SKIP_OPS, _collected_tags
 
+    model = cli_translate.session_model(events)
+
     body_lines: list[str] = []
     needs_pytest = False
     already_skipped = False
@@ -154,7 +156,7 @@ def interleave_context(events: list[dict[str, Any]], indent: int = 8) -> tuple[l
         # See emit.generate() for the full comment; mirrored here because
         # both dispatchers need the same per-event bucket-1 translation.
         if op == "shell" and (event.get("args") or {}).get("source") == "shim":
-            translated = cli_translate.classify(event)
+            translated = cli_translate.classify(event, session_model=model)
             if translated is None:
                 body_lines.append(render_shell(event, indent))
                 continue

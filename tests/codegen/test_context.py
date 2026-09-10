@@ -432,12 +432,22 @@ def test_render_shell_shim_no_argv() -> None:
     assert result == f"{PAD}# shell: juju"
 
 
-def test_generate_shim_shell_rendered_as_shell_comment() -> None:
-    """C2 — shim `op: shell` events render as `# shell: <cmd>`, not raw JSON TODO."""
+def test_generate_shim_shell_rendered_as_jubilant_call() -> None:
+    """Shim `op: shell` events become jubilant calls, not comments or raw TODOs.
+
+    `render_shell` (asserted above) is still the renderer for a bare `juju`
+    with no argv, which is the one shape with no call to make.
+    """
     events = [_shim_shell_event(1, ["status", "--format=json"])]
     src = generate(_wrap(events))
-    assert "# shell: juju status --format=json" in src
+    assert "juju.status()" in src
+    assert "# shell:" not in src
     assert "TODO" not in src
+
+
+def test_generate_shim_bare_juju_still_renders_shell_comment() -> None:
+    src = generate(_wrap([_shim_shell_event(1, [])]))
+    assert "# shell: juju" in src
 
 
 def test_generate_bucket2_libjuju_shell_still_falls_through() -> None:

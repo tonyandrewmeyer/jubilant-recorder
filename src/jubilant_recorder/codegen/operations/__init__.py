@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from jubilant_recorder.codegen.operations import (
+    cli_passthrough,
     config,
     config_get,
     config_unset,
@@ -15,6 +16,8 @@ from jubilant_recorder.codegen.operations import (
     integrate,
     list_offers,
     merge_bindings,
+    model_lifecycle,
+    model_ops,
     remove_application,
     remove_integration,
     remove_offer,
@@ -30,6 +33,7 @@ from jubilant_recorder.codegen.operations import (
     set_charm,
     set_constraints,
     set_relations_suspended,
+    status_call,
     unexpose,
     update_application_base,
     wait_for_idle,
@@ -89,10 +93,40 @@ EMITTERS = {
     "set_relations_suspended": set_relations_suspended.emit,
     "config_unset": config_unset.emit,
     "update_application_base": update_application_base.emit,
+    # Shell-capture (PATH shim) additions. `cli_translate` now classifies
+    # every recorded `juju` invocation rather than only the subset with an
+    # exact bucket-1 shape: the ops below cover the jubilant client methods
+    # that had no CLI translation, and `cli_passthrough` catches everything
+    # else as `juju.cli(...)`. Nothing recorded from a shell session falls
+    # through to a `# shell:` comment any more.
+    "cli_passthrough": cli_passthrough.emit,
+    "status_call": status_call.emit,
+    "add_model": model_lifecycle.emit_add_model,
+    "destroy_model": model_lifecycle.emit_destroy_model,
+    "switch_model": model_lifecycle.emit_switch_model,
+    "remove_unit": model_ops.emit_remove_unit,
+    "add_machine": model_ops.emit_add_machine,
+    "ssh": model_ops.emit_ssh,
+    "exec": model_ops.emit_exec,
+    "scp": model_ops.emit_scp,
+    "debug_log": model_ops.emit_debug_log,
+    "show_model": model_ops.emit_show_model,
+    "model_config": model_ops.emit_model_config,
+    "model_constraints": model_ops.emit_model_constraints,
+    "trust": model_ops.emit_trust,
+    "refresh": model_ops.emit_refresh,
+    "add_ssh_key": model_ops.emit_add_ssh_key,
+    "remove_ssh_key": model_ops.emit_remove_ssh_key,
+    "version": model_ops.emit_version,
+    "show_secret": model_ops.emit_show_secret,
+    "secret_add_cli": model_ops.emit_secret_add_cli,
+    "secret_update_cli": model_ops.emit_secret_update_cli,
+    "wait_for": model_ops.emit_wait_for,
 }
 
 __all__ = [
     "EMITTERS",
+    "cli_passthrough",
     "config",
     "config_get",
     "config_unset",
@@ -105,6 +139,8 @@ __all__ = [
     "integrate",
     "list_offers",
     "merge_bindings",
+    "model_lifecycle",
+    "model_ops",
     "remove_application",
     "remove_integration",
     "remove_offer",
@@ -120,6 +156,7 @@ __all__ = [
     "set_charm",
     "set_constraints",
     "set_relations_suspended",
+    "status_call",
     "unexpose",
     "update_application_base",
     "wait_for_idle",

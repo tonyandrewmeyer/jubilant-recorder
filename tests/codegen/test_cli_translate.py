@@ -1,7 +1,13 @@
-"""Bucket-1 argv translation.
+"""``juju`` argv -> jubilant translation.
 
 Every mapping here is a pure function of (subcommand, argv) -> args dict, so
 these are fixture tests with no live juju needed.
+
+Two outcomes are possible for a non-empty argv, and both are asserted:
+a *typed* op, when the shape maps onto a `jubilant.Juju` method, and
+``cli_passthrough`` — rendered as ``juju.cli(...)`` — for everything else.
+There is no third "unrepresentable" outcome: `classify_argv` returns None
+only for an empty argv.
 """
 
 from __future__ import annotations
@@ -23,6 +29,19 @@ def _ok(*argv: str) -> tuple[str, dict]:
     result = _c(*argv)
     assert result is not None, f"argv did not classify: {argv}"
     return result
+
+
+def _cli(*argv: str) -> dict:
+    """``_c``, for argv that no typed classifier claims.
+
+    Asserts the argv reaches the ``juju.cli(...)`` passthrough with its
+    tokens intact, and returns the args dict so a caller can go on to check
+    ``include_model``/``add_no_prompt``.
+    """
+    op, args = _ok(*argv)
+    assert op == "cli_passthrough", f"expected passthrough, got {op}: {argv}"
+    assert args["argv"] == list(argv)
+    return args
 
 
 # --- deploy ---
@@ -80,24 +99,24 @@ def test_deploy_config_last_wins() -> None:
     assert args["config"] == {"a": "2"}
 
 
-def test_deploy_config_bare_path_is_bucket2() -> None:
-    assert _c("deploy", "c", "--config", "bundle.yaml") is None
+def test_deploy_config_bare_path_falls_through_to_cli() -> None:
+    _cli("deploy", "c", "--config", "bundle.yaml")
 
 
-def test_deploy_config_at_directive_is_bucket2() -> None:
-    assert _c("deploy", "c", "--config", "key=@path") is None
+def test_deploy_config_at_directive_falls_through_to_cli() -> None:
+    _cli("deploy", "c", "--config", "key=@path")
 
 
-def test_deploy_attach_storage_is_bucket2() -> None:
-    assert _c("deploy", "c", "--attach-storage", "foo/0") is None
+def test_deploy_attach_storage_falls_through_to_cli() -> None:
+    _cli("deploy", "c", "--attach-storage", "foo/0")
 
 
-def test_deploy_dry_run_is_bucket2() -> None:
-    assert _c("deploy", "c", "--dry-run") is None
+def test_deploy_dry_run_falls_through_to_cli() -> None:
+    _cli("deploy", "c", "--dry-run")
 
 
-def test_deploy_no_charm_is_bucket2() -> None:
-    assert _c("deploy") is None
+def test_deploy_no_charm_falls_through_to_cli() -> None:
+    _cli("deploy")
 
 
 # --- config / config_get / config_unset ---
@@ -126,50 +145,69 @@ def test_config_unset() -> None:
     assert args == {"app": "my-charm", "options": ["log-level", "debug"]}
 
 
-def test_config_file_flag_is_bucket2() -> None:
-    assert _c("config", "my-charm", "--file", "cfg.yaml") is None
+def test_config_file_flag_falls_through_to_cli() -> None:
+    _cli("config", "my-charm", "--file", "cfg.yaml")
 
 
-def test_config_at_directive_is_bucket2() -> None:
-    assert _c("config", "my-charm", "log-level=@path") is None
+def test_config_at_directive_falls_through_to_cli() -> None:
+    _cli("config", "my-charm", "log-level=@path")
 
 
-def test_config_model_flag_is_bucket2() -> None:
-    assert _c("config", "-m", "othermodel", "my-charm", "log-level=debug") is None
+def test_config_model_flag_is_stripped_and_recorded() -> None:
+    """A `-m` scope is dropped, not passed through.
 
-
-# --- refresh -> set_charm ---
-
-
-def test_refresh_switch_channel_force() -> None:
-    op, args = _ok(
-        "refresh", "my-charm", "--switch", "ch:my-charm", "--channel", "edge", "--force"
+    The generated test runs in the model `jubilant.temp_model()` made for
+    it, so the recording's model name would name a model that does not
+    exist at test time. `recorded_model` keeps what was dropped.
+    """
+    assert _c("config", "-m", "othermodel", "my-charm", "log-level=debug") == (
+        "config",
+        {
+            "app": "my-charm",
+            "values": {"log-level": "debug"},
+            "recorded_model": "othermodel",
+        },
     )
-    assert op == "set_charm"
-    assert args == {
-        "app": "my-charm",
-        "charm_url": "ch:my-charm",
-        "channel": "edge",
-        "force": True,
-    }
+
+
+# --- refresh ---
+
+
+def test_refresh_switch_falls_through_to_cli() -> None:
+    """`--switch` has no `Juju.refresh()` keyword, so it keeps the raw call."""
+    _cli("refresh", "my-charm", "--switch", "ch:my-charm", "--channel", "edge")
 
 
 def test_refresh_bare() -> None:
-    assert _c("refresh", "my-charm") == ("set_charm", {"app": "my-charm"})
+    assert _c("refresh", "my-charm") == ("refresh", {"app": "my-charm"})
 
 
-def test_refresh_config_is_bucket2() -> None:
-    assert _c("refresh", "my-charm", "--config", "k=v") is None
+def test_refresh_channel_force() -> None:
+    assert _c("refresh", "my-charm", "--channel", "edge", "--force") == (
+        "refresh",
+        {"app": "my-charm", "channel": "edge", "force": True},
+    )
 
 
-def test_refresh_revision_is_bucket2() -> None:
-    assert _c("refresh", "my-charm", "--revision", "3") is None
+def test_refresh_config() -> None:
+    assert _c("refresh", "my-charm", "--config", "k=v") == (
+        "refresh",
+        {"app": "my-charm", "config": {"k": "v"}},
+    )
 
 
-def test_refresh_storage_todo_still_bucket1() -> None:
-    op, args = _ok("refresh", "my-charm", "--storage", "pgdata=1GB")
-    assert op == "set_charm"
-    assert args["storage_constraints"] == ["pgdata=1GB"]
+def test_refresh_revision() -> None:
+    assert _c("refresh", "my-charm", "--revision", "3") == (
+        "refresh",
+        {"app": "my-charm", "revision": 3},
+    )
+
+
+def test_refresh_storage() -> None:
+    assert _c("refresh", "my-charm", "--storage", "pgdata=1GB") == (
+        "refresh",
+        {"app": "my-charm", "storage": {"pgdata": "1GB"}},
+    )
 
 
 # --- remove-application ---
@@ -183,8 +221,11 @@ def test_remove_application_multi() -> None:
     assert _c("remove-application", "a", "b") == ("remove_application", {"app": ["a", "b"]})
 
 
-def test_remove_application_force_is_bucket2() -> None:
-    assert _c("remove-application", "my-charm", "--force") is None
+def test_remove_application_force_falls_through_to_cli() -> None:
+    args = _cli("remove-application", "my-charm", "--force")
+    # `juju remove-application` prompts unless told not to, and nothing is
+    # there to answer it in a test run.
+    assert args["add_no_prompt"] is True
 
 
 # --- integrate/relate, remove-relation ---
@@ -204,12 +245,12 @@ def test_relate_alias() -> None:
     )
 
 
-def test_integrate_cross_model_dotted_is_bucket2() -> None:
-    assert _c("integrate", "my-charm:db", "othermodel.postgresql:database") is None
+def test_integrate_cross_model_dotted_falls_through_to_cli() -> None:
+    _cli("integrate", "my-charm:db", "othermodel.postgresql:database")
 
 
-def test_integrate_via_is_bucket2() -> None:
-    assert _c("integrate", "a:db", "b:database", "--via", "10.0.0.0/8") is None
+def test_integrate_via_falls_through_to_cli() -> None:
+    _cli("integrate", "a:db", "b:database", "--via", "10.0.0.0/8")
 
 
 def test_remove_relation() -> None:
@@ -252,16 +293,16 @@ def test_run_dotted_params() -> None:
     assert args["params"] == {"opts": {"retries": 3}}
 
 
-def test_run_multi_unit_is_bucket2() -> None:
-    assert _c("run", "my-charm/0", "my-charm/1", "backup") is None
+def test_run_multi_unit_falls_through_to_cli() -> None:
+    _cli("run", "my-charm/0", "my-charm/1", "backup")
 
 
-def test_run_zero_units_is_bucket2() -> None:
-    assert _c("run", "backup") is None
+def test_run_zero_units_falls_through_to_cli() -> None:
+    _cli("run", "backup")
 
 
-def test_run_params_file_is_bucket2() -> None:
-    assert _c("run", "my-charm/0", "backup", "--params", "p.yaml") is None
+def test_run_params_file_falls_through_to_cli() -> None:
+    _cli("run", "my-charm/0", "backup", "--params", "p.yaml")
 
 
 def test_run_params_file_mixed_with_inline_override_is_bucket2() -> None:
@@ -272,8 +313,8 @@ def test_run_params_file_mixed_with_inline_override_is_bucket2() -> None:
     ``key=value`` args are meant to override it — aborts classification and falls to
     bucket 2, regardless of where the flag sits relative to the inline args.
     """
-    assert _c("run", "my-charm/0", "backup", "--params", "p.yaml", "time=1000") is None
-    assert _c("run", "my-charm/0", "backup", "time=1000", "--params", "p.yaml") is None
+    _cli("run", "my-charm/0", "backup", "--params", "p.yaml", "time=1000")
+    _cli("run", "my-charm/0", "backup", "time=1000", "--params", "p.yaml")
 
 
 # --- add-unit / scale-application -> scale (F1/F2 promotion) ---
@@ -354,8 +395,8 @@ def test_scale_application() -> None:
     )
 
 
-def test_scale_application_force_is_bucket2() -> None:
-    assert _c("scale-application", "my-charm", "5", "--force") is None
+def test_scale_application_force_falls_through_to_cli() -> None:
+    _cli("scale-application", "my-charm", "5", "--force")
 
 
 # --- secrets ---
@@ -395,13 +436,30 @@ def test_secrets_format_harmless_drop() -> None:
     assert _c("secrets", "--format", "json") == ("secret_list", {})
 
 
-def test_add_secret_not_translated() -> None:
-    """F5: no shim redaction yet — add-secret/update-secret stay bucket 2 always."""
-    assert _c("add-secret", "my-secret", "token=hunter2") is None
+def test_add_secret() -> None:
+    """Inline `key=value` content translates; the shim redacts it on the way in.
+
+    `jubilant_recorder.redaction` runs over the shim's argv before it
+    reaches the log, so a real secret arrives here already replaced by its
+    `<redacted:…>` marker and renders as a visible placeholder rather than
+    a working credential. See `tests/test_shim.py`.
+    """
+    assert _c("add-secret", "my-secret", "token=hunter2") == (
+        "secret_add_cli",
+        {"name": "my-secret", "content": {"token": "hunter2"}},
+    )
 
 
-def test_update_secret_not_translated() -> None:
-    assert _c("update-secret", "my-secret", "token=hunter2") is None
+def test_add_secret_file_falls_through_to_cli() -> None:
+    """`--file` content never reaches argv, so there is nothing to translate."""
+    _cli("add-secret", "my-secret", "--file", "content.yaml")
+
+
+def test_update_secret() -> None:
+    assert _c("update-secret", "my-secret", "token=hunter2") == (
+        "secret_update_cli",
+        {"identifier": "my-secret", "content": {"token": "hunter2"}},
+    )
 
 
 # --- CMR ---
@@ -421,12 +479,13 @@ def test_offer_multi_endpoint_and_name() -> None:
     )
 
 
-def test_offer_dotted_model_is_bucket2() -> None:
-    assert _c("offer", "othermodel.my-charm:db") is None
+def test_offer_dotted_model_falls_through_to_cli() -> None:
+    args = _cli("offer", "othermodel.my-charm:db")
+    assert args["include_model"] is False  # `juju offer` rejects --model
 
 
-def test_offer_controller_flag_is_bucket2() -> None:
-    assert _c("offer", "my-charm:db", "-c", "mycontroller") is None
+def test_offer_controller_flag_falls_through_to_cli() -> None:
+    _cli("offer", "my-charm:db", "-c", "mycontroller")
 
 
 def test_consume() -> None:
@@ -475,8 +534,8 @@ def test_remove_saas_single() -> None:
     assert _c("remove-saas", "my-saas") == ("remove_saas", {"app": "my-saas"})
 
 
-def test_remove_saas_multi_is_bucket2() -> None:
-    assert _c("remove-saas", "a", "b") is None
+def test_remove_saas_multi_falls_through_to_cli() -> None:
+    _cli("remove-saas", "a", "b")
 
 
 # --- expose / unexpose ---
@@ -486,8 +545,8 @@ def test_expose_bare() -> None:
     assert _c("expose", "my-charm") == ("expose", {"app": "my-charm"})
 
 
-def test_expose_to_cidrs_is_bucket2() -> None:
-    assert _c("expose", "my-charm", "--to-cidrs", "10.0.0.0/8") is None
+def test_expose_to_cidrs_falls_through_to_cli() -> None:
+    _cli("expose", "my-charm", "--to-cidrs", "10.0.0.0/8")
 
 
 def test_unexpose_bare() -> None:
@@ -555,9 +614,9 @@ def test_resume_relation() -> None:
     )
 
 
-def test_resume_relation_message_is_bucket2() -> None:
+def test_resume_relation_message_falls_through_to_cli() -> None:
     """`--message` isn't a real `resume-relation` flag — unrecognized, so bucket 2."""
-    assert _c("resume-relation", "123", "--message", "x") is None
+    _cli("resume-relation", "123", "--message", "x")
 
 
 # --- dispatch edge cases ---
@@ -567,12 +626,16 @@ def test_empty_argv() -> None:
     assert _c() is None
 
 
-def test_unknown_subcommand() -> None:
-    assert _c("status") is None
-    assert _c("ssh", "my-charm/0", "ls") is None
+def test_unknown_subcommand_falls_through_to_cli() -> None:
+    _cli("no-such-subcommand", "arg")
+    args = _cli("list-machines")
+    assert "include_model" not in args  # `juju list-machines` takes --model
 
 
 def test_classify_never_raises_on_malformed_event() -> None:
-    assert cli_translate.classify({"args": {"argv": ["deploy"], "source": "shim"}}) is None
+    assert cli_translate.classify({"args": {"argv": ["deploy"], "source": "shim"}}) == (
+        "cli_passthrough",
+        {"argv": ["deploy"]},
+    )
     assert cli_translate.classify({"args": {}}) is None
     assert cli_translate.classify({}) is None

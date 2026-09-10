@@ -50,7 +50,8 @@ def test_generate_stdout_mode(tmp_path: Path, capsys: pytest.CaptureFixture) -> 
     ast.parse(source)
     assert "def test_recorded_session" in source
     assert "# context: curl -s https://example.com/ -o /dev/null" in source
-    assert "# shell: juju --version" in source
+    assert "juju.version()" in source
+    assert "# shell:" not in source
     assert "# note: this is a note" in source
     # session_end is an in-band sentinel, not a step to translate.
     assert "session_end" not in source

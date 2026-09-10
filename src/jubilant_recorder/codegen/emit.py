@@ -44,11 +44,17 @@ def generate(
     indent = preamble.BODY_INDENT
     pad = " " * indent
 
+    events = log.get("events", []) or []
+    # One pass up front, because a model-lifecycle command can only be
+    # rendered once we know whether it names the session's own model — see
+    # `operations/model_lifecycle.py` for why that distinction matters.
+    model = cli_translate.session_model(events)
+
     body_lines: list[str] = []
     needs_pytest = False
     already_skipped = False
     pending_tag: str | None = None
-    for event in log.get("events", []) or []:
+    for event in events:
         op = event.get("op", "")
         annotation = (overlay or {}).get(event.get("seq"))
         if annotation and annotation.get("comment"):
@@ -73,10 +79,12 @@ def generate(
         # use `op: "shell"` but without a shim source; those must still fall
         # through to fallback so they render as `# TODO: manual step`.
         if op == "shell" and (event.get("args") or {}).get("source") == "shim":
-            # Bucket-1 argv is translated into the
-            # matching typed op below instead of a raw `# shell:` comment.
-            # Anything not a clean bucket-1 match keeps today's rendering.
-            translated = cli_translate.classify(event)
+            # Every `juju` argv is translated into a jubilant call below: a
+            # typed op where the shape maps onto a jubilant client method,
+            # and `cli_passthrough` -> `juju.cli(...)` for everything else.
+            # Only a bare `juju` with no arguments still renders as a
+            # `# shell:` comment, because there is no call to make.
+            translated = cli_translate.classify(event, session_model=model)
             if translated is None:
                 body_lines.append(ctx.render_shell(event, indent))
                 continue
@@ -143,8 +151,7 @@ def generate(
     if not _has_statement(body_lines):
         body_lines.append(preamble.empty_body_filler())
 
-    events_list = log.get("events", []) or []
-    first_snapshot = events_list[0].get("model_snapshot_before") if events_list else None
+    first_snapshot = events[0].get("model_snapshot_before") if events else None
     pre = preamble.Preamble(
         test_name=test_name or _DEFAULT_TEST_NAME,
         needs_pytest=needs_pytest,
