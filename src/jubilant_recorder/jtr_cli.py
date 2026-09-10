@@ -928,8 +928,10 @@ def main() -> None:
     # tail
     p_tail = sub.add_parser("tail", help="Follow the session log until it ends.")
     p_tail.add_argument("--json", action="store_true")
-    p_tail.add_argument("--jubilant-only", action="store_true")
-    p_tail.add_argument("--context-only", action="store_true")
+    p_tail.add_argument("--jubilant-only", action="store_true", help="Only the juju operations.")
+    p_tail.add_argument(
+        "--context-only", action="store_true", help="Only the surrounding context and notes."
+    )
 
     # note
     p_note = sub.add_parser("note", help="Record a free-text note in the session log.")
@@ -944,11 +946,20 @@ def main() -> None:
     p_attach.add_argument("session_id", nargs="?")
 
     # include / exclude / redact
-    p_include = sub.add_parser("include", help="Also record commands matching PATTERN.")
+    p_include = sub.add_parser(
+        "include",
+        help="Also record context commands whose command line matches PATTERN (a regex).",
+    )
     p_include.add_argument("pattern")
-    p_exclude = sub.add_parser("exclude", help="Never record commands matching PATTERN.")
+    p_exclude = sub.add_parser(
+        "exclude",
+        help="Never record context commands whose command line matches PATTERN (a regex).",
+    )
     p_exclude.add_argument("pattern")
-    p_redact = sub.add_parser("redact", help="Redact PATTERN from recorded command lines.")
+    p_redact = sub.add_parser(
+        "redact",
+        help="Mask PATTERN (a regex) in recorded command lines, notes and captured output.",
+    )
     p_redact.add_argument("pattern")
 
     # _hook_event (internal)
